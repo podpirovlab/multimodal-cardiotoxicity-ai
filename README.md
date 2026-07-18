@@ -19,4 +19,6 @@ The system utilizes a **Multimodal Bilinear Fusion** approach:
 * Mathematical 1D-Convolution vector mapping.
 * Bilinear interaction matrix visualization.
 ## 📈 Visual Results
-![AI Model Prediction Verdict](result_graph.png)
+## 📈 Visual Results
+![AI Model Prediction Verdict](./result_graph.png)
+
