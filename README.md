@@ -18,3 +18,5 @@ The system utilizes a **Multimodal Bilinear Fusion** approach:
 * Digital Signal Processing (DSP) bandpass filtration kernels.
 * Mathematical 1D-Convolution vector mapping.
 * Bilinear interaction matrix visualization.
+## 📈 Visual Results
+![AI Model Prediction Verdict](result_graph.png)
