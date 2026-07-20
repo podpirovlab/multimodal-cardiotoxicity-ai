@@ -19,4 +19,4 @@ The system utilizes a **Multimodal Bilinear Fusion** approach:
 * Mathematical 1D-Convolution vector mapping.
 * Bilinear interaction matrix visualization.
 ## 📈 Visual Results
-<img width="1390" height="889" alt="Unknown" src="https://github.com/user-attachments/assets/c98fa1f3-eb8d-4944-a638-fe68d6e9483e" />
+<img width="1390" height="889" alt="ECG Results" src="https://github.com/user-attachments/assets/c98fa1f3-eb8d-4944-a638-fe68d6e9483e" />
