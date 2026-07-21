@@ -21,6 +21,3 @@ The system utilizes a **Multimodal Bilinear Fusion** approach:
 ## 📈 Visual Results
 <img width="1390" height="889" alt="ECG Results" src="https://github.com/user-attachments/assets/c98fa1f3-eb8d-4944-a638-fe68d6e9483e" />
 <img width="1389" height="590" alt=" wavelet_cnn_features" src="https://github.com/user-attachments/assets/2744babe-b283-4d21-b623-aa4884b68a61" />
-### 🔮 Advanced Feature Extraction via Continuous Wavelet Transform (CWT) & 2D-CNN
-To beat non-stationary signal limitations, the system decomposes raw ECG lines into 2D Spectral-Temporal Scalograms using Morlet wavelets. A 2D Convolutional layer then maps the texture gradients to isolate microvolt alterations in cardiac energy density.
-![Advanced CWT and 2D-CNN Feature Maps](./wavelet_cnn_features.png)
