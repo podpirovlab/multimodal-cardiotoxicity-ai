@@ -1,0 +1,6 @@
+torch
+pywt
+gradio
+matplotlib
+pandas
+numpy
