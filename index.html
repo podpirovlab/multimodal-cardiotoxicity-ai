@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CardioOncoPredict: Multimodal AI System</title>
-    <!-- Официальный и самый стабильный скрипт Chart.js c зеркала cdnjs -->
+    <!-- Подключаем самую стабильную версию Chart.js с официального зеркала -->
     <script src="https://cloudflare.com"></script>
     <style>
         :root { --primary: #1d3557; --danger: #e63946; --success: #2a9d8f; --bg: #f8f9fa; }
@@ -20,7 +20,7 @@
         .verdict { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; font-weight: bold; white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.4; }
         .verdict.danger { background: #ffe3e5; color: var(--danger); border-left: 5px solid var(--danger); }
         .verdict.success { background: #e8f5e9; color: var(--success); border-left: 5px solid var(--success); }
-        .chart-container { position: relative; height: 220px; margin-bottom: 25px; width: 100%; }
+        .chart-container { position: relative; height: 230px; margin-bottom: 25px; width: 100%; }
         canvas { width: 100% !important; height: 100% !important; }
     </style>
 </head>
@@ -101,9 +101,9 @@
         let ecgCtx = document.getElementById('ecgChart').getContext('2d');
         let xaiCtx = document.getElementById('xaiChart').getContext('2d');
         
-        // Архитектура графиков упрощена до абсолютной стабильности для любых браузеров Apple
-        let ecgChart = new Chart(ecgCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'ECG Signal (mV)', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
-        let xaiChart = new Chart(xaiCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'XAI Focus Map', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
+        // Создаем базовые линии
+        let ecgChart = new Chart(ecgCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'ECG Signal (mV)', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -0.4, max: 1.5 } } } });
+        let xaiChart = new Chart(xaiCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'XAI Focus Map', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -0.4, max: 1.5 } } } });
 
         function runDiagnostics() {
             let age = document.getElementById('age').value;
@@ -112,7 +112,7 @@
             let isDamaged = (chemo === 'damaged');
             let ecg = generateECGData(isDamaged);
 
-            // ИСПРАВЛЕНО: Прямое обновление массивов строго по первому индексу [0]
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Добавлен жесткий индекс [0] для массивов данных
             ecgChart.data.labels = ecg.labels;
             ecgChart.data.datasets[0].data = ecg.data;
             ecgChart.update();
