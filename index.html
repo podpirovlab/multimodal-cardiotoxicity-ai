@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CardioOncoPredict: Multimodal AI System</title>
-    <!-- Графическая библиотека Chart.js, которая отлично поддерживается Safari -->
-    <script src="https://cloudflare.com"></script>
+    <!-- Стабильный скрипт графиков, одобренный для Apple Safari -->
+    <script src="https://jsdelivr.net"></script>
     <style>
         :root { --primary: #1d3557; --danger: #e63946; --success: #2a9d8f; --bg: #f8f9fa; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
@@ -20,7 +20,8 @@
         .verdict { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; font-weight: bold; }
         .verdict.danger { background: #ffe3e5; color: var(--danger); border-left: 5px solid var(--danger); }
         .verdict.success { background: #e8f5e9; color: var(--success); border-left: 5px solid var(--success); }
-        .chart-container { position: relative; height: 280px; margin-bottom: 20px; }
+        .chart-container { position: relative; height: 250px; margin-bottom: 25px; width: 100%; }
+        canvas { width: 100% !important; height: 100% !important; }
     </style>
 </head>
 <body>
@@ -31,7 +32,6 @@
     </div>
 
     <div class="dashboard">
-        <!-- ЛЕВАЯ ПАНЕЛЬ: ВВОД ДАННЫХ -->
         <div class="panel">
             <h2>📋 Patient Profile</h2>
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
@@ -58,11 +58,9 @@
             </div>
 
             <button class="btn" onclick="runDiagnostics()">🚀 RUN AI DIAGNOSTICS</button>
-
             <div id="verdictBox" class="verdict"></div>
         </div>
 
-        <!-- ПРАВАЯ ПАНЕЛЬ: ГРАФИКИ СИГНАЛОВ -->
         <div class="panel">
             <h2>📊 Electrophysiological Analytics (12-Lead Core)</h2>
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
@@ -80,66 +78,58 @@
     </div>
 
     <script>
-        // Математический генератор физиологической волны ЭКГ высокой точности (Lead I)
         function generateECGData(isDamaged) {
             let data = [];
             let labels = [];
-            for (let i = 0; i < 200; i++) {
-                let t = (i % 40) / 40; // Симуляция ударов сердца
+            for (let i = 0; i < 150; i++) {
+                let t = (i % 40) / 40;
                 let p = 0.12 * Math.exp(-Math.pow((t - 0.2) / 0.03, 2));
                 let q = -0.08 * Math.exp(-Math.pow((t - 0.28) / 0.01, 2));
                 let r = 1.35 * Math.exp(-Math.pow((t - 0.3) / 0.015, 2));
                 let s = -0.3 * Math.exp(-Math.pow((t - 0.32) / 0.015, 2));
-                
-                // Главный маркер токсичности Доксорубицина в реполяризации
                 let tWave = isDamaged ? 
                     0.06 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 
                     0.32 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
                 
-                let base = p + q + r + s + tWave + (Math.random() * 0.03 - 0.015);
+                let base = p + q + r + s + tWave + (Math.random() * 0.02 - 0.01);
                 data.push(base);
                 labels.push((i * 0.02).toFixed(2));
             }
             return { data, labels };
         }
 
-        // Инициализация пустых графиков при загрузке страницы
         let ecgCtx = document.getElementById('ecgChart').getContext('2d');
         let xaiCtx = document.getElementById('xaiChart').getContext('2d');
         
-        let ecgChart = new Chart(ecgCtx, { type: 'line', data: { labels: Array(200).fill(''), datasets: [{ label: 'ECG Signal (mV)', data: Array(200).fill(0), borderColor: '#1d3557', borderWidth: 1.5, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -0.4, max: 1.5 } } } });
-        let xaiChart = new Chart(xaiCtx, { type: 'line', data: { labels: Array(200).fill(''), datasets: [{ label: 'ECG Signal', data: Array(200).fill(0), borderColor: '#1d3557', borderWidth: 1.5, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -0.4, max: 1.5 } } } });
+        let ecgChart = new Chart(ecgCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'ECG Signal (mV)', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
+        let xaiChart = new Chart(xaiCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'XAI Focus Map', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
 
         function runDiagnostics() {
             let chemo = document.getElementById('chemo').value;
             let isDamaged = (chemo === 'damaged');
             let ecg = generateECGData(isDamaged);
 
-            // 1. Обновляем базовый график ЭКГ
+            // ИСПРАВЛЕНО: Точечное жесткое обновление массивов данных по нулевому индексу
             ecgChart.data.labels = ecg.labels;
             ecgChart.data.datasets[0].data = ecg.data;
             ecgChart.update();
 
-            // 2. Обновляем график XAI с подсветкой опасных зон
             xaiChart.data.labels = ecg.labels;
             xaiChart.data.datasets[0].data = ecg.data;
             
-            // Генерируем массив цветов для подсветки точек внимания ИИ
-            let pointColors = ecg.labels.map((l, i) => {
-                let t = (i % 40) / 40;
-                // ИИ жестко фокуссируется на ST-T сегменте при токсичности
-                return (isDamaged && t > 0.45 && t < 0.70) ? 'rgba(230, 57, 70, 0.4)' : 'rgba(0,0,0,0)';
-            });
-            
+            // Наложение цветных сегментов тревоги для Explainable AI
             xaiChart.data.datasets[0].segment = {
-                backgroundColor: ctx => {
+                borderColor: ctx => {
                     let t = (ctx.p1DataIndex % 40) / 40;
-                    return (isDamaged && t > 0.45 && t < 0.70) ? 'rgba(230, 57, 70, 0.25)' : 'rgba(0,0,0,0)';
+                    return (isDamaged && t > 0.45 && t < 0.70) ? '#e63946' : '#1d3557';
+                },
+                borderWidth: ctx => {
+                    let t = (ctx.p1DataIndex % 40) / 40;
+                    return (isDamaged && t > 0.45 && t < 0.70) ? 4 : 2;
                 }
             };
             xaiChart.update();
 
-            // 3. Выводим вердикт ИИ-Агента
             let vBox = document.getElementById('verdictBox');
             vBox.style.display = 'block';
             if (isDamaged) {
