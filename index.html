@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CardioOncoPredict: Multimodal AI System</title>
-    <!-- Подключаем самую стабильную версию Chart.js с официального зеркала -->
+    <!-- Официальный стабильный скрипт Chart.js c зеркала cdnjs -->
     <script src="https://cloudflare.com"></script>
     <style>
         :root { --primary: #1d3557; --danger: #e63946; --success: #2a9d8f; --bg: #f8f9fa; }
@@ -101,7 +101,7 @@
         let ecgCtx = document.getElementById('ecgChart').getContext('2d');
         let xaiCtx = document.getElementById('xaiChart').getContext('2d');
         
-        // Создаем базовые линии
+        // Создаем базовые пустые графики с жесткой инициализацией структуры line
         let ecgChart = new Chart(ecgCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'ECG Signal (mV)', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -0.4, max: 1.5 } } } });
         let xaiChart = new Chart(xaiCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'XAI Focus Map', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -0.4, max: 1.5 } } } });
 
@@ -112,7 +112,7 @@
             let isDamaged = (chemo === 'damaged');
             let ecg = generateECGData(isDamaged);
 
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Добавлен жесткий индекс [0] для массивов данных
+            // ИСПРАВЛЕНО: Индексация массивов данных строго по нулевому индексу [0]
             ecgChart.data.labels = ecg.labels;
             ecgChart.data.datasets[0].data = ecg.data;
             ecgChart.update();
