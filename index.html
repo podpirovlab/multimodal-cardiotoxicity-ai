@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CardioOncoPredict: Multimodal AI System</title>
-    <!-- Стабильный скрипт графиков, одобренный для Apple Safari -->
-    <script src="https://jsdelivr.net"></script>
+    <!-- Официальный скрипт Chart.js c зеркала cdnjs -->
+    <script src="https://cloudflare.com"></script>
     <style>
         :root { --primary: #1d3557; --danger: #e63946; --success: #2a9d8f; --bg: #f8f9fa; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
@@ -101,15 +101,16 @@
         let ecgCtx = document.getElementById('ecgChart').getContext('2d');
         let xaiCtx = document.getElementById('xaiChart').getContext('2d');
         
-        let ecgChart = new Chart(ecgCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'ECG Signal (mV)', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
-        let xaiChart = new Chart(xaiCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'XAI Focus Map', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false } });
+        // Создаем базовые пустые графики с жесткой инициализацией структуры line
+        let ecgChart = new Chart(ecgCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'ECG Signal (mV)', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -0.4, max: 1.5 } } } });
+        let xaiChart = new Chart(xaiCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'XAI Focus Map', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -0.4, max: 1.5 } } } });
 
         function runDiagnostics() {
             let chemo = document.getElementById('chemo').value;
             let isDamaged = (chemo === 'damaged');
             let ecg = generateECGData(isDamaged);
 
-            // ИСПРАВЛЕНО: Точечное жесткое обновление массивов данных по нулевому индексу
+            // ИСПРАВЛЕНО: Жесткий вызов массивов через индекс [0] по стандартам Chart.js v3
             ecgChart.data.labels = ecg.labels;
             ecgChart.data.datasets[0].data = ecg.data;
             ecgChart.update();
@@ -117,7 +118,7 @@
             xaiChart.data.labels = ecg.labels;
             xaiChart.data.datasets[0].data = ecg.data;
             
-            // Наложение цветных сегментов тревоги для Explainable AI
+            // Наложение динамических стилей для сегмента ST-T в Explainable AI
             xaiChart.data.datasets[0].segment = {
                 borderColor: ctx => {
                     let t = (ctx.p1DataIndex % 40) / 40;
