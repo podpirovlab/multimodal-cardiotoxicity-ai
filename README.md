@@ -1,3 +1,13 @@
+---
+title: CardioOncoPredict AI
+emoji: 🩺
+colorFrom: red
+colorTo: blue
+sdk: gradio
+sdk_version: 4.36.1
+app_file: app.py
+pinned: false
+---
 # Multimodal AI System for Subclinical Anthracycline-Induced Cardiotoxicity Detection
 
 An advanced deep learning framework implementing 1D Convolutional Neural Networks (1D-CNN) and Multi-Layer Perceptrons (MLP) with Bilinear Tensor Fusion to detect early-stage myocardial damage caused by Doxorubicin chemotherapy, prior to Left Ventricular Ejection Fraction (LVEF) drop.
