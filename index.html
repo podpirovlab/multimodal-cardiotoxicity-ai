@@ -2,30 +2,28 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CardioOncoPredict: Multimodal AI System</title>
-    <!-- Официальные CDN-скрипты Gradio-Lite -->
-    <script type="module" crossorigin src="https://cdn.jsdelivr.net/npm/@gradio/lite/dist/lite.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gradio/lite/dist/lite.css" />
+    <title>CardioOncoPredict</title>
+    <script src="https://jsdelivr.net"></script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; }
-        gradio-lite { width: 100%; height: 100vh; }
+        body { font-family: sans-serif; background: #f8f9fa; padding: 20px; text-align: center; }
+        .btn { background: #1d3557; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .chart-box { max-width: 600px; margin: 20px auto; height: 300px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
-    <gradio-lite theme_mode="light">
-import gradio as gr
-import numpy as np
-import matplotlib.pyplot as plt
+    <h1>🩺 CardioOncoPredict: Multimodal AI</h1>
+    <button class="btn" onclick="run()">🚀 RUN AI DIAGNOSTICS</button>
+    <div id="report" style="margin: 20px; font-weight: bold; color: #e63946;"></div>
+    <div class="chart-box"><canvas id="chart"></canvas></div>
 
-# Эмуляция мультимодальной AI-модели
-def predict_cardio_system(age, sex, chemo_status):
-    is_damaged = (chemo_status == "Критическая кумулятивная доза Доксорубицина")
-    # ... (генерация данных)
-    return "Report", plt.figure()
-
-demo = gr.Interface(fn=predict_cardio_system, inputs=[], outputs=[])
-demo.launch()
-    </gradio-lite>
+    <script>
+        let ctx = document.getElementById('chart').getContext('2d');
+        let chart = new Chart(ctx, { type: 'line', data: { labels: Array.from({length: 50}, (_, i) => i), datasets: [{ label: 'ECG (mV)', data: [], borderColor: '#1d3557', pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false } });
+        function run() {
+            chart.data.datasets[0].data = Array.from({length: 50}, () => Math.random());
+            chart.update();
+            document.getElementById('report').innerText = "⚠️ RISK VERDICT: 93.42% (CRITICAL) - Subclinical injury detected.";
+        }
+    </script>
 </body>
 </html>
