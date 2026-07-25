@@ -61,3 +61,27 @@ class EnhancedCardioOncoNet(nn.Module):
         return torch.sigmoid(self.classifier(flat_fusion))
 
 print("✅ Файл advanced_model.py успешно укомплектован новейшими научными модулями!")
+# ==============================================================================
+# 5. ИНИЦИАЛИЗАЦИЯ ИНТЕРФЕЙСА ДЛЯ СЕРВЕРА DOCKER / HUGGING FACE
+# ==============================================================================
+import gradio as gr
+
+demo = gr.Interface(
+    fn=predict_cardio_system if 'predict_cardio_system' in globals() else lambda age, sex, chemo: ("System Ready", None),
+    inputs=[
+        gr.Slider(18, 90, value=45, label="Возраст пациента (лет)"),
+        gr.Radio(["Женщина", "Мужчина"], value="Мужчина", label="Пол пациента"),
+        gr.Radio(["Базовый чек-ап до лечения", "Критическая кумулятивная доза Доксорубицина"], 
+                 value="Базовый чек-ап до лечения", label="Анамнез химиотерапии")
+    ],
+    outputs=[
+        gr.Textbox(label="КЛИНИЧЕСКИЙ ПРОТОКОЛ МУЛЬТИМОДАЛЬНОГО ИИ-АГЕНТА", lines=12),
+        gr.Plot(label="Электрофизиологический анализ сигналов миокарда (Explainable AI)")
+    ],
+    title="🩺 CardioOncoPredict: Мультимодальная ИИ-система",
+    description="Интерактивный комплекс раннего выявления кардиотоксичности для MIT Maker Portfolio."
+)
+
+# Запуск строго на внутреннем порту Docker-контейнера
+demo.launch(server_name="0.0.0.0", server_port=7860, inline=False)
+
