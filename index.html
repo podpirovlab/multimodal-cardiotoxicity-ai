@@ -110,7 +110,6 @@
             let isDamaged = (chemo === 'damaged');
             let ecg = generateECGData(isDamaged);
 
-            // ИСПРАВЛЕНО: Жёстко добавлен индекс первого датасета [0]
             ecgChart.data.labels = ecg.labels;
             ecgChart.data.datasets[0].data = ecg.data;
             ecgChart.update();
