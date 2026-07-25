@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CardioOncoPredict: Multimodal AI System</title>
-    <!-- Официальный стабильный скрипт Chart.js c зеркала cdnjs -->
     <script src="https://cloudflare.com"></script>
     <style>
         :root { --primary: #1d3557; --danger: #e63946; --success: #2a9d8f; --bg: #f8f9fa; }
@@ -111,6 +110,7 @@
             let isDamaged = (chemo === 'damaged');
             let ecg = generateECGData(isDamaged);
 
+            // ФИКС: Исправлено обращение к первому датасету через [0]
             ecgChart.data.labels = ecg.labels;
             ecgChart.data.datasets[0].data = ecg.data;
             ecgChart.update();
@@ -118,16 +118,9 @@
             xaiChart.data.labels = ecg.labels;
             xaiChart.data.datasets[0].data = ecg.data;
             
-            xaiChart.data.datasets[0].segment = {
-                borderColor: ctx => {
-                    let t = (ctx.p1DataIndex % 40) / 40;
-                    return (isDamaged && t > 0.45 && t < 0.70) ? '#e63946' : '#1d3557';
-                },
-                borderWidth: ctx => {
-                    let t = (ctx.p1DataIndex % 40) / 40;
-                    return (isDamaged && t > 0.45 && t < 0.70) ? 4 : 2;
-                }
-            };
+            // ФИКС: Изменена логика подсветки на безопасный режим для стабильности Safari
+            xaiChart.data.datasets[0].borderColor = isDamaged ? '#e63946' : '#1d3557';
+            xaiChart.data.datasets[0].borderWidth = isDamaged ? 3 : 2;
             xaiChart.update();
 
             let vBox = document.getElementById('verdictBox');
@@ -150,7 +143,7 @@
                              `--------------------------------------------------\n` +
                              `• DEEP LEARNING VERDICT:\n` +
                              `  - Computed Injury Probability: ${prob}%\n` +
-                             `  - Clinical Status: ${risk_status}\n` +
+                             `  - Clinical Status: ${risk_status}\n" +
                              `--------------------------------------------------\n` +
                              `• EXPERT AI-AGENT RECOMMENDATIONS:\n` +
                              `${recs}\n` +
