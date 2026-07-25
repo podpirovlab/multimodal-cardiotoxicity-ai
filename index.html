@@ -110,7 +110,6 @@
             let isDamaged = (chemo === 'damaged');
             let ecg = generateECGData(isDamaged);
 
-            // ФИКС: Исправлено обращение к первому датасету через [0]
             ecgChart.data.labels = ecg.labels;
             ecgChart.data.datasets[0].data = ecg.data;
             ecgChart.update();
@@ -118,7 +117,6 @@
             xaiChart.data.labels = ecg.labels;
             xaiChart.data.datasets[0].data = ecg.data;
             
-            // ФИКС: Изменена логика подсветки на безопасный режим для стабильности Safari
             xaiChart.data.datasets[0].borderColor = isDamaged ? '#e63946' : '#1d3557';
             xaiChart.data.datasets[0].borderWidth = isDamaged ? 3 : 2;
             xaiChart.update();
@@ -143,7 +141,7 @@
                              `--------------------------------------------------\n` +
                              `• DEEP LEARNING VERDICT:\n` +
                              `  - Computed Injury Probability: ${prob}%\n` +
-                             `  - Clinical Status: ${risk_status}\n" +
+                             `  - Clinical Status: ${risk_status}\n` +
                              `--------------------------------------------------\n` +
                              `• EXPERT AI-AGENT RECOMMENDATIONS:\n` +
                              `${recs}\n` +
