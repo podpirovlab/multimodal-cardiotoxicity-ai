@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CardioOncoPredict: Multimodal AI System</title>
-    <script src="https://cloudflare.com"></script>
     <style>
         :root { --primary: #1d3557; --danger: #e63946; --success: #2a9d8f; --bg: #f8f9fa; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
@@ -19,8 +18,8 @@
         .verdict { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; font-weight: bold; white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.4; }
         .verdict.danger { background: #ffe3e5; color: var(--danger); border-left: 5px solid var(--danger); }
         .verdict.success { background: #e8f5e9; color: var(--success); border-left: 5px solid var(--success); }
-        .chart-container { position: relative; height: 220px; margin-bottom: 25px; width: 100%; }
-        canvas { width: 100% !important; height: 100% !important; }
+        .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 20px; height: 200px; }
+        svg { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
@@ -65,65 +64,67 @@
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
             
             <h3>1. Input Digital ECG Waveform (1D Modality)</h3>
-            <div class="chart-container">
-                <canvas id="ecgChart"></canvas>
+            <div class="chart-box">
+                <svg id="ecgSvg"><path d="" fill="none" stroke="#1d3557" stroke-width="2"/></svg>
             </div>
 
             <h3>2. Explainable AI (XAI) Myocardial Repolarization Focus</h3>
-            <div class="chart-container">
-                <canvas id="xaiChart"></canvas>
+            <div class="chart-box">
+                <svg id="xaiSvg">
+                    <rect id="dangerZone" x="0" y="0" width="0" height="200" fill="rgba(230,57,70,0.25)" display="none"/>
+                    <path d="" fill="none" stroke="#1d3557" stroke-width="2"/>
+                </svg>
             </div>
         </div>
     </div>
 
     <script>
-        function generateECGData(isDamaged) {
-            let data = [];
-            let labels = [];
-            for (let i = 0; i < 150; i++) {
-                let t = (i % 40) / 40;
-                let p = 0.12 * Math.exp(-Math.pow((t - 0.2) / 0.025, 2));
-                let q = -0.08 * Math.exp(-Math.pow((t - 0.28) / 0.01, 2));
-                let r = 1.35 * Math.exp(-Math.pow((t - 0.3) / 0.012, 2));
-                let s = -0.3 * Math.exp(-Math.pow((t - 0.33) / 0.012, 2));
-                let tWave = isDamaged ? 
-                    0.06 * Math.exp(-Math.pow((t - 0.52) / 0.08, 2)) : 
-                    0.32 * Math.exp(-Math.pow((t - 0.52) / 0.045, 2));
-                
-                let base = p + q + r + s + tWave + (Math.random() * 0.02 - 0.01);
-                data.push(base);
-                labels.push((i * 0.02).toFixed(2));
-            }
-            return { data, labels };
-        }
-
-        let ecgCtx = document.getElementById('ecgChart').getContext('2d');
-        let xaiCtx = document.getElementById('xaiChart').getContext('2d');
-        
-        let ecgChart = new Chart(ecgCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'ECG Signal (mV)', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -0.4, max: 1.5 } } } });
-        let xaiChart = new Chart(xaiCtx, { type: 'line', data: { labels: Array(150).fill(''), datasets: [{ label: 'XAI Focus Map', data: Array(150).fill(0), borderColor: '#1d3557', borderWidth: 2, pointRadius: 0, fill: false }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: -0.4, max: 1.5 } } } });
-
         function runDiagnostics() {
             let age = document.getElementById('age').value;
             let sex = document.getElementById('sex').value;
             let chemo = document.getElementById('chemo').value;
             let isDamaged = (chemo === 'damaged');
-            let ecg = generateECGData(isDamaged);
 
-            ecgChart.data.labels = ecg.labels;
-            ecgChart.data.datasets[0].data = ecg.data;
-            ecgChart.update();
-
-            xaiChart.data.labels = ecg.labels;
-            xaiChart.data.datasets[0].data = ecg.data;
+            // Генерация математической кривой ЭКГ высокого разрешения
+            let points = [];
+            let width = 700;
+            let height = 200;
             
-            xaiChart.data.datasets[0].borderColor = isDamaged ? '#e63946' : '#1d3557';
-            xaiChart.data.datasets[0].borderWidth = isDamaged ? 3 : 2;
-            xaiChart.update();
+            for (let i = 0; i < width; i++) {
+                let t = (i % 150) / 150;
+                let p = 15 * Math.exp(-Math.pow((t - 0.2) / 0.03, 2));
+                let q = -10 * Math.exp(-Math.pow((t - 0.28) / 0.01, 2));
+                let r = 140 * Math.exp(-Math.pow((t - 0.3) / 0.015, 2));
+                let s = -35 * Math.exp(-Math.pow((t - 0.32) / 0.015, 2));
+                let tWave = isDamaged ? 
+                    8 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 
+                    35 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
+                
+                let y = height / 2 - (p + q + r + s + tWave) + (Math.random() * 4 - 2);
+                points.push(`${i},${y}`);
+            }
+            
+            let pathData = "M " + points.join(" L ");
+            
+            // Отрисовка нативных SVG графиков
+            document.querySelector("#ecgSvg path").setAttribute("d", pathData);
+            document.querySelector("#xaiSvg path").setAttribute("d", pathData);
 
+            // Логика XAI подсветки опасных зон реполяризации зубца T
+            let dZone = document.getElementById("dangerZone");
+            if (isDamaged) {
+                dZone.style.display = "block";
+                dZone.setAttribute("x", "200");
+                dZone.setAttribute("width", "350");
+                document.querySelector("#xaiSvg path").setAttribute("stroke", "#e63946");
+            } else {
+                dZone.style.display = "none";
+                document.querySelector("#xaiSvg path").setAttribute("stroke", "#1d3557");
+            }
+
+            // Вывод печатного отчета медицинского ИИ-Агента
             let vBox = document.getElementById('verdictBox');
             vBox.style.display = 'block';
-            
             let risk_status = isDamaged ? "CRITICAL / HIGH RISK OF SUBCLINICAL ANTHRACYCLINE CARDIOTOXICITY" : "STABLE / NORMAL CARDIAC FUNCTION";
             let prob = isDamaged ? 93.42 : 12.45;
             let recs = isDamaged ? 
