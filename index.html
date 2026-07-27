@@ -54,6 +54,11 @@
                     <option value="damaged">🚨 Cumulative Critical Dose of Doxorubicin</option>
                 </select>
             </div>
+            <div class="form-group" style="margin-top: 15px;">
+    <label>🩺 Load Clinical Data (.EDF / .XML):</label>
+    <input type="file" id="edfFile" accept=".edf,.xml" style="width: 100%; padding: 8px; background: #fff; border: 1px dashed var(--primary); border-radius: 6px; cursor: pointer;">
+</div>
+
 
             <button class="btn" onclick="runDiagnostics()">🚀 RUN AI DIAGNOSTICS</button>
             <div id="verdictBox" class="verdict"></div>
