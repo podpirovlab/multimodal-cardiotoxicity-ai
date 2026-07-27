@@ -1,6 +1,6 @@
-torch
-pywt
-gradio
-matplotlib
-pandas
 numpy
+pandas
+torch
+scikit-learn
+pyedflib
+gradio==4.36.1
