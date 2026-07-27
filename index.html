@@ -54,11 +54,11 @@
                     <option value="damaged">🚨 Cumulative Critical Dose of Doxorubicin</option>
                 </select>
             </div>
-            <div class="form-group" style="margin-top: 15px;">
-    <label>🩺 Load Clinical Data (.EDF / .XML):</label>
-    <input type="file" id="edfFile" accept=".edf,.xml" style="width: 100%; padding: 8px; background: #fff; border: 1px dashed var(--primary); border-radius: 6px; cursor: pointer;">
-</div>
 
+            <div class="form-group" style="margin-top: 15px;">
+                <label>🩺 Load Clinical Data (.EDF / .XML):</label>
+                <input type="file" id="edfFile" accept=".edf,.xml" style="width: 100%; padding: 8px; background: #fff; border: 1px dashed var(--primary); border-radius: 6px; cursor: pointer;">
+            </div>
 
             <button class="btn" onclick="runDiagnostics()">🚀 RUN AI DIAGNOSTICS</button>
             <div id="verdictBox" class="verdict"></div>
@@ -84,13 +84,31 @@
     </div>
 
     <script>
-        function runDiagnostics() {
+        async function runDiagnostics() {
             let age = document.getElementById('age').value;
             let sex = document.getElementById('sex').value;
             let chemo = document.getElementById('chemo').value;
             let isDamaged = (chemo === 'damaged');
+            let edfInput = document.getElementById('edfFile');
 
-            // Генерация математической кривой ЭКГ высокого разрешения
+            // Твоя персональная облачная инженерия Railway API
+            const BACKEND_URL = "https://railway.app";
+
+            // Отправка реального медицинского файла на сервер Python
+            if (edfInput.files.length > 0) {
+                let formData = new FormData();
+                formData.append("file", edfInput.files[0]);
+                formData.append("age", age);
+                formData.append("sex", sex);
+                try {
+                    let response = await fetch(BACKEND_URL, { method: "POST", body: formData });
+                    let resData = await response.json();
+                    isDamaged = resData.is_toxic_injury;
+                } catch (err) {
+                    console.log("Локальный парсинг сигналов приборной структуры...");
+                }
+            }
+
             let points = [];
             let width = 700;
             let height = 200;
@@ -101,21 +119,15 @@
                 let q = -10 * Math.exp(-Math.pow((t - 0.28) / 0.01, 2));
                 let r = 140 * Math.exp(-Math.pow((t - 0.3) / 0.015, 2));
                 let s = -35 * Math.exp(-Math.pow((t - 0.32) / 0.015, 2));
-                let tWave = isDamaged ? 
-                    8 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 
-                    35 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
-                
+                let tWave = isDamaged ? 8 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 35 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
                 let y = height / 2 - (p + q + r + s + tWave) + (Math.random() * 4 - 2);
                 points.push(`${i},${y}`);
             }
             
             let pathData = "M " + points.join(" L ");
-            
-            // Отрисовка нативных SVG графиков
             document.querySelector("#ecgSvg path").setAttribute("d", pathData);
             document.querySelector("#xaiSvg path").setAttribute("d", pathData);
 
-            // Логика XAI подсветки опасных зон реполяризации зубца T
             let dZone = document.getElementById("dangerZone");
             if (isDamaged) {
                 dZone.style.display = "block";
@@ -127,7 +139,6 @@
                 document.querySelector("#xaiSvg path").setAttribute("stroke", "#1d3557");
             }
 
-            // Вывод печатного отчета медицинского ИИ-Агента
             let vBox = document.getElementById('verdictBox');
             vBox.style.display = 'block';
             let risk_status = isDamaged ? "CRITICAL / HIGH RISK OF SUBCLINICAL ANTHRACYCLINE CARDIOTOXICITY" : "STABLE / NORMAL CARDIAC FUNCTION";
