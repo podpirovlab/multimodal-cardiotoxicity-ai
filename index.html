@@ -12,7 +12,7 @@
         h2, h3 { color: var(--primary); margin-top: 0; font-weight: 700; }
         .form-group { margin-bottom: 18px; }
         label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; }
-        select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
+        select, input[type="range"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
         .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .btn:hover { background: #132237; }
         .verdict { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; font-weight: bold; white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.4; }
@@ -35,13 +35,39 @@
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
             
             <div class="form-group">
+                <label>Patient Age: <span id="ageVal">45</span> years</label>
+                <input type="range" id="age" min="18" max="90" value="45" oninput="document.getElementById('ageVal').innerText=this.value">
+            </div>
+
+            <div class="form-group">
+                <label>Biological Sex:</label>
+                <select id="sex">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Chemotherapy Anamnesis / Doxorubicin Payload:</label>
+                <select id="chemo">
+                    <option value="normal">Routine Surveillance (Baseline Pre-Check)</option>
+                    <option value="damaged">🚨 Cumulative Critical Dose of Doxorubicin</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label>Select Target Myocardial Wall for Scan:</label>
                 <select id="heartWall">
-                    <option value="ALL_STABLE">Patient A: Baseline Surveillance (All Walls Stable)</option>
+                    <option value="ALL_STABLE">Patient A: All Walls Stable (Normal Core)</option>
                     <option value="ANTERIOR">Patient B: Anterior Wall Ferroptosis (V1-V4 Drop)</option>
                     <option value="INFERIOR">Patient C: Inferior Wall Ferroptosis (II, III, aVF Drop)</option>
                     <option value="LATERAL">Patient D: Lateral Wall Ferroptosis (I, aVL, V5-V6 Drop)</option>
                 </select>
+            </div>
+
+            <div class="form-group" style="margin-top: 15px;">
+                <label>🩺 Load Clinical Data (.EDF / .XML):</label>
+                <input type="file" id="edfFile" accept=".edf,.xml" style="width: 100%; padding: 8px; background: #fff; border: 1px dashed var(--primary); border-radius: 6px; cursor: pointer;">
             </div>
 
             <button class="btn" onclick="runDiagnostics()">🚀 ANALYZE 12-LEAD SIGNAL MATRIX</button>
@@ -147,7 +173,19 @@
         setTimeout(draw3DHeart, 100);
 
         function runDiagnostics() {
+            let age = document.getElementById('age').value;
+            let sex = document.getElementById('sex').value;
+            let chemo = document.getElementById('chemo').value;
+            
+            // Если выбрана критическая доза ИЛИ поражение конкретной стенки
             activeWallInjury = document.getElementById('heartWall').value;
+            if (chemo === "damaged" && activeWallInjury === "ALL_STABLE") {
+                activeWallInjury = "ANTERIOR"; // Дефолтное поражение при критической дозе
+            }
+            if (chemo === "normal") {
+                activeWallInjury = "ALL_STABLE"; // Сброс в норму при рутинном чекапе
+            }
+
             let isDamaged = (activeWallInjury !== "ALL_STABLE");
 
             let points = [];
@@ -192,6 +230,8 @@
                              `          AI SYSTEM — AUTONOMOUS REPORT           \n` +
                              `==================================================\n` +
                              `• METADATA PROFILE:\n` +
+                             `  - Patient Age: ${age} years old\n` +
+                             `  - Biological Sex: ${sex}\n` +
                              `  - Input Stream: PhysioNet 12-Lead ECG Core\n` +
                              `  - Target Localized Zone: ${activeWallInjury}\n` +
                              `  - Affected ECG Leads: [${leads}]\n` +
