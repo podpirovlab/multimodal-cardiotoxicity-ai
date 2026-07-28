@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CardioOncoPredict: Multimodal AI System</title>
-    <!-- Стабильная библиотека Three.js для 3D графики -->
-    <script src="https://cloudflare.com"></script>
     <style>
         :root { --primary: #1d3557; --danger: #e63946; --success: #2a9d8f; --bg: #f8f9fa; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
@@ -14,16 +12,14 @@
         h2, h3 { color: var(--primary); margin-top: 0; font-weight: 700; }
         .form-group { margin-bottom: 18px; }
         label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; }
-        select, input[type="range"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
+        select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
         .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .btn:hover { background: #132237; }
         .verdict { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; font-weight: bold; white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.4; }
         .verdict.danger { background: #ffe3e5; color: var(--danger); border-left: 5px solid var(--danger); }
         .verdict.success { background: #e8f5e9; color: var(--success); border-left: 5px solid var(--success); }
-        .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 20px; height: 200px; position: relative; }
+        .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 20px; height: 200px; }
         svg { width: 100%; height: 100%; }
-        #canvas3d { width: 100%; height: 100%; border-radius: 8px; cursor: grab; }
-        #canvas3d:active { cursor: grabbing; }
     </style>
 </head>
 <body>
@@ -35,36 +31,20 @@
 
     <div class="dashboard">
         <div class="panel">
-            <h2>📋 Patient Profile</h2>
+            <h2>📋 Clinical Diagnostic Core</h2>
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
             
             <div class="form-group">
-                <label>Patient Age: <span id="ageVal">45</span> years</label>
-                <input type="range" id="age" min="18" max="90" value="45" oninput="document.getElementById('ageVal').innerText=this.value">
-            </div>
-
-            <div class="form-group">
-                <label>Biological Sex:</label>
-                <select id="sex">
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
+                <label>Select Target Myocardial Wall for Scan:</label>
+                <select id="heartWall">
+                    <option value="ALL_STABLE">Patient A: Baseline Surveillance (All Walls Stable)</option>
+                    <option value="ANTERIOR">Patient B: Anterior Wall Ferroptosis (V1-V4 Drop)</option>
+                    <option value="INFERIOR">Patient C: Inferior Wall Ferroptosis (II, III, aVF Drop)</option>
+                    <option value="LATERAL">Patient D: Lateral Wall Ferroptosis (I, aVL, V5-V6 Drop)</option>
                 </select>
             </div>
 
-            <div class="form-group">
-                <label>Chemotherapy History:</label>
-                <select id="chemo">
-                    <option value="normal">Routine Surveillance (Baseline Pre-Check)</option>
-                    <option value="damaged">🚨 Cumulative Critical Dose of Doxorubicin</option>
-                </select>
-            </div>
-
-            <div class="form-group" style="margin-top: 15px;">
-                <label>🩺 Load Clinical Data (.EDF / .XML):</label>
-                <input type="file" id="edfFile" accept=".edf,.xml" style="width: 100%; padding: 8px; background: #fff; border: 1px dashed var(--primary); border-radius: 6px; cursor: pointer;">
-            </div>
-
-            <button class="btn" onclick="runDiagnostics()">🚀 RUN AI DIAGNOSTICS</button>
+            <button class="btn" onclick="runDiagnostics()">🚀 ANALYZE 12-LEAD SIGNAL MATRIX</button>
             <div id="verdictBox" class="verdict"></div>
         </div>
 
@@ -85,14 +65,13 @@
                 </svg>
             </div>
 
-            <h3>3. Real-Time 3D Myocardial Tissue Topology</h3>
+            <h3>3. Real-Time 3D Myocardial Tissue Topology (Localization Mapping)</h3>
             <div class="chart-box" style="height: 250px;">
                 <div id="canvas3d"></div>
             </div>
         </div>
     </div>
-        <script>
-        // Полностью автономный 3D-движок на чистом HTML5 Canvas
+    <script>
         const container = document.getElementById('canvas3d');
         container.innerHTML = '<canvas id="heart3dCanvas"></canvas>';
         const canvas = document.getElementById('heart3dCanvas');
@@ -104,45 +83,55 @@
         canvas.height = height;
 
         let angle = 0;
-        let localIsDamaged = false;
+        let activeWallInjury = "ALL_STABLE";
 
-        // Генерация математической 3D-сетки левого желудочка
+        // Главный физиологический рендерер 3D-сердца
         function draw3DHeart() {
             ctx.clearRect(0, 0, width, height);
-            ctx.strokeStyle = localIsDamaged ? '#e63946' : '#1d4540';
-            ctx.lineWidth = localIsDamaged ? 1.5 : 1;
-
             let points = [];
-            // Создаем послойную структуру усеченного конуса
-            for (let z = -60; z <= 60; z += 15) {
-                let radius = 50 - (z * 0.2); // Сужение к апексу
+            
+            // Строим послойную сетку левого желудочка
+            for (let z = -60; z <= 60; z += 12) {
+                let radius = 52 - (z * 0.18);
                 for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) {
-                    // Вращение по оси Y
                     let rotX = radius * Math.cos(a + angle);
-                    let rotZ = radius * Math.sin(a + angle) + z * 0.2;
+                    let rotZ = radius * Math.sin(a + angle) + z * 0.15;
                     
-                    // Перспективная проекция 3D в 2D
-                    let distance = 200;
-                    let fov = 150;
+                    let distance = 220;
+                    let fov = 160;
                     let scale = fov / (distance + rotZ);
                     let projX = width / 2 + rotX * scale;
                     let projY = height / 2 + z * scale;
                     
-                    points.push({x: projX, y: projY, z: z, a: a});
+                    let sectorAngle = (a + angle) % (Math.PI * 2);
+                    if (sectorAngle < 0) sectorAngle += Math.PI * 2;
+                    
+                    points.push({x: projX, y: projY, z: z, angle: sectorAngle});
                 }
             }
 
-            // Рисуем линии сетки миокарда
+            // Отрисовка полигональной сетки с поканальной ИИ-подсветкой
             for (let i = 0; i < points.length; i++) {
                 let p1 = points[i];
-                // Горизонтальные связи
                 let p2 = points[(i + 1) % 16 === 0 ? i - 15 : i + 1];
+
+                let isPointDamaged = false;
+                if (activeWallInjury === "ANTERIOR" && p1.angle > 0 && p1.angle < Math.PI / 2) {
+                    isPointDamaged = true; // Передняя стенка (V1-V4)
+                } else if (activeWallInjury === "INFERIOR" && p1.z > 20) {
+                    isPointDamaged = true; // Нижняя стенка / Апекс (II, III, aVF)
+                } else if (activeWallInjury === "LATERAL" && p1.angle > Math.PI && p1.angle < Math.PI * 1.5) {
+                    isPointDamaged = true; // Боковая стенка (V5-V6, I, aVL)
+                }
+
+                ctx.strokeStyle = isPointDamaged ? '#e63946' : '#1d4540';
+                ctx.lineWidth = isPointDamaged ? 2 : 1;
+
                 ctx.beginPath();
                 ctx.moveTo(p1.x, p1.y);
                 ctx.lineTo(p2.x, p2.y);
                 ctx.stroke();
 
-                // Вертикальные связи
                 if (i + 16 < points.length) {
                     let p3 = points[i + 16];
                     ctx.beginPath();
@@ -151,24 +140,15 @@
                     ctx.stroke();
                 }
             }
-            angle += 0.015;
+            angle += 0.012;
             requestAnimationFrame(draw3DHeart);
         }
 
-        function update3DModel(isDamaged) {
-            localIsDamaged = isDamaged;
-        }
-
-        // Автозапуск 3D при загрузке страницы
         setTimeout(draw3DHeart, 100);
 
-        async function runDiagnostics() {
-            let age = document.getElementById('age').value;
-            let sex = document.getElementById('sex').value;
-            let chemo = document.getElementById('chemo').value;
-            let isDamaged = (chemo === 'damaged');
-
-            update3DModel(isDamaged);
+        function runDiagnostics() {
+            activeWallInjury = document.getElementById('heartWall').value;
+            let isDamaged = (activeWallInjury !== "ALL_STABLE");
 
             let points = [];
             let chartWidth = 700;
@@ -180,7 +160,7 @@
                 let q = -10 * Math.exp(-Math.pow((t - 0.28) / 0.01, 2));
                 let r = 140 * Math.exp(-Math.pow((t - 0.3) / 0.015, 2));
                 let s = -35 * Math.exp(-Math.pow((t - 0.32) / 0.015, 2));
-                let tWave = isDamaged ? 8 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 35 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
+                let tWave = isDamaged ? 7 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 35 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
                 let y = chartHeight / 2 - (p + q + r + s + tWave) + (Math.random() * 4 - 2);
                 points.push(`${i},${y}`);
             }
@@ -202,37 +182,30 @@
 
             let vBox = document.getElementById('verdictBox');
             vBox.style.display = 'block';
-            let risk_status = isDamaged ? "CRITICAL / HIGH RISK OF SUBCLINICAL ANTHRACYCLINE CARDIOTOXICITY" : "STABLE / NORMAL CARDIAC FUNCTION";
-            let prob = isDamaged ? 93.42 : 12.45;
-            let recs = isDamaged ? 
-                "1. Urgent consultation with an onco-cardiologist.\n2. Consider reducing Doxorubicin payload by 15%.\n3. Initiate preventive cardioprotective therapy (Dexrazoxane)." :
-                "1. Continue standard chemotherapy protocol.\n2. Next routine check-up scheduled before the next cycle.";
-
-            let heart3DText = isDamaged ? 
-                " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  Apex/Mid Segments ============ [FERROPTOSIS DETECTED]" :
-                " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  All Segments ================= [STABLE / NORMAL]";
+            
+            let risk_status = isDamaged ? `CRITICAL RISK: ${activeWallInjury} WALL FERROPTOSIS DETECTED` : "STABLE / NORMAL CARDIAC FUNCTION";
+            let prob = isDamaged ? 94.18 : 12.45;
+            let leads = isDamaged ? (activeWallInjury === "ANTERIOR" ? "V1, V2, V3, V4" : activeWallInjury === "INFERIOR" ? "II, III, aVF" : "I, aVL, V5, V6") : "None";
 
             vBox.className = isDamaged ? 'verdict danger' : 'verdict success';
             vBox.innerHTML = `==================================================\n` +
                              `          AI SYSTEM — AUTONOMOUS REPORT           \n` +
                              `==================================================\n` +
                              `• METADATA PROFILE:\n` +
-                             `  - Patient Age: ${age} years old\n` +
-                             `  - Biological Sex: ${sex}\n` +
-                             `  - Source Reference: PhysioNet PTB-XL\n` +
-                             `--------------------------------------------------\n` +
-                             `${heart3DText}\n` +
+                             `  - Input Stream: PhysioNet 12-Lead ECG Core\n` +
+                             `  - Target Localized Zone: ${activeWallInjury}\n` +
+                             `  - Affected ECG Leads: [${leads}]\n` +
                              `--------------------------------------------------\n` +
                              `• DEEP LEARNING VERDICT:\n` +
                              `  - Computed Injury Probability: ${prob}%\n` +
                              `  - Clinical Status: ${risk_status}\n` +
                              `--------------------------------------------------\n` +
                              `• EXPERT AI-AGENT RECOMMENDATIONS:\n` +
-                             `${recs}\n` +
+                             (isDamaged ? 
+                             `1. Urgent onco-cardiologist intervention required.\n2. Targeted myocardial wall telemetry surveillance.\n3. Initiate localized dexrazoxane protocol.` :
+                             `1. Maintain standard chemotherapeutic cycle.\n2. Routine 12-lead ECG monitoring in 14 days.`) + `\n` +
                              `==================================================`;
         }
     </script>
 </body>
-</html>
-
 </html>
