@@ -19,9 +19,10 @@
         .verdict.danger { background: #ffe3e5; color: var(--danger); border-left: 5px solid var(--danger); }
         .verdict.success { background: #e8f5e9; color: var(--success); border-left: 5px solid var(--success); }
         .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 20px; height: 200px; position: relative; }
-        .chart-box.three-d { height: 240px; background: #fff; cursor: grab; }
+        .chart-box.three-d { height: 240px; background: #fff; cursor: grab; display: flex; align-items: center; justify-content: center; }
         .chart-box.three-d:active { cursor: grabbing; }
         svg { width: 100%; height: 100%; display: block; }
+        svg#heart3dSvg { width: 400px; height: 240px; display: block; margin: 0 auto; min-height: 240px; }
         .label-3d { position: absolute; bottom: 8px; left: 12px; color: #888; font-size: 11px; font-family: monospace; pointer-events: none; }
     </style>
 </head>
@@ -89,7 +90,7 @@
                     <text id="placeholder3D" x="200" y="120" fill="#999" font-family="monospace" font-size="12" text-anchor="middle">[3D ENGINE STANDBY — RUN DIAGNOSTICS]</text>
                     <g id="meshGroup" style="display: none;"></g>
                 </svg>
-                <div class="label-3d">🖱️ Drag to rotate 3D Ventricle Mesh</div>
+                <div class="label-3d">鼠标/🖱️ Drag to rotate 3D Myocardial Matrix</div>
             </div>
         </div>
     </div>
@@ -162,7 +163,7 @@
             for (let i = 0; i < projected.length; i++) {
                 let p1 = projected[i];
                 let pNextR = projected[(i + 1) % radPoints + Math.floor(i / radPoints) * radPoints];
-                let col = 'rgba(29, 53, 87, 0.2)';
+                let col = 'rgba(29, 53, 87, 0.25)';
                 
                 if (showDamage) {
                     if (p1.zone === "Mid") col = 'rgba(230, 57, 70, 0.85)';
