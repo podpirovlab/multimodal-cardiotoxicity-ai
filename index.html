@@ -19,10 +19,10 @@
         .verdict.danger { background: #ffe3e5; color: var(--danger); border-left: 5px solid var(--danger); }
         .verdict.success { background: #e8f5e9; color: var(--success); border-left: 5px solid var(--success); }
         .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 20px; height: 200px; }
-        .chart-box.three-d { height: 260px; position: relative; cursor: grab; background: #fff; }
+        .chart-box.three-d { height: 250px; position: relative; cursor: grab; background: #fff; }
         .chart-box.three-d:active { cursor: grabbing; }
         svg, canvas { width: 100%; height: 100%; display: block; }
-        .label-3d { position: absolute; bottom: 10px; left: 10px; color: #888; font-size: 11px; font-family: monospace; pointer-events: none; }
+        .label-3d { position: absolute; bottom: 8px; left: 12px; color: #888; font-size: 11px; font-family: monospace; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -68,7 +68,7 @@
         </div>
 
         <div class="panel">
-            <h2>📊 Electrophenyliological & Spatial Analytics</h2>
+            <h2>📊 Electrophysiological Analytics (12-Lead Core)</h2>
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
             
             <h3>1. Input Digital ECG Waveform (1D Modality)</h3>
@@ -87,20 +87,22 @@
             <h3>3. Real-Time 3D Myocardial Tissue Topology (Left Ventricle Cone Mesh)</h3>
             <div class="chart-box three-d" id="canvasContainer">
                 <canvas id="heartCanvas"></canvas>
-                <div class="label-3d">🖱️ Drag to rotate 3D Mesh</div>
+                <div class="label-3d">鼠标/🖱️ Drag to rotate 3D Myocardial Matrix</div>
             </div>
         </div>
     </div>
 
     <script>
+        // Инициализация безопасных переменных кастомного 3D-модуля
         const canvas = document.getElementById('heartCanvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas ? canvas.getContext('2d') : null;
         let angleX = -0.6, angleY = 0.5;
         let is3DActive = false;
         let showDamage3D = false;
         let points3D = [];
 
         function resizeCanvas() {
+            if (!canvas) return;
             canvas.width = canvas.offsetWidth;
             canvas.height = canvas.offsetHeight;
             render3D();
@@ -113,7 +115,7 @@
             const radialPoints = 16;
             for (let i = 0; i <= layers; i++) {
                 let z = (i / layers) * 2.0 - 1.0; 
-                let baseRadius = 0.9 - (i / layers) * 0.6; 
+                let baseRadius = 0.85 - (i / layers) * 0.55; 
                 let zone = "Base";
                 if (i > 4 && i <= 8) zone = "Mid";
                 if (i > 8) zone = "Apex";
@@ -128,12 +130,14 @@
         }
 
         function render3D() {
+            if (!ctx || !canvas) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
             if (!is3DActive) {
                 ctx.fillStyle = '#999';
                 ctx.font = '12px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText("[3D ENGINE STANDBY — RUN DIAGNOSTICS]", canvas.width/2, canvas.height/2);
+                ctx.fillText("[3D SPATIAL ENGINE STANDBY — RUN DIAGNOSTICS]", canvas.width/2, canvas.height/2);
                 return;
             }
 
@@ -156,11 +160,11 @@
                 let nextRadial = projected[(i + 1) % radialPoints + Math.floor(i / radialPoints) * radialPoints];
                 
                 if (showDamage3D && p1.zone === "Mid") {
-                    ctx.strokeStyle = 'rgba(230, 57, 70, 0.8)'; 
+                    ctx.strokeStyle = 'rgba(230, 57, 70, 0.85)'; 
                 } else if (showDamage3D && p1.zone === "Apex") {
-                    ctx.strokeStyle = 'rgba(230, 90, 0, 0.8)';  
+                    ctx.strokeStyle = 'rgba(230, 90, 0, 0.85)';  
                 } else {
-                    ctx.strokeStyle = 'rgba(29, 53, 87, 0.3)';  
+                    ctx.strokeStyle = 'rgba(29, 53, 87, 0.25)';  
                 }
 
                 ctx.beginPath();
@@ -201,8 +205,5 @@
         }
         function stopDrag() { isDragging = false; }
 
-        container.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
-        window.addEventListener('mousemove', (e) => drag(e.clientX, e.clientY));
-        window.addEventListener('mouseup', stopDrag);
-
-        container.addEventListener('touchstart', (e) => { if(e.touches.length===1) startDrag(e.touches[0].clientX, e.touches[0].clientY); });
+        if (container) {
+            container.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
