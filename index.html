@@ -66,7 +66,6 @@
             <button class="btn" onclick="runDiagnostics()">🚀 RUN AI DIAGNOSTICS</button>
             <div id="verdictBox" class="verdict"></div>
         </div>
-
         <div class="panel">
             <h2>📊 Electrophysiological Analytics (12-Lead Core)</h2>
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
@@ -86,44 +85,73 @@
 
             <h3>3. Real-Time 3D Myocardial Tissue Topology</h3>
             <div class="chart-box three-d" id="canvasContainer">
-                <svg id="heart3dSvg" viewBox="0 0 400 240">
+                <svg id="heart3dSvg" viewBox="0 0 400 240" xmlns="http://w3.org">
                     <text id="placeholder3D" x="200" y="120" fill="#999" font-family="monospace" font-size="12" text-anchor="middle">[3D ENGINE STANDBY — RUN DIAGNOSTICS]</text>
-                    <g id="meshGroup"></g>
+                    <g id="meshGroup" style="display: none;"></g>
                 </svg>
-                <div class="label-3d">鼠标/🖱️ Drag to rotate 3D Myocardial Matrix</div>
+                <div class="label-3d">🖱️ Drag to rotate 3D Ventricle Mesh</div>
             </div>
         </div>
     </div>
+
     <script>
         let angleX = -0.5, angleY = 0.6;
         let points3D = [];
-        let is3DReady = false;
+        let is3DInitialized = false;
 
         function init3DGeometry() {
             points3D = [];
             const layers = 9;
             const radialPoints = 12;
+            
             for (let i = 0; i <= layers; i++) {
                 let z = (i / layers) * 2.0 - 1.0; 
                 let r = 0.85 - (i / layers) * 0.55; 
                 let zone = i < 4 ? "Base" : (i < 7 ? "Mid" : "Apex");
+                
                 for (let j = 0; j < radialPoints; j++) {
                     let rad = (j / radialPoints) * Math.PI * 2;
                     points3D.push({ x: Math.cos(rad) * r, y: Math.sin(rad) * r, z: z, zone: zone });
                 }
             }
-            is3DReady = true;
-        }
 
+            const group = document.getElementById('meshGroup');
+            if (!group) return;
+            group.innerHTML = ""; 
+            const radPoints = 12;
+
+            for (let i = 0; i < points3D.length; i++) {
+                let lineR = document.createElementNS("http://w3.org", "line");
+                lineR.setAttribute("id", `lr_${i}`);
+                group.appendChild(lineR);
+
+                if (i + radPoints < points3D.length) {
+                    let lineL = document.createElementNS("http://w3.org", "line");
+                    lineL.setAttribute("id", `ll_${i}`);
+                    group.appendChild(lineL);
+                }
+            }
+
+            for (let i = 0; i < points3D.length; i++) {
+                let circle = document.createElementNS("http://w3.org", "circle");
+                circle.setAttribute("id", `c_${i}`);
+                circle.setAttribute("r", "1.5");
+                group.appendChild(circle);
+            }
+            is3DInitialized = true;
+        }
         function draw3DHeart(showDamage) {
-            if (!is3DReady) return;
+            if (!is3DInitialized) init3DGeometry();
+            
             const group = document.getElementById('meshGroup');
             const txt = document.getElementById('placeholder3D');
             if (!group) return;
-            if (txt) txt.style.display = "none";
-            group.innerHTML = "";
+            
+            txt.style.display = "none";
+            group.style.display = "block";
 
             const scale = 100, cx = 200, cy = 120, radPoints = 12;
+            
             let projected = points3D.map(p => {
                 let y1 = p.y * Math.cos(angleX) - p.z * Math.sin(angleX);
                 let z1 = p.y * Math.sin(angleX) + p.z * Math.cos(angleX);
@@ -131,38 +159,40 @@
                 return { x: cx + x2 * scale, y: cy + y1 * scale, zone: p.zone };
             });
 
-            // Рендеринг полигональных линий (Явные атрибуты stroke и stroke-width для Safari)
             for (let i = 0; i < projected.length; i++) {
                 let p1 = projected[i];
                 let pNextR = projected[(i + 1) % radPoints + Math.floor(i / radPoints) * radPoints];
-                let col = 'rgba(29, 53, 87, 0.25)';
+                let col = 'rgba(29, 53, 87, 0.2)';
+                
                 if (showDamage) {
                     if (p1.zone === "Mid") col = 'rgba(230, 57, 70, 0.85)';
                     if (p1.zone === "Apex") col = 'rgba(230, 140, 0, 0.85)';
                 }
 
-                let l1 = document.createElementNS("http://w3.org", "line");
-                l1.setAttribute("x1", p1.x); l1.setAttribute("y1", p1.y);
-                l1.setAttribute("x2", pNextR.x); l1.setAttribute("y2", pNextR.y);
-                l1.setAttribute("stroke", col); l1.setAttribute("stroke-width", "1");
-                group.appendChild(l1);
+                let lr = document.getElementById(`lr_${i}`);
+                if (lr) {
+                    lr.setAttribute("x1", p1.x); lr.setAttribute("y1", p1.y);
+                    lr.setAttribute("x2", pNextR.x); lr.setAttribute("y2", pNextR.y);
+                    lr.setAttribute("stroke", col); lr.setAttribute("stroke-width", "1");
+                }
 
                 if (i + radPoints < projected.length) {
                     let pNextL = projected[i + radPoints];
-                    let l2 = document.createElementNS("http://w3.org", "line");
-                    l2.setAttribute("x1", p1.x); l2.setAttribute("y1", p1.y);
-                    l2.setAttribute("x2", pNextL.x); l2.setAttribute("y2", pNextL.y);
-                    l2.setAttribute("stroke", col); l2.setAttribute("stroke-width", "1");
-                    group.appendChild(l2);
+                    let ll = document.getElementById(`ll_${i}`);
+                    if (ll) {
+                        ll.setAttribute("x1", p1.x); ll.setAttribute("y1", p1.y);
+                        ll.setAttribute("x2", pNextL.x); ll.setAttribute("y2", pNextL.y);
+                        ll.setAttribute("stroke", col); ll.setAttribute("stroke-width", "1");
+                    }
                 }
             }
 
-            // Добавление светящихся вершинных узлов (Обязательный фикс для Safari)
-            projected.forEach(p => {
-                let c = document.createElementNS("http://w3.org", "circle");
-                c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "1.5");
-                c.setAttribute("fill", (showDamage && (p.zone === "Mid" || p.zone === "Apex")) ? '#e63946' : '#1d3557');
-                group.appendChild(c);
+            projected.forEach((p, i) => {
+                let c = document.getElementById(`c_${i}`);
+                if (c) {
+                    c.setAttribute("cx", p.x); c.setAttribute("cy", p.y);
+                    c.setAttribute("fill", (showDamage && (p.zone === "Mid" || p.zone === "Apex")) ? '#e63946' : '#1d3557');
+                }
             });
         }
 
@@ -188,6 +218,7 @@
             let chemo = document.getElementById('chemo').value;
             let isDamaged = (chemo === 'damaged');
             let edfInput = document.getElementById('edfFile');
+
             const BACKEND_URL = "https://railway.app";
 
             if (edfInput && edfInput.files && edfInput.files.length > 0) {
