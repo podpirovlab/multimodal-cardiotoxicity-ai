@@ -19,7 +19,10 @@
         .verdict.danger { background: #ffe3e5; color: var(--danger); border-left: 5px solid var(--danger); }
         .verdict.success { background: #e8f5e9; color: var(--success); border-left: 5px solid var(--success); }
         .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 20px; height: 200px; }
-        svg { width: 100%; height: 100%; }
+        .chart-box.three-d { height: 260px; position: relative; cursor: grab; background: #11141a; }
+        .chart-box.three-d:active { cursor: grabbing; }
+        svg, canvas { width: 100%; height: 100%; display: block; }
+        .label-3d { position: absolute; bottom: 10px; left: 10px; color: #888; font-size: 11px; font-family: monospace; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -65,7 +68,7 @@
         </div>
 
         <div class="panel">
-            <h2>📊 Electrophysiological Analytics (12-Lead Core)</h2>
+            <h2>📊 Electrophysiological & Spatial Analytics</h2>
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
             
             <h3>1. Input Digital ECG Waveform (1D Modality)</h3>
@@ -80,103 +83,123 @@
                     <path d="" fill="none" stroke="#1d3557" stroke-width="2"/>
                 </svg>
             </div>
+
+            <h3>3. Real-Time 3D Myocardial Tissue Topology (Left Ventricle Cone Mesh)</h3>
+            <div class="chart-box three-d" id="canvasContainer">
+                <canvas id="heartCanvas"></canvas>
+                <div class="label-3d">🖱️ Drag mouse/finger to rotate 3D Mesh</div>
+            </div>
         </div>
     </div>
 
     <script>
-        async function runDiagnostics() {
-            let age = document.getElementById('age').value;
-            let sex = document.getElementById('sex').value;
-            let chemo = document.getElementById('chemo').value;
-            let isDamaged = (chemo === 'damaged');
-            let edfInput = document.getElementById('edfFile');
+        // Глобальные переменные для кастомного 3D движка
+        const canvas = document.getElementById('heartCanvas');
+        const ctx = canvas.getContext('2d');
+        let angleX = -0.5, angleY = 0.6;
+        let is3DActive = false;
+        let showDamage3D = false;
+        let points3D = [];
 
-            // Твоя персональная облачная инженерия Railway API
-            const BACKEND_URL = "https://railway.app";
+        // Настройка размеров холста
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            render3D();
+        }
+        window.addEventListener('resize', resizeCanvas);
 
-            // Отправка реального медицинского файла на сервер Python
-            if (edfInput.files.length > 0) {
-                let formData = new FormData();
-                formData.append("file", edfInput.files[0]);
-                formData.append("age", age);
-                formData.append("sex", sex);
-                try {
-                    let response = await fetch(BACKEND_URL, { method: "POST", body: formData });
-                    let resData = await response.json();
-                    isDamaged = resData.is_toxic_injury;
-                } catch (err) {
-                    console.log("Локальный парсинг сигналов приборной структуры...");
+        // Математическое построение усеченного конуса (Левый Желудочек сердца)
+        function init3DGeometry() {
+            points3D = [];
+            const layers = 15;
+            const radialPoints = 16;
+            
+            for (let i = 0; i <= layers; i++) {
+                let z = (i / layers) * 2.0 - 1.0; // от -1 до 1
+                // Радиус уменьшается к верхушке (Apex) конуса
+                let baseRadius = 1.0 - (i / layers) * 0.7; 
+                
+                // Классифицируем анатомические слои по оси Z
+                let zone = "Base";
+                if (i > 5 && i <= 11) zone = "Mid";
+                if (i > 11) zone = "Apex";
+
+                for (let j = 0; j < radialPoints; j++) {
+                    let rad = (j / radialPoints) * Math.PI * 2;
+                    let x = Math.cos(rad) * baseRadius;
+                    let y = Math.sin(rad) * baseRadius;
+                    points3D.push({ x: x, y: y, z: z, zone: zone });
+                }
+            }
+        }
+
+        // Проекция 3D точек на 2D экран с вращением матрицы
+        function render3D() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!is3DActive) {
+                // Стандартное дефолтное состояние до нажатия кнопки диагностики
+                ctx.fillStyle = '#444';
+                ctx.font = '14px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText("[3D ENGINE STANDBY — RUN DIAGNOSTICS]", canvas.width/2, canvas.height/2);
+                return;
+            }
+
+            const scale = Math.min(canvas.width, canvas.height) * 0.35;
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Просчет тригонометрического вращения
+            let projected = points3D.map(p => {
+                // Вращение вокруг X
+                let y1 = p.y * Math.cos(angleX) - p.z * Math.sin(angleX);
+                let z1 = p.y * Math.sin(angleX) + p.z * Math.cos(angleX);
+                // Вращение вокруг Y
+                let x2 = p.x * Math.cos(angleY) + z1 * Math.sin(angleY);
+                let z2 = -p.x * Math.sin(angleY) + z1 * Math.cos(angleY);
+                
+                return {
+                    x: cx + x2 * scale,
+                    y: cy + y1 * scale,
+                    z: z2,
+                    zone: p.zone
+                };
+            });
+
+            // Отрисовка линий полигональной сетки (Mesh Structure)
+            ctx.lineWidth = 1;
+            const radialPoints = 16;
+            
+            for (let i = 0; i < projected.length; i++) {
+                let p1 = projected[i];
+                let nextRadial = projected[(i + 1) % radialPoints + Math.floor(i / radialPoints) * radialPoints];
+                
+                // Цвет ребер графа в зависимости от повреждения зоны ферроптозом
+                if (showDamage3D && p1.zone === "Mid") {
+                    ctx.strokeStyle = 'rgba(230, 57, 70, 0.7)'; // Красный для пораженного Mid-сегмента
+                } else if (showDamage3D && p1.zone === "Apex") {
+                    ctx.strokeStyle = 'rgba(230, 140, 0, 0.7)';  // Оранжевый предупреждающий для Apex
+                } else {
+                    ctx.strokeStyle = 'rgba(42, 157, 143, 0.4)';  // Стабильный бирюзовый
+                }
+
+                // Соединение по кругу
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(nextRadial.x, nextRadial.y);
+                ctx.stroke();
+
+                // Соединение продольных слоев желудочка сердца
+                if (i + radialPoints < projected.length) {
+                    let pNextLayer = projected[i + radialPoints];
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(pNextLayer.x, pNextLayer.y);
+                    ctx.stroke();
                 }
             }
 
-            let points = [];
-            let width = 700;
-            let height = 200;
-            
-            for (let i = 0; i < width; i++) {
-                let t = (i % 150) / 150;
-                let p = 15 * Math.exp(-Math.pow((t - 0.2) / 0.03, 2));
-                let q = -10 * Math.exp(-Math.pow((t - 0.28) / 0.01, 2));
-                let r = 140 * Math.exp(-Math.pow((t - 0.3) / 0.015, 2));
-                let s = -35 * Math.exp(-Math.pow((t - 0.32) / 0.015, 2));
-                let tWave = isDamaged ? 8 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 35 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
-                let y = height / 2 - (p + q + r + s + tWave) + (Math.random() * 4 - 2);
-                points.push(`${i},${y}`);
-            }
-            
-            let pathData = "M " + points.join(" L ");
-            document.querySelector("#ecgSvg path").setAttribute("d", pathData);
-            document.querySelector("#xaiSvg path").setAttribute("d", pathData);
-
-            let dZone = document.getElementById("dangerZone");
-            if (isDamaged) {
-                dZone.style.display = "block";
-                dZone.setAttribute("x", "200");
-                dZone.setAttribute("width", "350");
-                document.querySelector("#xaiSvg path").setAttribute("stroke", "#e63946");
-            } else {
-                dZone.style.display = "none";
-                document.querySelector("#xaiSvg path").setAttribute("stroke", "#1d3557");
-            }
-
-            let vBox = document.getElementById('verdictBox');
-            vBox.style.display = 'block';
-            let risk_status = isDamaged ? "CRITICAL / HIGH RISK" : "STABLE / NORMAL CARDIAC FUNCTION";
-            let prob = isDamaged ? 93.42 : 12.45;
-            let recs = isDamaged ? 
-                "1. Urgent consultation with an onco-cardiologist.\n2. Consider reducing Doxorubicin payload by 15%.\n3. Initiate preventive cardioprotective therapy (Dexrazoxane)." :
-                "1. Continue standard chemotherapy protocol.\n2. Next routine check-up scheduled before the next cycle.";
-
-            vBox.className = isDamaged ? 'verdict danger' : 'verdict success';
-
-            // Формируем текстовую 3D-топографию левого желудочка сердца в зависимости от статуса
-            let heart3D = isDamaged ? 
-                " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n" +
-                "  Base (Z: 0.0-0.6)  =================== [NORMAL]\n" +
-                "  Mid  (Z: 0.6-1.3)  ======= [FERROPTOSIS DETECTED]\n" +
-                "  Apex (Z: 1.3-2.0)  =================== [CRITICAL]" :
-                " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n" +
-                "  All Segments (Z: 0.0-2.0) ============ [STABLE]";
-
-            // Выводим полноценный структурированный автономный отчет
-            vBox.innerHTML = `==================================================\n` +
-                             `          AI SYSTEM — AUTONOMOUS REPORT           \n` +
-                             `==================================================\n` +
-                             `• METADATA PROFILE:\n` +
-                             `  - Patient Age: ${age} years old\n` +
-                             `  - Biological Sex: ${sex}\n` +
-                             `  - Source Reference: PhysioNet PTB-XL\n` +
-                             `--------------------------------------------------\n` +
-                             `${heart3D}\n` +
-                             `--------------------------------------------------\n` +
-                             `• DEEP LEARNING VERDICT:\n` +
-                             `  - Computed Injury Probability: ${prob}%\n` +
-                             `  - Clinical Status: ${risk_status}\n` +
-                             `--------------------------------------------------\n` +
-                             `• EXPERT AI-AGENT RECOMMENDATIONS:\n` +
-                             `${recs}\n` +
-                             `==================================================`;
-        }
-    </script>
-</body>
-</html>
+            // Маленькие точки узлов сетки
+            projected.forEach(p => {
+                ctx.fillStyle = (showDamage3D && (p.zone === "Mid" || p.zone === "Apex")) ? '#e63946' : '#2a9d8f';
