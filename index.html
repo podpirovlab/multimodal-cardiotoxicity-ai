@@ -66,7 +66,6 @@
             <button class="btn" onclick="runDiagnostics()">🚀 RUN AI DIAGNOSTICS</button>
             <div id="verdictBox" class="verdict"></div>
         </div>
-
         <div class="panel">
             <h2>📊 Electrophysiological Analytics (12-Lead Core)</h2>
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
@@ -75,6 +74,7 @@
             <div class="chart-box">
                 <svg id="ecgSvg"><path d="" fill="none" stroke="#1d3557" stroke-width="2"/></svg>
             </div>
+
             <h3>2. Explainable AI (XAI) Myocardial Repolarization Focus</h3>
             <div class="chart-box">
                 <svg id="xaiSvg">
@@ -114,7 +114,6 @@
             }
             is3DReady = true;
         }
-
         function draw3DHeart(showDamage) {
             if (!is3DReady) return;
             const group = document.getElementById('meshGroup');
@@ -177,11 +176,12 @@
             let chemo = document.getElementById('chemo').value;
             let isDamaged = (chemo === 'damaged');
             let edfInput = document.getElementById('edfFile');
+
             const BACKEND_URL = "https://railway.app";
 
             if (edfInput && edfInput.files && edfInput.files.length > 0) {
                 let formData = new FormData();
-                formData.append("file", edfInput.files[0]);
+                formData.append("file", edfInput.files);
                 formData.append("age", age);
                 formData.append("sex", sex);
                 try {
@@ -232,6 +232,7 @@
                     "1. Continue standard chemotherapy protocol.\n2. Next routine check-up scheduled before the next cycle.";
 
                 vBox.className = isDamaged ? 'verdict danger' : 'verdict success';
+                
                 let heart3D = isDamaged ? 
                     " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  Base (Z: 0.0-0.6)  =================== [NORMAL]\n  Mid  (Z: 0.6-1.3)  ======= [FERROPTOSIS DETECTED]\n  Apex (Z: 1.3-2.0)  =================== [CRITICAL]" :
                     " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  All Segments (Z: 0.0-2.0) ============ [STABLE]";
