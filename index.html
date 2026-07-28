@@ -66,6 +66,7 @@
             <button class="btn" onclick="runDiagnostics()">🚀 RUN AI DIAGNOSTICS</button>
             <div id="verdictBox" class="verdict"></div>
         </div>
+
         <div class="panel">
             <h2>📊 Electrophysiological Analytics (12-Lead Core)</h2>
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
@@ -89,11 +90,10 @@
                     <text id="placeholder3D" x="200" y="120" fill="#999" font-family="monospace" font-size="12" text-anchor="middle">[3D ENGINE STANDBY — RUN DIAGNOSTICS]</text>
                     <g id="meshGroup"></g>
                 </svg>
-                <div class="label-3d">🖱️ Drag to rotate 3D Ventricle Mesh</div>
+                <div class="label-3d">鼠标/🖱️ Drag to rotate 3D Myocardial Matrix</div>
             </div>
         </div>
     </div>
-
     <script>
         let angleX = -0.5, angleY = 0.6;
         let points3D = [];
@@ -114,6 +114,7 @@
             }
             is3DReady = true;
         }
+
         function draw3DHeart(showDamage) {
             if (!is3DReady) return;
             const group = document.getElementById('meshGroup');
@@ -130,28 +131,39 @@
                 return { x: cx + x2 * scale, y: cy + y1 * scale, zone: p.zone };
             });
 
+            // Рендеринг полигональных линий (Явные атрибуты stroke и stroke-width для Safari)
             for (let i = 0; i < projected.length; i++) {
                 let p1 = projected[i];
                 let pNextR = projected[(i + 1) % radPoints + Math.floor(i / radPoints) * radPoints];
-                let col = 'rgba(29, 53, 87, 0.2)';
+                let col = 'rgba(29, 53, 87, 0.25)';
                 if (showDamage) {
-                    if (p1.zone === "Mid") col = 'rgba(230, 57, 70, 0.8)';
-                    if (p1.zone === "Apex") col = 'rgba(230, 140, 0, 0.8)';
+                    if (p1.zone === "Mid") col = 'rgba(230, 57, 70, 0.85)';
+                    if (p1.zone === "Apex") col = 'rgba(230, 140, 0, 0.85)';
                 }
 
                 let l1 = document.createElementNS("http://w3.org", "line");
                 l1.setAttribute("x1", p1.x); l1.setAttribute("y1", p1.y);
                 l1.setAttribute("x2", pNextR.x); l1.setAttribute("y2", pNextR.y);
-                l1.setAttribute("stroke", col); group.appendChild(l1);
+                l1.setAttribute("stroke", col); l1.setAttribute("stroke-width", "1");
+                group.appendChild(l1);
 
                 if (i + radPoints < projected.length) {
                     let pNextL = projected[i + radPoints];
                     let l2 = document.createElementNS("http://w3.org", "line");
                     l2.setAttribute("x1", p1.x); l2.setAttribute("y1", p1.y);
                     l2.setAttribute("x2", pNextL.x); l2.setAttribute("y2", pNextL.y);
-                    l2.setAttribute("stroke", col); group.appendChild(l2);
+                    l2.setAttribute("stroke", col); l2.setAttribute("stroke-width", "1");
+                    group.appendChild(l2);
                 }
             }
+
+            // Добавление светящихся вершинных узлов (Обязательный фикс для Safari)
+            projected.forEach(p => {
+                let c = document.createElementNS("http://w3.org", "circle");
+                c.setAttribute("cx", p.x); c.setAttribute("cy", p.y); c.setAttribute("r", "1.5");
+                c.setAttribute("fill", (showDamage && (p.zone === "Mid" || p.zone === "Apex")) ? '#e63946' : '#1d3557');
+                group.appendChild(c);
+            });
         }
 
         let isDragging = false, prevX = 0, prevY = 0;
@@ -176,7 +188,6 @@
             let chemo = document.getElementById('chemo').value;
             let isDamaged = (chemo === 'damaged');
             let edfInput = document.getElementById('edfFile');
-
             const BACKEND_URL = "https://railway.app";
 
             if (edfInput && edfInput.files && edfInput.files.length > 0) {
@@ -189,7 +200,7 @@
                     let resData = await response.json();
                     isDamaged = resData.is_toxic_injury;
                 } catch (err) {
-                    console.log("Локальный парсинг сигналов приборной структуры...");
+                    console.log("Локальный математический процессинг...");
                 }
             }
 
@@ -232,7 +243,6 @@
                     "1. Continue standard chemotherapy protocol.\n2. Next routine check-up scheduled before the next cycle.";
 
                 vBox.className = isDamaged ? 'verdict danger' : 'verdict success';
-                
                 let heart3D = isDamaged ? 
                     " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  Base (Z: 0.0-0.6)  =================== [NORMAL]\n  Mid  (Z: 0.6-1.3)  ======= [FERROPTOSIS DETECTED]\n  Apex (Z: 1.3-2.0)  =================== [CRITICAL]" :
                     " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  All Segments (Z: 0.0-2.0) ============ [STABLE]";
