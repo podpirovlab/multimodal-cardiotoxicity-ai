@@ -91,66 +91,76 @@
             </div>
         </div>
     </div>
-    <script>
-        // Инициализация 3D сцены Three.js для рендеринга левого желудочка
-        let scene, camera, renderer, heartMesh;
+        <script>
+        // Полностью автономный 3D-движок на чистом HTML5 Canvas
         const container = document.getElementById('canvas3d');
-        
-        function init3D() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xffffff);
-            
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
-            camera.position.set(0, 0, 4);
+        container.innerHTML = '<canvas id="heart3dCanvas"></canvas>';
+        const canvas = document.getElementById('heart3dCanvas');
+        const ctx = canvas.getContext('2d');
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            container.domElement.style.width = '100%';
-            container.domElement.style.height = '100%';
-            container.appendChild(renderer.domElement);
+        let width = container.clientWidth || 600;
+        let height = container.clientHeight || 250;
+        canvas.width = width;
+        canvas.height = height;
 
-            // Построение анатомической сетки миокарда (усеченный конус)
-            const geometry = new THREE.CylinderGeometry(0.3, 0.9, 1.8, 32, 16, true);
-            const material = new THREE.MeshPhongMaterial({ color: 0x1d4540, wireframe: true, side: THREE.DoubleSide });
-            heartMesh = new THREE.Mesh(geometry, material);
-            heartMesh.rotation.x = 0.4;
-            scene.add(heartMesh);
+        let angle = 0;
+        let localIsDamaged = false;
 
-            const light1 = new THREE.DirectionalLight(0xffffff, 1.2);
-            light1.position.set(5, 5, 5);
-            scene.add(light1);
-            scene.add(new THREE.AmbientLight(0x505050));
+        // Генерация математической 3D-сетки левого желудочка
+        function draw3DHeart() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = localIsDamaged ? '#e63946' : '#1d4540';
+            ctx.lineWidth = localIsDamaged ? 1.5 : 1;
 
-            // Плавное вращение модели левого желудочка
-            function animate() {
-                requestAnimationFrame(animate);
-                heartMesh.rotation.y += 0.008;
-                renderer.render(scene, camera);
+            let points = [];
+            // Создаем послойную структуру усеченного конуса
+            for (let z = -60; z <= 60; z += 15) {
+                let radius = 50 - (z * 0.2); // Сужение к апексу
+                for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) {
+                    // Вращение по оси Y
+                    let rotX = radius * Math.cos(a + angle);
+                    let rotZ = radius * Math.sin(a + angle) + z * 0.2;
+                    
+                    // Перспективная проекция 3D в 2D
+                    let distance = 200;
+                    let fov = 150;
+                    let scale = fov / (distance + rotZ);
+                    let projX = width / 2 + rotX * scale;
+                    let projY = height / 2 + z * scale;
+                    
+                    points.push({x: projX, y: projY, z: z, a: a});
+                }
             }
-            animate();
-            
-            // Фикс адаптивности под Safari на Mac и iOS
-            window.addEventListener('resize', () => {
-                if(!container) return;
-                camera.aspect = container.clientWidth / container.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, container.clientHeight);
-            });
+
+            // Рисуем линии сетки миокарда
+            for (let i = 0; i < points.length; i++) {
+                let p1 = points[i];
+                // Горизонтальные связи
+                let p2 = points[(i + 1) % 16 === 0 ? i - 15 : i + 1];
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+
+                // Вертикальные связи
+                if (i + 16 < points.length) {
+                    let p3 = points[i + 16];
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p3.x, p3.y);
+                    ctx.stroke();
+                }
+            }
+            angle += 0.015;
+            requestAnimationFrame(draw3DHeart);
         }
 
-        // Динамическое изменение состояния ткани миокарда при расчете ИИ
         function update3DModel(isDamaged) {
-            if (!heartMesh) return;
-            if (isDamaged) {
-                heartMesh.material.color.setHex(0xe63946); // Очаг ферроптоза (Красный)
-                heartMesh.material.wireframe = false;      // Плотная ткань для наглядности поражения
-            } else {
-                heartMesh.material.color.setHex(0x1d4540); // Стабильная норма (Бирюзовый)
-                heartMesh.material.wireframe = true;       // Чистая сетка структуры
-            }
+            localIsDamaged = isDamaged;
         }
 
-        window.onload = init3D;
+        // Автозапуск 3D при загрузке страницы
+        setTimeout(draw3DHeart, 100);
 
         async function runDiagnostics() {
             let age = document.getElementById('age').value;
@@ -161,17 +171,17 @@
             update3DModel(isDamaged);
 
             let points = [];
-            let width = 700;
-            let height = 200;
+            let chartWidth = 700;
+            let chartHeight = 200;
             
-            for (let i = 0; i < width; i++) {
+            for (let i = 0; i < chartWidth; i++) {
                 let t = (i % 150) / 150;
                 let p = 15 * Math.exp(-Math.pow((t - 0.2) / 0.03, 2));
                 let q = -10 * Math.exp(-Math.pow((t - 0.28) / 0.01, 2));
                 let r = 140 * Math.exp(-Math.pow((t - 0.3) / 0.015, 2));
                 let s = -35 * Math.exp(-Math.pow((t - 0.32) / 0.015, 2));
                 let tWave = isDamaged ? 8 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 35 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
-                let y = height / 2 - (p + q + r + s + tWave) + (Math.random() * 4 - 2);
+                let y = chartHeight / 2 - (p + q + r + s + tWave) + (Math.random() * 4 - 2);
                 points.push(`${i},${y}`);
             }
             
@@ -223,4 +233,6 @@
         }
     </script>
 </body>
+</html>
+
 </html>
