@@ -18,11 +18,12 @@
         .verdict { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; font-weight: bold; white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.4; }
         .verdict.danger { background: #ffe3e5; color: var(--danger); border-left: 5px solid var(--danger); }
         .verdict.success { background: #e8f5e9; color: var(--success); border-left: 5px solid var(--success); }
-        .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 20px; height: 200px; }
-        .chart-box.three-d { height: 250px; position: relative; cursor: grab; background: #fff; }
+        .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 20px; height: 200px; position: relative; }
+        .chart-box.three-d { height: 280px; cursor: grab; }
         .chart-box.three-d:active { cursor: grabbing; }
-        svg, canvas { width: 100%; height: 100%; display: block; }
-        .label-3d { position: absolute; bottom: 8px; left: 12px; color: #888; font-size: 11px; font-family: monospace; pointer-events: none; }
+        svg { width: 100%; height: 100%; display: block; }
+        .label-3d { position: absolute; bottom: 10px; left: 10px; color: #888; font-size: 11px; font-family: monospace; pointer-events: none; }
+        #placeholder3D { position: absolute; top: 50%; left: 50%; transform: translate(-25%, -50%); color: #999; font-size: 12px; font-family: monospace; }
     </style>
 </head>
 <body>
@@ -68,7 +69,7 @@
         </div>
 
         <div class="panel">
-            <h2>📊 Electrophysiological Analytics (12-Lead Core)</h2>
+            <h2>📊 Electrophysiological & Spatial Analytics</h2>
             <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
             
             <h3>1. Input Digital ECG Waveform (1D Modality)</h3>
@@ -86,39 +87,32 @@
 
             <h3>3. Real-Time 3D Myocardial Tissue Topology (Left Ventricle Cone Mesh)</h3>
             <div class="chart-box three-d" id="canvasContainer">
-                <canvas id="heartCanvas"></canvas>
-                <div class="label-3d">鼠标/🖱️ Drag to rotate 3D Myocardial Matrix</div>
+                <div id="placeholder3D">[3D SPATIAL ENGINE STANDBY]</div>
+                <svg id="heart3dSvg" viewBox="0 0 400 280">
+                    <g id="meshGroup"></g>
+                </svg>
+                <div class="label-3d">🖱️ Drag to rotate 3D Myocardial Matrix</div>
             </div>
         </div>
     </div>
 
     <script>
-        // Инициализация безопасных переменных кастомного 3D-модуля
-        const canvas = document.getElementById('heartCanvas');
-        const ctx = canvas ? canvas.getContext('2d') : null;
-        let angleX = -0.6, angleY = 0.5;
+        // Высококлассный математический 3D-движок на векторизованном SVG
+        let angleX = -0.5, angleY = 0.6;
+        let points3D = [];
         let is3DActive = false;
         let showDamage3D = false;
-        let points3D = [];
-
-        function resizeCanvas() {
-            if (!canvas) return;
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-            render3D();
-        }
-        window.addEventListener('resize', resizeCanvas);
 
         function init3DGeometry() {
             points3D = [];
-            const layers = 12;
-            const radialPoints = 16;
+            const layers = 10;
+            const radialPoints = 14;
             for (let i = 0; i <= layers; i++) {
                 let z = (i / layers) * 2.0 - 1.0; 
-                let baseRadius = 0.85 - (i / layers) * 0.55; 
+                let baseRadius = 0.9 - (i / layers) * 0.6; 
                 let zone = "Base";
-                if (i > 4 && i <= 8) zone = "Mid";
-                if (i > 8) zone = "Apex";
+                if (i > 3 && i <= 7) zone = "Mid";
+                if (i > 7) zone = "Apex";
 
                 for (let j = 0; j < radialPoints; j++) {
                     let rad = (j / radialPoints) * Math.PI * 2;
@@ -130,80 +124,70 @@
         }
 
         function render3D() {
-            if (!ctx || !canvas) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const meshGroup = document.getElementById('meshGroup');
+            const placeholder = document.getElementById('placeholder3D');
+            if (!meshGroup) return;
             
             if (!is3DActive) {
-                ctx.fillStyle = '#999';
-                ctx.font = '12px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillText("[3D SPATIAL ENGINE STANDBY — RUN DIAGNOSTICS]", canvas.width/2, canvas.height/2);
+                placeholder.style.display = "block";
                 return;
             }
+            placeholder.style.display = "none";
+            meshGroup.innerHTML = "";
 
-            const scale = Math.min(canvas.width, canvas.height) * 0.4;
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
+            const scale = 110;
+            const cx = 200;
+            const cy = 140;
+            const radialPoints = 14;
 
             let projected = points3D.map(p => {
                 let y1 = p.y * Math.cos(angleX) - p.z * Math.sin(angleX);
                 let z1 = p.y * Math.sin(angleX) + p.z * Math.cos(angleX);
                 let x2 = p.x * Math.cos(angleY) + z1 * Math.sin(angleY);
-                let z2 = -p.x * Math.sin(angleY) + z1 * Math.cos(angleY);
-                return { x: cx + x2 * scale, y: cy + y1 * scale, z: z2, zone: p.zone };
+                return { x: cx + x2 * scale, y: cy + y1 * scale, zone: p.zone };
             });
 
-            ctx.lineWidth = 1;
-            const radialPoints = 16;
+            // Рендеринг полигональной структуры
             for (let i = 0; i < projected.length; i++) {
                 let p1 = projected[i];
                 let nextRadial = projected[(i + 1) % radialPoints + Math.floor(i / radialPoints) * radialPoints];
                 
-                if (showDamage3D && p1.zone === "Mid") {
-                    ctx.strokeStyle = 'rgba(230, 57, 70, 0.85)'; 
-                } else if (showDamage3D && p1.zone === "Apex") {
-                    ctx.strokeStyle = 'rgba(230, 90, 0, 0.85)';  
-                } else {
-                    ctx.strokeStyle = 'rgba(29, 53, 87, 0.25)';  
+                let strokeColor = 'rgba(29, 53, 87, 0.25)';
+                if (showDamage3D) {
+                    if (p1.zone === "Mid") strokeColor = 'rgba(230, 57, 70, 0.85)';
+                    if (p1.zone === "Apex") strokeColor = 'rgba(230, 140, 0, 0.85)';
                 }
 
-                ctx.beginPath();
-                ctx.moveTo(p1.x, p1.y);
-                ctx.lineTo(nextRadial.x, nextRadial.y);
-                ctx.stroke();
+                // Горизонтальные круговые связи
+                let line1 = document.createElementNS("http://w3.org", "line");
+                line1.setAttribute("x1", p1.x); line1.setAttribute("y1", p1.y);
+                line1.setAttribute("x2", nextRadial.x); line1.setAttribute("y2", nextRadial.y);
+                line1.setAttribute("stroke", strokeColor); line1.setAttribute("stroke-width", "1");
+                meshGroup.appendChild(line1);
 
+                // Вертикальные продольные связи между слоями сердца
                 if (i + radialPoints < projected.length) {
                     let pNextLayer = projected[i + radialPoints];
-                    ctx.beginPath();
-                    ctx.moveTo(p1.x, p1.y);
-                    ctx.lineTo(pNextLayer.x, pNextLayer.y);
-                    ctx.stroke();
+                    let line2 = document.createElementNS("http://w3.org", "line");
+                    line2.setAttribute("x1", p1.x); line2.setAttribute("y1", p1.y);
+                    line2.setAttribute("x2", pNextLayer.x); line2.setAttribute("y2", pNextLayer.y);
+                    line2.setAttribute("stroke", strokeColor); line2.setAttribute("stroke-width", "1");
+                    meshGroup.appendChild(line2);
                 }
             }
 
+            // Рендеринг анатомических узлов
             projected.forEach(p => {
-                ctx.fillStyle = (showDamage3D && (p.zone === "Mid" || p.zone === "Apex")) ? '#e63946' : '#1d3557';
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
-                ctx.fill();
+                let circle = document.createElementNS("http://w3.org", "circle");
+                circle.setAttribute("cx", p.x); circle.setAttribute("cy", p.y); circle.setAttribute("r", "2");
+                circle.setAttribute("fill", (showDamage3D && (p.zone === "Mid" || p.zone === "Apex")) ? '#e63946' : '#1d3557');
+                meshGroup.appendChild(circle);
             });
         }
 
+        // Интерактивное вращение (безопасно для десктопов и Safari на iOS)
         let isDragging = false;
         let previousMousePosition = { x: 0, y: 0 };
         const container = document.getElementById('canvasContainer');
         
         function startDrag(x, y) { isDragging = true; previousMousePosition = { x, y }; }
-        function drag(x, y) {
-            if (!isDragging || !is3DActive) return;
-            let deltaX = x - previousMousePosition.x;
-            let deltaY = y - previousMousePosition.y;
-            angleY += deltaX * 0.01;
-            angleX += deltaY * 0.01;
-            previousMousePosition = { x, y };
-            render3D();
-        }
-        function stopDrag() { isDragging = false; }
-
-        if (container) {
-            container.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
