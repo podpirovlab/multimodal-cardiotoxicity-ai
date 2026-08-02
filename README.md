@@ -29,6 +29,7 @@ The system utilizes a **Multimodal Bilinear Tensor Fusion** approach:
 <img width="1389" height="590" alt="wavelet_cnn_features" src="https://github.com/user-attachments/assets/2744babe-b283-4d21-b623-aa4884b68a61" />
 
 
+
 ## 🧠 Interactive 3D Spatial Interpretability Layer
 To bridge the gap between high-dimensional deep learning weights and clinical utility, the framework implements an autonomous **3D Myocardial Tissue Topology Engine**. Instead of relying on heavy third-party graphics pipelines, the system computes coordinates in real-time using native vector mathematics directly projected onto an HTML5 SVG viewport.
 
