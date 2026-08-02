@@ -5,91 +5,135 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CardioOncoPredict: Multimodal AI System</title>
     <style>
-        :root { --primary: #1d3557; --danger: #e63946; --success: #2a9d8f; --bg: #f8f9fa; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
-        .dashboard { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
-        .panel { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h2, h3 { color: var(--primary); margin-top: 0; font-weight: 700; }
-        .form-group { margin-bottom: 18px; }
-        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; }
-        select, input[type="range"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
-        .btn { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn:hover { background: #132237; }
-        .verdict { margin-top: 20px; padding: 15px; border-radius: 6px; display: none; font-weight: bold; white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.4; }
-        .verdict.danger { background: #ffe3e5; color: var(--danger); border-left: 5px solid var(--danger); }
-        .verdict.success { background: #e8f5e9; color: var(--success); border-left: 5px solid var(--success); }
-        .chart-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 20px; height: 200px; position: relative; }
-        .chart-box.three-d { height: 240px; background: #fff; cursor: grab; }
-        .chart-box.three-d:active { cursor: grabbing; }
+        :root { 
+            --apple-dark: #1d1d1f; 
+            --apple-gray: #f5f5f7; 
+            --apple-blue: #0071e3; 
+            --apple-danger: #ff3b30; 
+            --apple-success: #34c759; 
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background-color: #ffffff; 
+            margin: 0; 
+            padding: 0; 
+            color: var(--apple-dark);
+            -webkit-font-smoothing: antialiased;
+        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+        header { text-align: center; margin-bottom: 50px; }
+        header h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
+        header p { font-size: 19px; color: #86868b; margin: 0; }
+        .grid-system { display: grid; grid-template-columns: 380px 1fr; gap: 32px; }
+        @media (max-width: 900px) { .grid-system { grid-template-columns: 1fr; } }
+        .card { 
+            background: #ffffff; 
+            border-radius: 20px; 
+            padding: 30px; 
+            box-shadow: 0 8px 30px rgba(0,0,0,0.04); 
+            border: 1px solid rgba(0,0,0,0.02);
+        }
+        .card h2 { font-size: 22px; font-weight: 600; margin-top: 0; margin-bottom: 24px; }
+        .input-group { margin-bottom: 22px; }
+        .input-group label { display: block; font-size: 13px; font-weight: 500; color: #86868b; margin-bottom: 8px; text-transform: uppercase; }
+        select { 
+            width: 100%; 
+            padding: 12px 16px; 
+            border-radius: 12px; 
+            background: var(--apple-gray); 
+            border: none; 
+            font-size: 15px; 
+            color: var(--apple-dark); 
+            font-weight: 500;
+            outline: none;
+        }
+        input[type="range"] { width: 100%; -webkit-appearance: none; background: #e5e5ea; height: 6px; border-radius: 3px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { 
+            -webkit-appearance: none; 
+            background: var(--apple-blue); 
+            width: 18px; 
+            height: 18px; 
+            border-radius: 50%; 
+            cursor: pointer; 
+        }
+        .action-btn { 
+            width: 100%; 
+            background: var(--apple-blue); 
+            color: #ffffff; 
+            border: none; 
+            padding: 14px; 
+            border-radius: 14px; 
+            font-size: 16px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: background 0.2s ease;
+        }
+        .action-btn:hover { background: #0077ed; }
+        .verdict-box { margin-top: 24px; padding: 20px; border-radius: 14px; display: none; font-size: 14px; line-height: 1.5; font-weight: 500; }
+        .verdict-box.danger { background: #fff2f1; color: var(--apple-danger); border-left: 4px solid var(--apple-danger); }
+        .verdict-box.success { background: #f2fbf4; color: var(--apple-success); border-left: 4px solid var(--apple-success); }
+        .display-screen { background: var(--apple-gray); border-radius: 16px; padding: 16px; margin-bottom: 24px; height: 180px; position: relative; }
+        .display-screen.three-d-box { height: 260px; cursor: grab; background: #ffffff; border: 1px solid #e5e5ea; }
         svg { width: 100%; height: 100%; display: block; }
-        .label-3d { position: absolute; bottom: 8px; left: 12px; color: #888; font-size: 11px; font-family: monospace; pointer-events: none; }
+        svg#heartMeshSvg { width: 400px; height: 240px; display: block; margin: 0 auto; min-height: 240px; }
+        .chart-title { font-size: 14px; font-weight: 600; color: #86868b; margin-bottom: 12px; }
+        .hint-text { position: absolute; bottom: 10px; right: 14px; color: #c7c7cc; font-size: 10px; font-family: monospace; }
     </style>
 </head>
 <body>
 
-    <div style="text-align: center; margin-bottom: 30px;">
-        <h1 style="color: var(--primary); margin-bottom: 5px;">🩺 CardioOncoPredict: Multimodal AI System</h1>
-        <p style="margin: 0; color: #666; font-weight: 500;">Early Detection of Anthracycline-Induced Cardiotoxicity | MIT Maker Portfolio</p>
-    </div>
+    <div class="container">
+        <header>
+            <h1>CardioOncoPredict</h1>
+            <p>Decentralized Edge AI Framework | MIT Maker Portfolio Suite</p>
+        </header>
 
-    <div class="dashboard">
-        <div class="panel">
-            <h2>📋 Patient Profile</h2>
-            <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
-            
-            <div class="form-group">
-                <label>Patient Age: <span id="ageVal">45</span> years</label>
-                <input type="range" id="age" min="18" max="90" value="45" oninput="document.getElementById('ageVal').innerText=this.value">
+        <div class="grid-system">
+            <div class="card">
+                <h2>Diagnostic Profile</h2>
+                <div class="input-group">
+                    <label>Patient Age: <span id="ageDisplay" style="color:var(--apple-blue); font-weight:600;">45</span></label>
+                    <input type="range" id="patientAge" min="18" max="90" value="45" oninput="document.getElementById('ageDisplay').innerText=this.value">
+                </div>
+                <div class="input-group">
+                    <label>Biological Sex</label>
+                    <select id="patientSex">
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Chemotherapy History</label>
+                    <select id="chemoHistory">
+                        <option value="stable">Routine Surveillance (Baseline)</option>
+                        <option value="injury">Cumulative Critical Doxorubicin Dose</option>
+                    </select>
+                </div>
+                <button class="action-btn" onclick="executeDiagnosticsPipeline()">Analyze Stream</button>
+                <div id="verdictOutput" class="verdict-box"></div>
             </div>
 
-            <div class="form-group">
-                <label>Biological Sex:</label>
-                <select id="sex">
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Chemotherapy History:</label>
-                <select id="chemo">
-                    <option value="normal">Routine Surveillance (Baseline Pre-Check)</option>
-                    <option value="damaged">🚨 Cumulative Critical Dose of Doxorubicin</option>
-                </select>
-            </div>
-
-            <div class="form-group" style="margin-top: 15px;">
-                <label>🩺 Load Clinical Data (.EDF / .XML):</label>
-                <input type="file" id="edfFile" accept=".edf,.xml" style="width: 100%; padding: 8px; background: #fff; border: 1px dashed var(--primary); border-radius: 6px; cursor: pointer;">
-            </div>
-
-            <button class="btn" onclick="runDiagnostics()">🚀 RUN AI DIAGNOSTICS</button>
-            <div id="verdictBox" class="verdict"></div>
-        </div>
-        <div class="panel">
-            <h2>📊 Electrophysiological Analytics (12-Lead Core)</h2>
-            <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
-            
-            <h3>1. Input Digital ECG Waveform (1D Modality)</h3>
-            <div class="chart-box">
-                <svg id="ecgSvg"><path d="" fill="none" stroke="#1d3557" stroke-width="2"/></svg>
-            </div>
-
-            <h3>2. Explainable AI (XAI) Myocardial Repolarization Focus</h3>
-            <div class="chart-box">
-                <svg id="xaiSvg">
-                    <rect id="dangerZone" x="0" y="0" width="0" height="200" fill="rgba(230,57,70,0.25)" display="none"/>
-                    <path d="" fill="none" stroke="#1d3557" stroke-width="2"/>
-                </svg>
-            </div>
-
-            <h3>3. Real-Time 3D Myocardial Tissue Topology</h3>
-            <div class="chart-box three-d" id="canvasContainer">
-                <svg id="heart3dSvg" viewBox="0 0 400 240" xmlns="http://w3.org">
-                    <text id="placeholder3D" x="200" y="120" fill="#999" font-family="monospace" font-size="12" text-anchor="middle">[3D ENGINE STANDBY — RUN DIAGNOSTICS]</text>
-                    <g id="meshGroup" style="display: none;"></g>
-                </svg>
-                <div class="label-3d">🖱️ Drag to rotate 3D Ventricle Mesh</div>
+            <div class="card">
+                <h2 style="margin-bottom: 30px;">Electrophysiological & Spatial Analytics</h2>
+                <p class="chart-title">1. Real-Time 12-Lead Electrophysiological Signal (INT8 Client-Side Compute)</p>
+                <div class="display-screen">
+                    <svg id="ecgWaveform"><path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/></svg>
+                </div>
+                <p class="chart-title">2. Explainable AI (XAI) Focused Myocardial Repolarization Area</p>
+                <div class="display-screen">
+                    <svg id="xaiFocus">
+                        <rect id="alertZone" x="0" y="0" width="0" height="180" fill="rgba(255,59,48,0.12)" display="none"/>
+                        <path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/>
+                    </svg>
+                </div>
+                <p class="chart-title">3. Real-Time 3D Myocardial Tissue Topology (Left Ventricle Mesh)</p>
+                <div class="display-screen three-d-box" id="canvasContainer">
+                    <svg id="heartMeshSvg" viewBox="0 0 400 240" xmlns="http://w3.org">
+                        <text id="standbyText" x="200" y="120" fill="#999" font-family="monospace" font-size="12" text-anchor="middle">[3D ENGINE STANDBY — RUN DIAGNOSTICS]</text>
+                        <g id="meshVectors" style="display: none;"></g>
+                    </svg>
+                    <div class="hint-text">TOUCH/DRAG TO ROTATE</div>
+                </div>
             </div>
         </div>
     </div>
@@ -111,7 +155,7 @@
                     points3D.push({ x: Math.cos(rad) * r, y: Math.sin(rad) * r, z: z, zone: zone });
                 }
             }
-            const group = document.getElementById('meshGroup');
+            const group = document.getElementById('meshVectors');
             if (!group) return;
             group.innerHTML = ""; 
             const radPoints = 12;
@@ -136,10 +180,10 @@
 
         function draw3DHeart(showDamage) {
             if (!is3DInitialized) init3DGeometry();
-            const group = document.getElementById('meshGroup');
-            const txt = document.getElementById('placeholder3D');
+            const group = document.getElementById('meshVectors');
+            const txt = document.getElementById('standbyText');
             if (!group) return;
-            txt.style.display = "none";
+            if (txt) txt.style.display = "none";
             group.style.display = "block";
             const scale = 100, cx = 200, cy = 120, radPoints = 12;
             let projected = points3D.map(p => {
@@ -151,10 +195,10 @@
             for (let i = 0; i < projected.length; i++) {
                 let p1 = projected[i];
                 let pNextR = projected[(i + 1) % radPoints + Math.floor(i / radPoints) * radPoints];
-                let col = 'rgba(29, 53, 87, 0.25)';
+                let col = 'rgba(29, 29, 31, 0.15)';
                 if (showDamage) {
-                    if (p1.zone === "Mid") col = 'rgba(230, 57, 70, 0.85)';
-                    if (p1.zone === "Apex") col = 'rgba(230, 140, 0, 0.85)';
+                    if (p1.zone === "Mid") col = 'rgba(255, 59, 48, 0.85)';
+                    if (p1.zone === "Apex") col = 'rgba(255, 149, 0, 0.85)';
                 }
                 let lr = document.getElementById(`lr_${i}`);
                 if (lr) {
@@ -176,7 +220,7 @@
                 let c = document.getElementById(`c_${i}`);
                 if (c) {
                     c.setAttribute("cx", p.x); c.setAttribute("cy", p.y);
-                    c.setAttribute("fill", (showDamage && (p.zone === "Mid" || p.zone === "Apex")) ? '#e63946' : '#1d3557');
+                    c.setAttribute("fill", (showDamage && (p.zone === "Mid" || p.zone === "Apex")) ? '#ff3b30' : '#1d1d1f');
                 }
             });
         }
@@ -189,17 +233,17 @@
                 if (!isDragging) return;
                 angleY += (e.clientX - prevX) * 0.01; angleX += (e.clientY - prevY) * 0.01;
                 prevX = e.clientX; prevY = e.clientY;
-                let chemo = document.getElementById('chemo').value;
-                draw3DHeart(chemo === 'damaged');
+                let chemo = document.getElementById('chemoHistory').value;
+                draw3DHeart(chemo === 'injury');
             });
             window.addEventListener('mouseup', () => isDragging = false);
         }
         init3DGeometry();
-        async function runDiagnostics() {
-            let age = document.getElementById('age').value;
-            let sex = document.getElementById('sex').value;
-            let chemo = document.getElementById('chemo').value;
-            let isDamaged = (chemo === 'damaged');
+        async function executeDiagnosticsPipeline() {
+            let age = document.getElementById('patientAge').value;
+            let sex = document.getElementById('patientSex').value;
+            let chemo = document.getElementById('chemoHistory').value;
+            let isDamaged = (chemo === 'injury');
             let edfInput = document.getElementById('edfFile');
 
             const BACKEND_URL = "https://railway.app";
@@ -214,40 +258,40 @@
                     let resData = await response.json();
                     isDamaged = resData.is_toxic_injury;
                 } catch (err) {
-                    console.log("Локальный математический процессинг...");
+                    console.log("Локальный математический инференс...");
                 }
             }
 
             let points = [];
-            let width = 700, height = 200;
+            let width = 700, height = 180;
             for (let i = 0; i < width; i++) {
                 let t = (i % 150) / 150;
                 let p = 15 * Math.exp(-Math.pow((t - 0.2) / 0.03, 2));
                 let q = -10 * Math.exp(-Math.pow((t - 0.28) / 0.01, 2));
                 let r = 140 * Math.exp(-Math.pow((t - 0.3) / 0.015, 2));
                 let s = -35 * Math.exp(-Math.pow((t - 0.32) / 0.015, 2));
-                let tWave = isDamaged ? 8 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 35 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
-                let y = height / 2 - (p + q + r + s + tWave) + (Math.random() * 4 - 2);
+                let tWave = isDamaged ? 6 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 32 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
+                let y = height / 2 - (p + q + r + s + tWave) + (Math.random() * 3 - 1.5);
                 points.push(`${i},${y}`);
             }
             
             let pathData = "M " + points.join(" L ");
-            document.querySelector("#ecgSvg path").setAttribute("d", pathData);
-            document.querySelector("#xaiSvg path").setAttribute("d", pathData);
+            document.querySelector("#ecgWaveform path").setAttribute("d", pathData);
+            document.querySelector("#xaiFocus path").setAttribute("d", pathData);
 
-            let dZone = document.getElementById("dangerZone");
+            let dZone = document.getElementById("alertZone");
             if (isDamaged) {
                 dZone.style.display = "block";
-                dZone.setAttribute("x", "200"); dZone.setAttribute("width", "350");
-                document.querySelector("#xaiSvg path").setAttribute("stroke", "#e63946");
+                dZone.setAttribute("x", "210"); dZone.setAttribute("width", "320");
+                document.querySelector("#xaiFocus path").setAttribute("stroke", "#ff3b30");
             } else {
                 dZone.style.display = "none";
-                document.querySelector("#xaiSvg path").setAttribute("stroke", "#1d3557");
+                document.querySelector("#xaiFocus path").setAttribute("stroke", "#1d1d1f");
             }
 
             try { draw3DHeart(isDamaged); } catch (e) { console.log(e); }
 
-            let vBox = document.getElementById('verdictBox');
+            let vBox = document.getElementById('verdictOutput');
             if (vBox) {
                 vBox.style.display = 'block';
                 let risk_status = isDamaged ? "CRITICAL / HIGH RISK OF SUBCLINICAL ANTHRACYCLINE CARDIOTOXICITY" : "STABLE / NORMAL CARDIAC FUNCTION";
@@ -256,7 +300,7 @@
                     "1. Urgent consultation with an onco-cardiologist.\n2. Consider reducing Doxorubicin payload by 15%.\n3. Initiate preventive cardioprotective therapy (Dexrazoxane)." :
                     "1. Continue standard chemotherapy protocol.\n2. Next routine check-up scheduled before the next cycle.";
 
-                vBox.className = isDamaged ? 'verdict danger' : 'verdict success';
+                vBox.className = isDamaged ? 'verdict-box danger' : 'verdict-box success';
                 let heart3D = isDamaged ? 
                     " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  Base (Z: 0.0-0.6)  =================== [NORMAL]\n  Mid  (Z: 0.6-1.3)  ======= [FERROPTOSIS DETECTED]\n  Apex (Z: 1.3-2.0)  =================== [CRITICAL]" :
                     " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  All Segments (Z: 0.0-2.0) ============ [STABLE]";
