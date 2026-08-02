@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CardioOncoPredict: Multimodal AI System</title>
+    <title>CardioOncoPredict</title>
     <style>
         :root { 
             --apple-dark: #1d1d1f; 
@@ -69,19 +69,16 @@
             transition: background 0.2s ease;
         }
         .action-btn:hover { background: #0077ed; }
-        .verdict-box { margin-top: 24px; padding: 20px; border-radius: 14px; display: none; font-size: 14px; line-height: 1.5; font-weight: 500; }
-        .verdict-box.danger { background: #fff2f1; color: var(--apple-danger); border-left: 4px solid var(--apple-danger); }
-        .verdict-box.success { background: #f2fbf4; color: var(--apple-success); border-left: 4px solid var(--apple-success); }
+        .verdict-box { margin-top: 24px; padding: 20px; border-radius: 14px; display: none; font-size: 14px; line-height: 1.5; font-weight: 500; white-space: pre-wrap; }
         .display-screen { background: var(--apple-gray); border-radius: 16px; padding: 16px; margin-bottom: 24px; height: 180px; position: relative; }
         .display-screen.three-d-box { height: 260px; cursor: grab; background: #ffffff; border: 1px solid #e5e5ea; }
         svg { width: 100%; height: 100%; display: block; }
-        svg#heartMeshSvg { width: 400px; height: 240px; display: block; margin: 0 auto; min-height: 240px; }
+        svg#heartMeshSvg { width: 400px; height: 260px; display: block; margin: 0 auto; min-height: 240px; }
         .chart-title { font-size: 14px; font-weight: 600; color: #86868b; margin-bottom: 12px; }
         .hint-text { position: absolute; bottom: 10px; right: 14px; color: #c7c7cc; font-size: 10px; font-family: monospace; }
     </style>
 </head>
 <body>
-
     <div class="container">
         <header>
             <h1>CardioOncoPredict</h1>
@@ -89,6 +86,7 @@
         </header>
 
         <div class="grid-system">
+            <!-- Левая панель: Профиль пациента -->
             <div class="card">
                 <h2>Diagnostic Profile</h2>
                 <div class="input-group">
@@ -113,6 +111,7 @@
                 <div id="verdictOutput" class="verdict-box"></div>
             </div>
 
+            <!-- Правая панель: Экраны био-визуализации -->
             <div class="card">
                 <h2 style="margin-bottom: 30px;">Electrophysiological & Spatial Analytics</h2>
                 <p class="chart-title">1. Real-Time 12-Lead Electrophysiological Signal (INT8 Client-Side Compute)</p>
@@ -171,7 +170,7 @@
             }
             for (let i = 0; i < points3D.length; i++) {
                 let circle = document.createElementNS("http://w3.org", "circle");
-                circle.setAttribute("id", `c_${i}`);
+                circle.setAttribute("id", `n_${i}`);
                 circle.setAttribute("r", "1.5");
                 group.appendChild(circle);
             }
@@ -217,7 +216,7 @@
                 }
             }
             projected.forEach((p, i) => {
-                let c = document.getElementById(`c_${i}`);
+                let c = document.getElementById(`n_${i}`);
                 if (c) {
                     c.setAttribute("cx", p.x); c.setAttribute("cy", p.y);
                     c.setAttribute("fill", (showDamage && (p.zone === "Mid" || p.zone === "Apex")) ? '#ff3b30' : '#1d1d1f');
@@ -305,23 +304,18 @@
                     " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  Base (Z: 0.0-0.6)  =================== [NORMAL]\n  Mid  (Z: 0.6-1.3)  ======= [FERROPTOSIS DETECTED]\n  Apex (Z: 1.3-2.0)  =================== [CRITICAL]" :
                     " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  All Segments (Z: 0.0-2.0) ============ [STABLE]";
 
-                vBox.innerHTML = `==================================================\n` +
-                                 `          AI SYSTEM — AUTONOMOUS REPORT           \n` +
-                                 `==================================================\n` +
-                                 `• METADATA PROFILE:\n` +
-                                 `  - Patient Age: ${age} years old\n` +
-                                 `  - Biological Sex: ${sex}\n` +
-                                 `  - Source Reference: PhysioNet PTB-XL\n` +
-                                 `--------------------------------------------------\n` +
-                                 `${heart3D}\n` +
-                                 `--------------------------------------------------\n` +
-                                 `• DEEP LEARNING VERDICT:\n` +
-                                 `  - Computed Injury Probability: ${prob}%\n` +
-                                 `  - Clinical Status: ${risk_status}\n` +
-                                 `--------------------------------------------------\n` +
-                                 `• EXPERT AI-AGENT RECOMMENDATIONS:\n` +
-                                 `${recs}\n` +
-                                 `==================================================`;
+                vBox.innerHTML = `<strong>AI SYSTEM — AUTONOMOUS REPORT</strong><br><br>` +
+                                 `• <strong>METADATA PROFILE:</strong><br>` +
+                                 `  - Patient Age: ${age} years old<br>` +
+                                 `  - Biological Sex: ${sex}<br>` +
+                                 `  - Source Reference: PhysioNet PTB-XL<br><br>` +
+                                 `• <strong>3D TOPOLOGY STATUS:</strong><br>` +
+                                 `  ${heart3D.replace(/\n/g, '<br>')}<br><br>` +
+                                 `• <strong>DEEP LEARNING VERDICT:</strong><br>` +
+                                 `  - Computed Injury Probability: ${prob}%<br>` +
+                                 `  - Clinical Status: ${risk_status}<br><br>` +
+                                 `• <strong>EXPERT AI-AGENT RECOMMENDATIONS:</strong><br>` +
+                                 `  ${recs.replace(/\n/g, '<br>')}`;
             }
         }
     </script>
