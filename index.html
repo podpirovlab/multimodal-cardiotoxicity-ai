@@ -70,7 +70,6 @@
         }
         .action-btn:hover { background: #0077ed; }
         
-        /* Стили для кнопок переключения датчиков ЭКГ */
         .sensor-matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
         .sensor-btn { 
             padding: 10px; 
@@ -130,11 +129,9 @@
                 <button class="action-btn" onclick="executeDiagnosticsPipeline()">Analyze Stream</button>
                 <div id="verdictOutput" class="verdict-box"></div>
             </div>
-
             <div class="card">
                 <h2 style="margin-bottom: 20px;">Electrophysiological & Spatial Analytics</h2>
                 
-                <!-- Матрица интерактивных датчиков отведений ЭКГ -->
                 <label style="font-size: 11px; font-weight: 600; color: #86868b; display:block; margin-bottom:8px; text-transform:uppercase;">12-Lead Core Target Focal Zones</label>
                 <div class="sensor-matrix">
                     <button id="btnAnterior" class="sensor-btn" onclick="selectFocalZone('Anterior')">Anterior Wall<span>V1, V2, V3, V4</span></button>
@@ -164,6 +161,7 @@
             </div>
         </div>
     </div>
+
     <script>
         let angleX = -0.5, angleY = 0.6;
         let points3D = [];
@@ -244,36 +242,43 @@
             }
             is3DInitialized = true;
         }
-
         function draw3DHeart(showDamage) {
-            if (!is3DInitialized) init3Geometry();
+            if (!is3DInitialized) init3DGeometry();
+            
             const group = document.getElementById('meshVectors');
             const txt = document.getElementById('standbyText');
             if (!group) return;
+            
             if (txt) txt.style.display = "none";
             group.style.display = "block";
-            const scale = 100, cx = 200, cy = 140, radPoints = 12;
+
+            const scale = 110, cx = 200, cy = 140, radPoints = 12;
+            
             let projected = points3D.map(p => {
                 let y1 = p.y * Math.cos(angleX) - p.z * Math.sin(angleX);
                 let z1 = p.y * Math.sin(angleX) + p.z * Math.cos(angleX);
                 let x2 = p.x * Math.cos(angleY) + z1 * Math.sin(angleY);
                 return { x: cx + x2 * scale, y: cy + y1 * scale, wall: p.wall };
             });
+
             for (let i = 0; i < projected.length; i++) {
                 let p1 = projected[i];
                 let pNextR = projected[(i + 1) % radPoints + Math.floor(i / radPoints) * radPoints];
                 let col = 'rgba(29, 29, 31, 0.15)';
+                
                 if (showDamage) {
                     if (activeFocalZone === 'Anterior' && p1.wall === 'Anterior') col = 'rgba(255, 59, 48, 0.95)';
                     if (activeFocalZone === 'Inferior' && (p1.wall === 'Inferior' || p1.wall === 'Apex')) col = 'rgba(255, 59, 48, 0.95)';
                     if (activeFocalZone === 'Lateral' && p1.wall === 'Lateral') col = 'rgba(255, 59, 48, 0.95)';
                 }
+
                 let lr = document.getElementById(`lr_${i}`);
                 if (lr) {
                     lr.setAttribute("x1", p1.x); lr.setAttribute("y1", p1.y);
                     lr.setAttribute("x2", pNextR.x); lr.setAttribute("y2", pNextR.y);
                     lr.setAttribute("stroke", col); lr.setAttribute("stroke-width", "1");
                 }
+
                 if (i + radPoints < projected.length) {
                     let pNextL = projected[i + radPoints];
                     let ll = document.getElementById(`ll_${i}`);
@@ -284,6 +289,7 @@
                     }
                 }
             }
+
             projected.forEach((p, i) => {
                 let c = document.getElementById(`c_${i}`);
                 if (c) {
@@ -311,6 +317,18 @@
                 draw3DHeart(chemo === 'injury');
             });
             window.addEventListener('mouseup', () => isDragging = false);
+            
+            box.addEventListener('touchstart', (e) => { 
+                if (e.touches.length === 1) { isDragging = true; prevX = e.touches[0].clientX; prevY = e.touches[0].clientY; }
+            }, {passive: true});
+            window.addEventListener('touchmove', (e) => {
+                if (!isDragging || e.touches.length !== 1) return;
+                angleY += (e.touches[0].clientX - prevX) * 0.01; angleX += (e.touches[0].clientY - prevY) * 0.01;
+                prevX = e.touches[0].clientX; prevY = e.touches[0].clientY;
+                let chemo = document.getElementById('chemoHistory').value;
+                draw3DHeart(chemo === 'injury');
+            }, {passive: true});
+            window.addEventListener('touchend', () => isDragging = false);
         }
         init3DGeometry();
         async function executeDiagnosticsPipeline() {
