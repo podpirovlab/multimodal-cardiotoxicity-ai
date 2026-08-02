@@ -3,32 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CardioOncoPredict</title>
+    <title>CardioOncoPredict: Multimodal AI System</title>
     <style>
-        :root { --apple-dark: #1d1d1f; --apple-gray: #f5f5f7; --apple-blue: #0071e3; --apple-danger: #ff3b30; --apple-success: #34c759; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #ffffff; margin: 0; padding: 0; color: var(--apple-dark); -webkit-font-smoothing: antialiased; }
+        :root { 
+            --apple-dark: #1d1d1f; 
+            --apple-gray: #f5f5f7; 
+            --apple-blue: #0071e3; 
+            --apple-danger: #ff3b30; 
+            --apple-success: #34c759; 
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background-color: #ffffff; 
+            margin: 0; 
+            padding: 0; 
+            color: var(--apple-dark);
+            -webkit-font-smoothing: antialiased;
+        }
         .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
         header { text-align: center; margin-bottom: 50px; }
         header h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
         header p { font-size: 19px; color: #86868b; margin: 0; }
         .grid-system { display: grid; grid-template-columns: 380px 1fr; gap: 32px; }
         @media (max-width: 900px) { .grid-system { grid-template-columns: 1fr; } }
-        .card { background: #ffffff; border-radius: 20px; padding: 30px; box-shadow: 0 8px 30px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.02); }
+        .card { 
+            background: #ffffff; 
+            border-radius: 20px; 
+            padding: 30px; 
+            box-shadow: 0 8px 30px rgba(0,0,0,0.04); 
+            border: 1px solid rgba(0,0,0,0.02);
+        }
         .card h2 { font-size: 22px; font-weight: 600; margin-top: 0; margin-bottom: 24px; }
         .input-group { margin-bottom: 22px; }
         .input-group label { display: block; font-size: 13px; font-weight: 500; color: #86868b; margin-bottom: 8px; text-transform: uppercase; }
-        select { width: 100%; padding: 12px 16px; border-radius: 12px; background: var(--apple-gray); border: none; font-size: 15px; color: var(--apple-dark); font-weight: 500; outline: none; }
+        select { 
+            width: 100%; 
+            padding: 12px 16px; 
+            border-radius: 12px; 
+            background: var(--apple-gray); 
+            border: none; 
+            font-size: 15px; 
+            color: var(--apple-dark); 
+            font-weight: 500;
+            outline: none;
+        }
         input[type="range"] { width: 100%; -webkit-appearance: none; background: #e5e5ea; height: 6px; border-radius: 3px; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; background: var(--apple-blue); width: 18px; height: 18px; border-radius: 50%; cursor: pointer; }
-        .action-btn { width: 100%; background: var(--apple-blue); color: #ffffff; border: none; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s ease; }
+        input[type="range"]::-webkit-slider-thumb { 
+            -webkit-appearance: none; 
+            background: var(--apple-blue); 
+            width: 18px; 
+            height: 18px; 
+            border-radius: 50%; 
+            cursor: pointer; 
+        }
+        .action-btn { 
+            width: 100%; 
+            background: var(--apple-blue); 
+            color: #ffffff; 
+            border: none; 
+            padding: 14px; 
+            border-radius: 14px; 
+            font-size: 16px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: background 0.2s ease;
+        }
         .action-btn:hover { background: #0077ed; }
+        
+        /* Стили для кнопок переключения датчиков ЭКГ */
+        .sensor-matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .sensor-btn { 
+            padding: 10px; 
+            font-size: 11px; 
+            font-weight: 600; 
+            border: 1px solid #e5e5ea; 
+            border-radius: 10px; 
+            background: var(--apple-gray); 
+            cursor: pointer; 
+            text-align: center;
+            transition: 0.2s;
+        }
+        .sensor-btn.active { background: var(--apple-blue); color: white; border-color: var(--apple-blue); }
+        .sensor-btn span { display: block; font-size: 9px; color: #86868b; margin-top: 2px; }
+        .sensor-btn.active span { color: rgba(255,255,255,0.8); }
+
         .verdict-box { margin-top: 24px; padding: 20px; border-radius: 14px; display: none; font-size: 14px; line-height: 1.5; font-weight: 500; }
         .verdict-box.danger { background: #fff2f1; color: var(--apple-danger); border-left: 4px solid var(--apple-danger); }
         .verdict-box.success { background: #f2fbf4; color: var(--apple-success); border-left: 4px solid var(--apple-success); }
         .display-screen { background: var(--apple-gray); border-radius: 16px; padding: 16px; margin-bottom: 24px; height: 180px; position: relative; }
-        .display-screen.three-d-box { height: 260px; cursor: grab; background: #ffffff; border: 1px solid #e5e5ea; }
+        .display-screen.three-d-box { height: 280px; cursor: grab; background: #ffffff; border: 1px solid #e5e5ea; }
         svg { width: 100%; height: 100%; display: block; }
-        svg#heartMeshSvg { width: 400px; height: 260px; display: block; margin: 0 auto; }
+        svg#heartMeshSvg { width: 400px; height: 280px; display: block; margin: 0 auto; }
         .chart-title { font-size: 14px; font-weight: 600; color: #86868b; margin-bottom: 12px; }
         .hint-text { position: absolute; bottom: 10px; right: 14px; color: #c7c7cc; font-size: 10px; font-family: monospace; }
     </style>
@@ -57,7 +122,7 @@
                 </div>
                 <div class="input-group">
                     <label>Chemotherapy History</label>
-                    <select id="chemoHistory">
+                    <select id="chemoHistory" onchange="toggleChemoMode(this.value)">
                         <option value="stable">Routine Surveillance (Baseline)</option>
                         <option value="injury">Cumulative Critical Doxorubicin Dose</option>
                     </select>
@@ -67,7 +132,16 @@
             </div>
 
             <div class="card">
-                <h2 style="margin-bottom: 30px;">Electrophysiological & Spatial Analytics</h2>
+                <h2 style="margin-bottom: 20px;">Electrophysiological & Spatial Analytics</h2>
+                
+                <!-- Матрица интерактивных датчиков отведений ЭКГ -->
+                <label style="font-size: 11px; font-weight: 600; color: #86868b; display:block; margin-bottom:8px; text-transform:uppercase;">12-Lead Core Target Focal Zones</label>
+                <div class="sensor-matrix">
+                    <button id="btnAnterior" class="sensor-btn" onclick="selectFocalZone('Anterior')">Anterior Wall<span>V1, V2, V3, V4</span></button>
+                    <button id="btnInferior" class="sensor-btn" onclick="selectFocalZone('Inferior')">Inferior / Apex<span>II, III, aVF</span></button>
+                    <button id="btnLateral" class="sensor-btn" onclick="selectFocalZone('Lateral')">Lateral Wall<span>I, aVL, V5, V6</span></button>
+                </div>
+
                 <p class="chart-title">1. Real-Time 12-Lead Electrophysiological Signal (INT8 Client-Side Compute)</p>
                 <div class="display-screen">
                     <svg id="ecgWaveform"><path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/></svg>
@@ -81,8 +155,8 @@
                 </div>
                 <p class="chart-title">3. Real-Time 3D Myocardial Tissue Topology (Left Ventricle Mesh)</p>
                 <div class="display-screen three-d-box" id="canvasContainer">
-                    <svg id="heartMeshSvg" viewBox="0 0 400 260" xmlns="http://w3.org">
-                        <text id="standbyText" x="200" y="130" fill="#999" font-family="monospace" font-size="12" text-anchor="middle">[3D ENGINE STANDBY — RUN DIAGNOSTICS]</text>
+                    <svg id="heartMeshSvg" viewBox="0 0 400 280" xmlns="http://w3.org">
+                        <text id="standbyText" x="200" y="140" fill="#999" font-family="monospace" font-size="12" text-anchor="middle">[3D ENGINE STANDBY — RUN DIAGNOSTICS]</text>
                         <g id="meshVectors" style="display: none;"></g>
                     </svg>
                     <div class="hint-text">TOUCH/DRAG TO ROTATE</div>
@@ -94,34 +168,74 @@
         let angleX = -0.5, angleY = 0.6;
         let points3D = [];
         let is3DInitialized = false;
+        let activeFocalZone = 'Anterior';
+
+        function selectFocalZone(zone) {
+            activeFocalZone = zone;
+            const buttons = ['Anterior', 'Inferior', 'Lateral'];
+            buttons.forEach(b => {
+                document.getElementById(`btn${b}`).classList.remove('active');
+            });
+            document.getElementById(`btn${zone}`).classList.add('active');
+            
+            let chemo = document.getElementById('chemoHistory').value;
+            if (document.getElementById('meshVectors').style.display === "block") {
+                draw3DHeart(chemo === 'injury');
+            }
+        }
+
+        function toggleChemoMode(val) {
+            if (val === 'injury') {
+                document.getElementById('btnAnterior').classList.add('active');
+            } else {
+                selectFocalZone('Anterior');
+                document.getElementById('btnAnterior').classList.remove('active');
+            }
+        }
 
         function init3DGeometry() {
             points3D = [];
             const layers = 9;
             const radialPoints = 12;
+            
             for (let i = 0; i <= layers; i++) {
                 let z = (i / layers) * 2.0 - 1.0; 
                 let r = 0.85 - (i / layers) * 0.55; 
-                let zone = i < 4 ? "Base" : (i < 7 ? "Mid" : "Apex");
+                
                 for (let j = 0; j < radialPoints; j++) {
                     let rad = (j / radialPoints) * Math.PI * 2;
-                    points3D.push({ x: Math.cos(rad) * r, y: Math.sin(rad) * r, z: z, zone: zone });
+                    let x = Math.cos(rad) * r;
+                    let y = Math.sin(rad) * r;
+                    
+                    let wall = "Base";
+                    if (i >= 3 && i <= 6) {
+                        if (rad >= 0 && rad < Math.PI / 2 || rad >= Math.PI * 1.5) wall = "Anterior";
+                        else if (rad >= Math.PI / 2 && rad < Math.PI) wall = "Lateral";
+                        else wall = "Inferior";
+                    } else if (i > 6) {
+                        wall = "Apex";
+                    }
+                    points3D.push({ x: x, y: y, z: z, wall: wall });
                 }
             }
+
             const group = document.getElementById('meshVectors');
             if (!group) return;
             group.innerHTML = ""; 
             const radPoints = 12;
+
             for (let i = 0; i < points3D.length; i++) {
                 let lineR = document.createElementNS("http://w3.org", "line");
                 lineR.setAttribute("id", `lr_${i}`);
                 group.appendChild(lineR);
+
                 if (i + radPoints < points3D.length) {
                     let lineL = document.createElementNS("http://w3.org", "line");
                     lineL.setAttribute("id", `ll_${i}`);
                     group.appendChild(lineL);
                 }
             }
+
             for (let i = 0; i < points3D.length; i++) {
                 let circle = document.createElementNS("http://w3.org", "circle");
                 circle.setAttribute("id", `c_${i}`);
@@ -132,26 +246,27 @@
         }
 
         function draw3DHeart(showDamage) {
-            if (!is3DInitialized) init3DGeometry();
+            if (!is3DInitialized) init3Geometry();
             const group = document.getElementById('meshVectors');
             const txt = document.getElementById('standbyText');
             if (!group) return;
             if (txt) txt.style.display = "none";
             group.style.display = "block";
-            const scale = 100, cx = 200, cy = 120, radPoints = 12;
+            const scale = 100, cx = 200, cy = 140, radPoints = 12;
             let projected = points3D.map(p => {
                 let y1 = p.y * Math.cos(angleX) - p.z * Math.sin(angleX);
                 let z1 = p.y * Math.sin(angleX) + p.z * Math.cos(angleX);
                 let x2 = p.x * Math.cos(angleY) + z1 * Math.sin(angleY);
-                return { x: cx + x2 * scale, y: cy + y1 * scale, zone: p.zone };
+                return { x: cx + x2 * scale, y: cy + y1 * scale, wall: p.wall };
             });
             for (let i = 0; i < projected.length; i++) {
                 let p1 = projected[i];
                 let pNextR = projected[(i + 1) % radPoints + Math.floor(i / radPoints) * radPoints];
                 let col = 'rgba(29, 29, 31, 0.15)';
                 if (showDamage) {
-                    if (p1.zone === "Mid") col = 'rgba(255, 59, 48, 0.85)';
-                    if (p1.zone === "Apex") col = 'rgba(255, 149, 0, 0.85)';
+                    if (activeFocalZone === 'Anterior' && p1.wall === 'Anterior') col = 'rgba(255, 59, 48, 0.95)';
+                    if (activeFocalZone === 'Inferior' && (p1.wall === 'Inferior' || p1.wall === 'Apex')) col = 'rgba(255, 59, 48, 0.95)';
+                    if (activeFocalZone === 'Lateral' && p1.wall === 'Lateral') col = 'rgba(255, 59, 48, 0.95)';
                 }
                 let lr = document.getElementById(`lr_${i}`);
                 if (lr) {
@@ -173,7 +288,13 @@
                 let c = document.getElementById(`c_${i}`);
                 if (c) {
                     c.setAttribute("cx", p.x); c.setAttribute("cy", p.y);
-                    c.setAttribute("fill", (showDamage && (p.zone === "Mid" || p.zone === "Apex")) ? '#ff3b30' : '#1d1d1f');
+                    let isTargetNode = false;
+                    if (showDamage) {
+                        if (activeFocalZone === 'Anterior' && p.wall === 'Anterior') isTargetNode = true;
+                        if (activeFocalZone === 'Inferior' && (p.wall === 'Inferior' || p.wall === 'Apex')) isTargetNode = true;
+                        if (activeFocalZone === 'Lateral' && p.wall === 'Lateral') isTargetNode = true;
+                    }
+                    c.setAttribute("fill", isTargetNode ? '#ff3b30' : '#1d1d1f');
                 }
             });
         }
@@ -237,6 +358,9 @@
                 dZone.style.display = "block";
                 dZone.setAttribute("x", "210"); dZone.setAttribute("width", "320");
                 document.querySelector("#xaiFocus path").setAttribute("stroke", "#ff3b30");
+                if(!document.querySelector('.sensor-btn.active')) {
+                    document.getElementById('btnAnterior').classList.add('active');
+                }
             } else {
                 dZone.style.display = "none";
                 document.querySelector("#xaiFocus path").setAttribute("stroke", "#1d1d1f");
@@ -254,17 +378,19 @@
                     "1. Continue standard chemotherapy protocol.\n2. Next routine check-up scheduled before the next cycle.";
 
                 vBox.className = isDamaged ? 'verdict-box danger' : 'verdict-box success';
-                let heart3D = isDamaged ? 
-                    " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  Base (Z: 0.0-0.6)  =================== [NORMAL]\n  Mid  (Z: 0.6-1.3)  ======= [FERROPTOSIS DETECTED]\n  Apex (Z: 1.3-2.0)  =================== [CRITICAL]" :
-                    " [3D TOPOLOGY MESH: LEFT VENTRICLE MATRIX]\n  All Segments (Z: 0.0-2.0) ============ [STABLE]";
+                
+                let currentSensors = activeFocalZone === 'Anterior' ? 'V1, V2, V3, V4 (Anterior Metrics Matched)' : 
+                                     (activeFocalZone === 'Inferior' ? 'II, III, aVF (Inferior & Apex Matrix Matched)' : 'I, aVL, V5, V6 (Lateral Array Matched)');
 
                 vBox.innerHTML = `<strong>AI SYSTEM — AUTONOMOUS REPORT</strong><br><br>` +
                                  `• <strong>METADATA PROFILE:</strong><br>` +
                                  `  - Patient Age: ${age} years old<br>` +
                                  `  - Biological Sex: ${sex}<br>` +
-                                 `  - Source Reference: PhysioNet PTB-XL<br><br>` +
-                                 `• <strong>3D TOPOLOGY STATUS:</strong><br>` +
-                                 `  ${heart3D.replace(/\n/g, '<br>')}<br><br>` +
+                                 `  - Targeted Array: ${currentSensors}<br><br>` +
+                                 `• <strong>3D TOPOLOGY MESH MAP:</strong><br>` +
+                                 `  - Anterior Zone Focus: ${activeFocalZone === 'Anterior' && isDamaged ? '[FERROPTOSIS LIGHT FLAGGED]' : '[STABLE]'}<br>` +
+                                 `  - Inferior / Apex Focus: ${activeFocalZone === 'Inferior' && isDamaged ? '[PATHOLOGY TISSUE HIGHLIGHTED]' : '[STABLE]'}<br>` +
+                                 `  - Lateral Zone Focus: ${activeFocalZone === 'Lateral' && isDamaged ? '[CRITICAL SEGMENT DETECTED]' : '[STABLE]'}<br><br>` +
                                  `• <strong>DEEP LEARNING VERDICT:</strong><br>` +
                                  `  - Computed Injury Probability: ${prob}%<br>` +
                                  `  - Clinical Status: ${risk_status}<br><br>` +
