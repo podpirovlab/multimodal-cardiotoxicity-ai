@@ -129,6 +129,36 @@
                 <button class="action-btn" onclick="executeDiagnosticsPipeline()">Запустить Анализ</button>
                 <div id="verdictOutput" class="verdict-box"></div>
             </div>
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Электрофизиологическая и Пространственная Аналитика</h2>
+                
+                <label style="font-size: 11px; font-weight: 600; color: #86868b; display:block; margin-bottom:8px; text-transform:uppercase;">Фокальные зоны 12-канальной матрицы ЭКГ</label>
+                <div class="sensor-matrix">
+                    <button id="btnAnterior" class="sensor-btn" onclick="selectFocalZone('Anterior')">Передняя стенка<span>V1, V2, V3, V4</span></button>
+                    <button id="btnInferior" class="sensor-btn" onclick="selectFocalZone('Inferior')">Нижняя / Верхушка<span>II, III, aVF</span></button>
+                    <button id="btnLateral" class="sensor-btn" onclick="selectFocalZone('Lateral')">Боковая стенка<span>I, aVL, V5, V6</span></button>
+                </div>
+
+                <p class="chart-title">1. Цифровой ЭКГ-сигнал в реальном времени (Локальные вычисления Edge AI)</p>
+                <div class="display-screen">
+                    <svg id="ecgWaveform"><path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/></svg>
+                </div>
+                <p class="chart-title">2. Объяснимый ИИ (XAI): Зона анализа реполяризации миокарда</p>
+                <div class="display-screen">
+                    <svg id="xaiFocus">
+                        <rect id="alertZone" x="0" y="0" width="0" height="180" fill="rgba(255,59,48,0.12)" display="none"/>
+                        <path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/>
+                    </svg>
+                </div>
+                <p class="chart-title">3. 3D-Топология ткани миокарда (Каркас левого желудочка)</p>
+                <div class="display-screen three-d-box" id="canvasContainer">
+                    <canvas id="heartCanvas" width="400" height="280"></canvas>
+                    <div class="hint-text">ЗАЖМИТЕ И ВРАЩАЙТЕ МЫШЬЮ ДЛЯ ОБЗОРА</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let angleX = -0.5, angleY = 0.6;
         let points3D = [];
@@ -284,7 +314,7 @@
                                  `  - Боковая зона: ${activeFocalZone === 'Lateral' && isDamaged ? '[КРИТИЧЕСКИЙ СЕГМЕНТ ПОД СВЕТОМ ДАТЧИКОВ]' : '[СТАБИЛЬНО]'}<br><br>` +
                                  `• <strong>ВЕРДИКТ ГЛУБОКОГО ОБУЧЕНИЯ:</strong><br>` +
                                  `  - Расчетная вероятность повреждения: ${prob}%<br>` +
-                                 `  - Клинический статус: ${risk_status}<br><br>` +
+                                 `  - Clinical Status: ${risk_status}<br><br>` +
                                  `• <strong>РЕКОМЕНДАЦИИ ИИ-АГЕНТА:</strong><br>` +
                                  `  ${recs.replace(/\n/g, '<br>')}`;
             }
