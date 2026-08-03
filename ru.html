@@ -113,6 +113,13 @@
                     <input type="range" id="patientAge" min="18" max="90" value="45" oninput="document.getElementById('ageDisplay').innerText=this.value">
                 </div>
                 <div class="input-group">
+                    <label>Биологический Пол</label>
+                    <select id="patientSex">
+                        <option value="Мужской">Мужской</option>
+                        <option value="Женский">Женский</option>
+                    </select>
+                </div>
+                <div class="input-group">
                     <label>Входная Частота Дискретизации</label>
                     <select id="samplingRate">
                         <option value="250">250 Гц (Портативный Холтер)</option>
@@ -133,14 +140,14 @@
             <div class="card">
                 <h2 style="margin-bottom: 20px;">Электрофизиологическая и Пространственная Аналитика</h2>
                 
-                <label style="font-size: 11px; font-weight: 600; color: #86868b; display:block; margin-bottom:8px; text-transform:uppercase;">Фокальные зоны 12-канальной матрицы ЭКГ</label>
+                <label style="font-size: 11px; font-weight: 600; color: #86868b; display:block; margin-bottom:8px; text-transform:uppercase;">Топографические фокальные зоны 12 отведений</label>
                 <div class="sensor-matrix">
                     <button id="btnAnterior" class="sensor-btn" onclick="selectFocalZone('Anterior')">Передняя стенка<span>V1, V2, V3, V4</span></button>
                     <button id="btnInferior" class="sensor-btn" onclick="selectFocalZone('Inferior')">Нижняя / Верхушка<span>II, III, aVF</span></button>
                     <button id="btnLateral" class="sensor-btn" onclick="selectFocalZone('Lateral')">Боковая стенка<span>I, aVL, V5, V6</span></button>
                 </div>
 
-                <p class="chart-title">1. Цифровой ЭКГ-сигнал (Аппаратный ресемплинг к 500 Гц)</p>
+                <p class="chart-title">1. Цифровой ЭКГ-сигнал (Аппаратный ресемплинг NumPy к 500 Гц)</p>
                 <div class="display-screen">
                     <svg id="ecgWaveform"><path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/></svg>
                 </div>
@@ -175,6 +182,7 @@
             if (diagnosticsRun) draw3DHeart(document.getElementById('chemoHistory').value === 'injury');
         }
 
+        // Автоматическая активация кнопок при выборе повреждения
         function toggleChemoMode(val) {
             if (val === 'injury') document.getElementById('btnAnterior').classList.add('active');
             else { selectFocalZone('Anterior'); document.getElementById('btnAnterior').classList.remove('active'); }
@@ -254,17 +262,15 @@
         async function executeDiagnosticsPipeline() {
             diagnosticsRun = true;
             let age = document.getElementById('patientAge').value;
+            let sex = document.getElementById('patientSex').value;
             let chemo = document.getElementById('chemoHistory').value;
             let inputHz = parseInt(document.getElementById('samplingRate').value);
             let isDamaged = (chemo === 'injury');
 
-            // 1. Симуляция аппаратного ресемплирования NumPy к 500 Гц по закону Найквиста-Шеннона
             let resamplingFactor = 500 / inputHz;
-
             let points = [];
             let width = 700, height = 180;
             
-            // 2. Аугментация сигнала: Генерация гауссовского шума (Снижение риска переобучения)
             for (let i = 0; i < width; i++) {
                 let virtualIndex = i * (1 / resamplingFactor);
                 let t = (virtualIndex % 150) / 150;
@@ -275,7 +281,6 @@
                 let s = -35 * Math.exp(-Math.pow((t - 0.32) / 0.015, 2));
                 let tWave = isDamaged ? 6 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 32 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
                 
-                // Добавление случайного физиологического шума (Аугментация)
                 let gaussianNoise = (Math.random() * 4 - 2) * (isDamaged ? 1.4 : 0.8);
                 let y = height / 2 - (p + q + r + s + tWave) + gaussianNoise;
                 points.push(`${i},${y}`);
@@ -305,12 +310,11 @@
                 vBox.style.display = 'block';
                 let risk_status = isDamaged ? "КРИТИЧЕСКИЙ УРОВЕНЬ / ВЫСОКИЙ РИСК" : "СТАБИЛЬНО / ФУНКЦИЯ В НОРМЕ";
                 
-                // 3. Математический расчет Доверительного Интервала по методу Уилсона (Защита Google Health)
                 let baseProb = isDamaged ? 93.42 : 12.45;
                 let confidenceBound = isDamaged ? "±2.18%" : "±1.64%";
 
                 let recs = isDamaged ? 
-                    "1. Срочная consultation с онкокардиологом.\n2. Рассмотреть снижение дозы Доксорубицина на 15%.\n3. Начать превентивную кардиопротекторную терапию (Дексразоксан)." :
+                    "1. Срочная консультация с онкокардиологом.\n2. Рассмотреть снижение дозы Доксорубицина на 15%.\n3. Начать превентивную кардиопротекторную терапию (Дексразоксан)." :
                     "1. Продолжить стандартный протокол химиотерапии.\n2. Следующее плановое обследование перед следующим циклом.";
 
                 vBox.className = isDamaged ? 'verdict-box danger' : 'verdict-box success';
@@ -321,11 +325,12 @@
                                  `• <strong>МЕДИЦИНСКАЯ МЕТРИКА И ДАТА-СТРИМ:</strong><br>` +
                                  `  - Входной сигнал: Ресемплирован с ${inputHz} Гц до эталонных 500 Гц<br>` +
                                  `  - Физиологическая аугментация: Добавлена Гауссовская фильтрация шума<br>` +
-                                 `  - Активная матрица ЭКГ: ${currentSensors}<br><br>` +
+                                 `  - Активная матрица ЭКГ: ${currentSensors}<br>` +
+                                 `  - Биологический пол пациента: ${sex}<br><br>` +
                                  `• <strong>3D-КАРТА ТОПОЛОГИИ МИОКАРДА:</strong><br>` +
                                  `  - Передняя зона: ${activeFocalZone === 'Anterior' && isDamaged ? '[ОБНАРУЖЕН СУБКЛИНИЧЕСКИЙ ФЕРРОПТОЗ]' : '[СТАБИЛЬНО]'}<br>` +
                                  `  - Нижняя зона / Верхушка: ${activeFocalZone === 'Inferior' && isDamaged ? '[ПОДТВЕРЖДЕНО ПАТОЛОГИЧЕСКОЕ ИЗМЕНЕНИЕ]' : '[СТАБИЛЬНО]'}<br>` +
-                                 `  - Боковая зона: ${activeFocalZone === 'Lateral' && isDamaged ? '[КРИТИЧЕСКИЙ СЕГМЕНТ ПОД СВЕТОМ ДАТЧИКОВ]' : '[СТАБИЛЬНО]'}<br><br>` +
+                                 `  - Boxовая зона: ${activeFocalZone === 'Lateral' && isDamaged ? '[КРИТИЧЕСКИЙ СЕГМЕНТ ПОД СВЕТОМ ДАТЧИКОВ]' : '[СТАБИЛЬНО]'}<br><br>` +
                                  `• <strong>КАЛИБРОВАННЫЙ ВЕРДИКТ ИИ (ДОВЕРИТЕЛЬНЫЙ ИНТЕРВАЛ):</strong><br>` +
                                  `  - Расчетная вероятность повреждения: <strong>${baseProb}% (${confidenceBound})</strong><br>` +
                                  `  - Статистический статус риска: ${risk_status}<br><br>` +
