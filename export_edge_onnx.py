@@ -45,20 +45,30 @@ dummy_meta = torch.randn(1, 2)   # Пример метаданных (Возра
 
 # 2. Экспорт базовой модели в стандартный ONNX
 onnx_path = "model_base.onnx"
-torch.onnx.export(
-    model, 
-    (dummy_ecg, dummy_meta), 
-    onnx_path,
-    export_params=True,
-    opset_version=14,
-    do_constant_folding=True,
-    input_names=['ecg_features', 'metadata_tensors'],
-    output_names=['cardiotoxicity_probability'],
-    dynamic_axes={'ecg_features': {0: 'batch_size'}, 'metadata_tensors': {0: 'batch_size'}, 'cardiotoxicity_probability': {0: 'batch_size'}}
-)
-print(f"✅ Базовая модель успешно экспортирована в {onnx_path}")
+try:
+    torch.onnx.export(
+        model,
+        (dummy_ecg, dummy_meta),
+        onnx_path,
+        export_params=True,
+        opset_version=14,
+        do_constant_folding=True,
+        input_names=['ecg_features', 'metadata_tensors'],
+        output_names=['cardiotoxicity_probability'],
+        dynamic_axes={'ecg_features': {0: 'batch_size'}, 'metadata_tensors': {0: 'batch_size'}, 'cardiotoxicity_probability': {0: 'batch_size'}}
+    )
+    print(f"✅ Базовая модель успешно экспортирована в {onnx_path}")
+except Exception as exc:
+    print(f"❌ Экспорт в ONNX не удался: {exc}")
+    raise
 
-# 3. Квантование до INT8 (Динамическое сжатие весов для Edge CPU)
+# 3. Квантование до INT8 (динамическое сжатие весов для Edge CPU)
+#
+# NOTE: quantize_dynamic() delegates to onnx's shape-inference engine, which is
+# known to be sensitive to the exact onnx / onnxruntime / torch version combo
+# used to produce `onnx_path`. If quantization fails, the full-precision
+# `model_base.onnx` above is still valid and usable — quantization is a
+# best-effort size/latency optimization, not required for correctness.
 try:
     from onnxruntime.quantization import quantize_dynamic, QuantType
     quantize_dynamic(
@@ -66,6 +76,9 @@ try:
         model_output="model_quantized.onnx",
         weight_type=QuantType.QUInt8
     )
-    print("🚀 Ультимативное INT8 квантование завершено! Файл 'model_quantized.onnx' готов для Edge/смарт-часов.")
+    print("🚀 INT8-квантование завершено! Файл 'model_quantized.onnx' готов для Edge-устройств/носимых мониторов.")
 except ImportError:
-    print("⚠️ Для квантования установи пакет: pip install onnxruntime-quantization")
+    print("⚠️ Для квантования установи пакет: pip install onnxruntime")
+except Exception as exc:
+    print(f"⚠️ Квантование пропущено из-за несовместимости версий onnx/onnxruntime: {exc}")
+    print(f"   Полноточная модель '{onnx_path}' уже экспортирована и пригодна к использованию.")

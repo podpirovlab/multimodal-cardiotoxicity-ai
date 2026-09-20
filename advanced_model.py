@@ -7,17 +7,29 @@ from sklearn.metrics import roc_curve, auc
 
 # 1. КЛИНИЧЕСКИЙ ПАРСЕР РЕАЛЬНЫХ МЕДИЦИНСКИХ ФАЙЛОВ EDF
 def load_real_hospital_edf(file_path=None):
+    """Читает 12-канальную ЭКГ из файла формата EDF (PhysioNet/PTB-XL).
+
+    При отсутствии файла или ошибке чтения возвращается синтетический
+    сигнал-заглушка, чтобы остальной пайплайн можно было демонстрировать
+    без доступа к реальным клиническим данным.
+    """
     if file_path and os.path.exists(file_path):
+        f = None
         try:
             import pyedflib
             f = pyedflib.EdfReader(file_path)
-            signal_matrix = np.zeros((12, f.getNSamples()))
-            for ch in range(min(12, f.signals_in_file)):
+            n_channels = min(12, f.signals_in_file)
+            signal_matrix = np.zeros((12, f.getNSamples()[0]))
+            for ch in range(n_channels):
                 signal_matrix[ch] = f.readSignal(ch)
-            f._close()
-            return signal_matrix, f.getSampleFrequency(0)
-        except:
-            pass
+            sample_freq = f.getSampleFrequency(0)  # читаем ДО закрытия файла
+            return signal_matrix, sample_freq
+        except (OSError, ValueError, ImportError) as exc:
+            print(f"⚠️ Не удалось прочитать EDF-файл '{file_path}': {exc}. "
+                  f"Используется синтетический сигнал-заглушка.")
+        finally:
+            if f is not None:
+                f.close()
     # Резервная эмуляция 12 отведений высокой точности (250 Гц)
     return np.random.normal(loc=0, scale=0.02, size=(12, 1250)), 250
 

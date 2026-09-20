@@ -95,14 +95,29 @@
         canvas#heartCanvas { width: 400px; height: 280px; display: block; margin: 0 auto; }
         .chart-title { font-size: 14px; font-weight: 600; color: #86868b; margin-bottom: 12px; }
         .hint-text { position: absolute; bottom: 10px; right: 14px; color: #c7c7cc; font-size: 10px; font-family: monospace; pointer-events: none; }
+        .lang-switch { position: absolute; top: 20px; right: 24px; font-size: 13px; }
+        .lang-switch a { color: #86868b; text-decoration: none; font-weight: 500; }
+        .lang-switch a:hover { color: var(--apple-blue); }
+        .disclaimer { max-width: 1100px; margin: 0 auto 30px; padding: 14px 20px; background: #fffbe6; border: 1px solid #f0e3a0; border-radius: 12px; font-size: 12.5px; line-height: 1.5; color: #6b5b00; }
+        .verdict-box { animation: fadeSlideIn 0.35s ease; }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        footer { text-align: center; padding: 30px 20px 50px; font-size: 12px; color: #a1a1a6; }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="disclaimer">
+        ⚠️ <strong>Исследовательский прототип — не медицинское изделие.</strong> Демонстрация работает на
+        синтетических сигналах ЭКГ исключительно в учебных целях, не прошла клиническую валидацию и не имеет
+        регуляторного допуска (FDA/CE). Не используйте для реальной диагностики или принятия решений о лечении.
+        См. раздел <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai#limitations--ethical-considerations" style="color:#6b5b00;">Limitations</a> в README.
+    </div>
+
+    <div class="container" style="position: relative;">
+        <div class="lang-switch"><a href="index.html">English version →</a></div>
         <header>
             <h1>CardioOncoPredict Pro</h1>
-            <p>Децентрализованный Edge AI Клинический Комплекс | Протокол Калибровки FDA</p>
+            <p>Децентрализованный Edge AI Клинический Комплекс | Исследовательский прототип</p>
         </header>
 
         <div class="grid-system">
@@ -147,7 +162,7 @@
                     <button id="btnLateral" class="sensor-btn" onclick="selectFocalZone('Lateral')">Боковая стенка<span>I, aVL, V5, V6</span></button>
                 </div>
 
-                <p class="chart-title">1. Цифровой ЭКГ-сигнал (Аппаратный ресемплинг NumPy к 500 Гц)</p>
+                <p class="chart-title">1. Цифровой ЭКГ-сигнал (Клиентский ресемплинг к 500 Гц)</p>
                 <div class="display-screen">
                     <svg id="ecgWaveform"><path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/></svg>
                 </div>
@@ -166,6 +181,10 @@
             </div>
         </div>
     </div>
+
+    <footer>
+        CardioOncoPredict · учебный исследовательский прототип · <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai" style="color:#a1a1a6;">исходный код на GitHub</a>
+    </footer>
 
     <script>
         let angleX = -0.5, angleY = 0.6;
@@ -321,7 +340,8 @@
                 let currentSensors = activeFocalZone === 'Anterior' ? 'V1, V2, V3, V4 (Анализ передней стенки)' : 
                                      (activeFocalZone === 'Inferior' ? 'II, III, aVF (Анализ нижней стенки и верхушки)' : 'I, aVL, V5, V6 (Анализ боковой стенки)');
 
-                vBox.innerHTML = `<strong>CARDIOONCOPREDICT PRO — КЛИНИЧЕСКИЙ ПРОТОКОЛ</strong><br><br>` +
+                vBox.innerHTML = `<strong>CARDIOONCOPREDICT PRO — КЛИНИЧЕСКИЙ ПРОТОКОЛ</strong><br>` +
+                                 `<span style="font-size:11px; opacity:0.75;">(симулированный сценарий — не результат работы обученной модели)</span><br><br>` +
                                  `• <strong>МЕДИЦИНСКАЯ МЕТРИКА И ДАТА-СТРИМ:</strong><br>` +
                                  `  - Входной сигнал: Ресемплирован с ${inputHz} Гц до эталонных 500 Гц<br>` +
                                  `  - Физиологическая аугментация: Добавлена Гауссовская фильтрация шума<br>` +
@@ -330,7 +350,7 @@
                                  `• <strong>3D-КАРТА ТОПОЛОГИИ МИОКАРДА:</strong><br>` +
                                  `  - Передняя зона: ${activeFocalZone === 'Anterior' && isDamaged ? '[ОБНАРУЖЕН СУБКЛИНИЧЕСКИЙ ФЕРРОПТОЗ]' : '[СТАБИЛЬНО]'}<br>` +
                                  `  - Нижняя зона / Верхушка: ${activeFocalZone === 'Inferior' && isDamaged ? '[ПОДТВЕРЖДЕНО ПАТОЛОГИЧЕСКОЕ ИЗМЕНЕНИЕ]' : '[СТАБИЛЬНО]'}<br>` +
-                                 `  - Boxовая зона: ${activeFocalZone === 'Lateral' && isDamaged ? '[КРИТИЧЕСКИЙ СЕГМЕНТ ПОД СВЕТОМ ДАТЧИКОВ]' : '[СТАБИЛЬНО]'}<br><br>` +
+                                 `  - Боковая зона: ${activeFocalZone === 'Lateral' && isDamaged ? '[КРИТИЧЕСКИЙ СЕГМЕНТ ПОД СВЕТОМ ДАТЧИКОВ]' : '[СТАБИЛЬНО]'}<br><br>` +
                                  `• <strong>КАЛИБРОВАННЫЙ ВЕРДИКТ ИИ (ДОВЕРИТЕЛЬНЫЙ ИНТЕРВАЛ):</strong><br>` +
                                  `  - Расчетная вероятность повреждения: <strong>${baseProb}% (${confidenceBound})</strong><br>` +
                                  `  - Статистический статус риска: ${risk_status}<br><br>` +
