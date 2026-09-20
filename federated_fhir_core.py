@@ -1,6 +1,6 @@
 import numpy as np
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 # === МАТЕМАТИКА ФЕДЕРАТИВНОГО ОБУЧЕНИЯ (FedAvg) ===
 def simulate_federated_averaging(local_weights_nodes, data_sizes):
@@ -17,13 +17,14 @@ def simulate_federated_averaging(local_weights_nodes, data_sizes):
         
     return global_weights
 
-# Симуляция: три изолированных госпиталя обучили свои ветви ИИ на местных ЭКГ
-weights_vologda_hospital = np.array([0.88, -0.12, 0.45, 0.98])
-weights_boston_clinic = np.array([0.92, -0.10, 0.41, 1.02])
-weights_mit_medical = np.array([0.90, -0.15, 0.48, 0.99])
+# Симуляция: три изолированных госпиталя-узла обучили свои ветви ИИ на местных ЭКГ,
+# не передавая наружу ни одной записи пациента (веса синтетические, для демонстрации FedAvg)
+weights_node_a = np.array([0.88, -0.12, 0.45, 0.98])  # Узел A — крупный онкоцентр
+weights_node_b = np.array([0.92, -0.10, 0.41, 1.02])  # Узел B — университетская клиника
+weights_node_c = np.array([0.90, -0.15, 0.48, 0.99])  # Узел C — региональный госпиталь
 
-nodes = [weights_vologda_hospital, weights_boston_clinic, weights_mit_medical]
-datasets = [1200, 3500, 800] # Количество пациентов в базах данных (закрытые локальные логи)
+nodes = [weights_node_a, weights_node_b, weights_node_c]
+datasets = [1200, 3500, 800]  # Количество пациентов в базах данных (закрытые локальные логи)
 
 global_fused_weights = simulate_federated_averaging(nodes, datasets)
 print("--- МАТЕМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ FEDERATED LEARNING ---")
@@ -58,8 +59,8 @@ def generate_fhir_diagnostic_report(patient_id, age, sex, risk_prob, status):
             "reference": f"Patient/{patient_id}",
             "display": f"Demographics: Age {age}, Biological Sex: {sex}"
         },
-        "effectiveDateTime": datetime.utcnow().isoformat() + "Z",
-        "issued": datetime.utcnow().isoformat() + "Z",
+        "effectiveDateTime": datetime.now(timezone.utc).isoformat(),
+        "issued": datetime.now(timezone.utc).isoformat(),
         "conclusion": f"AI Verdict: {status}. Computed myocardial tissue damage risk profile: {risk_prob}%.",
         "conclusionCode": [{
             "coding": [{
@@ -72,6 +73,7 @@ def generate_fhir_diagnostic_report(patient_id, age, sex, risk_prob, status):
     return fhir_json
 
 # Тест генерации FHIR-пакета для отправки в базу данных госпиталя
-fhir_packet = generate_fhir_diagnostic_report("petya-vologda-99", 45, "Male", 93.42, "CRITICAL RISK")
+# (используется анонимизированный синтетический идентификатор, не реальный пациент)
+fhir_packet = generate_fhir_diagnostic_report("SYNTH-PATIENT-0001", 45, "Male", 93.42, "CRITICAL RISK")
 print("--- ГЕНЕРАЦИЯ МЕДИЦИНСКОГО СТАНДАРТА DATA-PACKET HL7 FHIR ---")
 print(json.dumps(fhir_packet, indent=2))

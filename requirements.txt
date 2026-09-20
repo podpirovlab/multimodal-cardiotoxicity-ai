@@ -1,6 +1,16 @@
 numpy
 pandas
+matplotlib
+PyWavelets
 torch
 scikit-learn
 pyedflib
-gradio==4.36.1
+# Pinning to an exact old Gradio release can drag in a Pillow version with
+# no prebuilt wheel for newer Python — a lower bound keeps installs working
+# across Python versions while still requiring the 4.x+ Blocks/Interface API.
+gradio>=4.36
+
+# Опционально — только для export_edge_onnx.py (экспорт/квантование модели):
+# onnx
+# onnxruntime
+# onnxscript   # требуется torch>=2.x для экспорта в ONNX

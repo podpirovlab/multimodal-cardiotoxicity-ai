@@ -1,10 +1,19 @@
+"""
+Педагогический прототип на чистом NumPy: пошаговая иллюстрация мультимодального
+слияния (bilinear fusion) сигнала ЭКГ и клинических метаданных пациента.
+
+ВНИМАНИЕ: все данные ниже синтетические (сгенерированы вручную для наглядности),
+веса сети не обучены на реальных примерах. Скрипт демонстрирует ТОЛЬКО механику
+вычислений — для рабочей версии на PyTorch см. advanced_model.py.
+"""
+import matplotlib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-print("⏳ Шаг 1: Сборка защищенного мультимодального мозга ИИ...")
+print("⏳ Шаг 1: Подготовка синтетического набора данных пациентов...")
 
-# Автоматическая генерация данных без ломающихся скобок
+# Синтетические данные пяти условных пациентов (не реальные медицинские записи)
 ids = list(range(1, 6))
 sex_array = list(np.ones(5, dtype=int))
 ages = [56.0, 19.0, 63.0, 45.0, 52.0]
@@ -47,18 +56,22 @@ v_meta = np.maximum(0, Z_mlp)
 # Шаг 4: Билинейное слияние (Bilinear Fusion)
 V_fusion = np.outer(v_ecg, v_meta)
 
-# Шаг 5: Выходной нейрон + Сжатие в Сигмоиду (Полка 4)
+# Шаг 5: Выходной нейрон + сжатие в вероятность через сигмоиду
 Z_out = np.sum(V_fusion * np.random.normal(size=(2, 2))) + 0.5
-y_pred = 1 / (1 + np.exp(-Z_out)) # Наша формула Сигмоиды
+y_pred = 1 / (1 + np.exp(-Z_out))  # sigmoid(Z_out)
 
 # Шаг 6: Расчет ошибки ИИ (BCE Loss)
 y_true = df.loc[1, 'true_label']
-loss = -(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
+# Клиппинг предотвращает log(0) -> -inf / NaN, если сигмоида насыщается
+# (что легко происходит со случайными, необученными весами).
+EPS = 1e-7
+y_pred_clipped = np.clip(y_pred, EPS, 1 - EPS)
+loss = -(y_true * np.log(y_pred_clipped) + (1 - y_true) * np.log(1 - y_pred_clipped))
 
-print("✅ Математический расчет Полки 4 завершен успешно!")
-print(f"🎯 ИИ рассчитал прогноз: {y_pred:.4f}")
-print(f"🩺 Риск повреждения сердца для Пациента №1: {y_pred * 100:.2f}%")
-print(f"⚠️ Штрафной балл за ошибку (BCE Loss): {loss:.4f}")
+print("✅ Прямой проход (forward pass) завершён успешно!")
+print(f"🎯 Расчётная вероятность (необученные случайные веса): {y_pred:.4f}")
+print(f"🩺 Иллюстративный «риск» для Пациента №1: {y_pred * 100:.2f}%")
+print(f"⚠️ Значение функции потерь (BCE Loss): {loss:.4f}")
 
 # --- ОТРИСОВКА МЕДИЦИНСКОГО ЭКРАНА ПРОГНОЗА ---
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 9))
@@ -84,6 +97,16 @@ for i, v in enumerate([y_true, y_pred]):
     ax2.text(v + 0.02, i, f'{v*100:.2f}%', va='center', fontweight='bold', fontsize=11)
 
 plt.tight_layout()
-plt.show()
 
-print("\n🚀 ПРОЕКТ ПОЛНОСТЬЮ РЕАЛИЗОВАН В КОДЕ! ВСЕ 5 ПОЛОК СИНХРОНИЗИРОВАНЫ И РАБОТАЮТ!")
+# В headless-окружениях (CI, серверы без дисплея) plt.show() не падает с
+# исключением — он просто печатает предупреждение и ничего не показывает.
+# Поэтому вместо try/except явно проверяем, интерактивен ли текущий backend.
+_NON_INTERACTIVE_BACKENDS = {"agg", "pdf", "svg", "ps", "cairo", "template"}
+if matplotlib.get_backend().lower() in _NON_INTERACTIVE_BACKENDS:
+    output_path = "demo_forward_pass.png"
+    plt.savefig(output_path, dpi=150)
+    print(f"🖼️  Интерактивный дисплей недоступен — график сохранён в {output_path}")
+else:
+    plt.show()
+
+print("\n✅ Демонстрация пайплайна завершена: все пять этапов синхронизированы и отработали.")

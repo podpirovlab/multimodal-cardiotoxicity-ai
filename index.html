@@ -95,14 +95,29 @@
         canvas#heartCanvas { width: 400px; height: 280px; display: block; margin: 0 auto; }
         .chart-title { font-size: 14px; font-weight: 600; color: #86868b; margin-bottom: 12px; }
         .hint-text { position: absolute; bottom: 10px; right: 14px; color: #c7c7cc; font-size: 10px; font-family: monospace; pointer-events: none; }
+        .lang-switch { position: absolute; top: 20px; right: 24px; font-size: 13px; }
+        .lang-switch a { color: #86868b; text-decoration: none; font-weight: 500; }
+        .lang-switch a:hover { color: var(--apple-blue); }
+        .disclaimer { max-width: 1100px; margin: 0 auto 30px; padding: 14px 20px; background: #fffbe6; border: 1px solid #f0e3a0; border-radius: 12px; font-size: 12.5px; line-height: 1.5; color: #6b5b00; }
+        .verdict-box { animation: fadeSlideIn 0.35s ease; }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        footer { text-align: center; padding: 30px 20px 50px; font-size: 12px; color: #a1a1a6; }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="disclaimer">
+        ⚠️ <strong>Research prototype — not a medical device.</strong> This interactive demo runs on synthetic
+        ECG waveforms for educational illustration only. It has not been clinically validated and has no
+        regulatory (FDA/CE) clearance. It must not be used for real diagnosis or treatment decisions.
+        See the <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai#limitations--ethical-considerations" style="color:#6b5b00;">Limitations section</a> of the README.
+    </div>
+
+    <div class="container" style="position: relative;">
+        <div class="lang-switch"><a href="ru.html">Русская версия →</a></div>
         <header>
             <h1>CardioOncoPredict Pro</h1>
-            <p>Decentralized Edge AI Clinical Framework | FDA Calibration Protocol</p>
+            <p>Decentralized Edge AI Clinical Framework | Research Prototype</p>
         </header>
 
         <div class="grid-system">
@@ -147,7 +162,7 @@
                     <button id="btnLateral" class="sensor-btn" onclick="selectFocalZone('Lateral')">Lateral Wall<span>I, aVL, V5, V6</span></button>
                 </div>
 
-                <p class="chart-title">1. Digital ECG Waveform (Hardware Resampling to 500 Hz)</p>
+                <p class="chart-title">1. Digital ECG Waveform (Client-Side Resampling to 500 Hz)</p>
                 <div class="display-screen">
                     <svg id="ecgWaveform"><path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/></svg>
                 </div>
@@ -166,6 +181,10 @@
             </div>
         </div>
     </div>
+
+    <footer>
+        CardioOncoPredict · educational research prototype · <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai" style="color:#a1a1a6;">source code on GitHub</a>
+    </footer>
 
     <script>
         let angleX = -0.5, angleY = 0.6;
@@ -320,7 +339,8 @@
                 let currentSensors = activeFocalZone === 'Anterior' ? 'V1, V2, V3, V4 (Anterior Wall Metrics)' : 
                                      (activeFocalZone === 'Inferior' ? 'II, III, aVF (Inferior & Apex Matrix)' : 'I, aVL, V5, V6 (Lateral Array)');
 
-                vBox.innerHTML = `<strong>CARDIOONCOPREDICT PRO — CLINICAL PROTOCOL</strong><br><br>` +
+                vBox.innerHTML = `<strong>CARDIOONCOPREDICT PRO — CLINICAL PROTOCOL</strong><br>` +
+                                 `<span style="font-size:11px; opacity:0.75;">(simulated scenario output — not live model inference)</span><br><br>` +
                                  `• <strong>BIOMEDICAL METRICS & DATA STREAM:</strong><br>` +
                                  `  - Input Signal: Resampled from ${inputHz} Hz to baseline 500 Hz<br>` +
                                  `  - Physiological Augmentation: Gaussian noise filtering deployed<br>` +

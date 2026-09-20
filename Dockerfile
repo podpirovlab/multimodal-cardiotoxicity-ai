@@ -11,5 +11,8 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 # Копируем весь остальной код проекта в контейнер
 COPY . .
 
-# Открываем порт для Gradio и запускаем наше монолитное приложение
-CMD ["python", "advanced_model.py"]
+# Открываем порт для Gradio-интерфейса
+EXPOSE 7860
+
+# Запускаем веб-приложение (app.py поднимает Gradio-сервер на 0.0.0.0:$PORT)
+CMD ["python", "app.py"]
