@@ -17,3 +17,8 @@ demo_forward_pass.png
 .DS_Store
 .vscode/
 .idea/
+
+# Data & training runs
+data/
+runs/
+report.json

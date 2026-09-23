@@ -1,363 +1,319 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CardioOncoPredict Pro</title>
-    <style>
-        :root { 
-            --apple-dark: #1d1d1f; 
-            --apple-gray: #f5f5f7; 
-            --apple-blue: #0071e3; 
-            --apple-danger: #ff3b30; 
-            --apple-success: #34c759; 
-        }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            background-color: #ffffff; 
-            margin: 0; 
-            padding: 0; 
-            color: var(--apple-dark);
-            -webkit-font-smoothing: antialiased;
-        }
-        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
-        header { text-align: center; margin-bottom: 50px; }
-        header h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
-        header p { font-size: 19px; color: #86868b; margin: 0; }
-        .grid-system { display: grid; grid-template-columns: 380px 1fr; gap: 32px; }
-        @media (max-width: 900px) { .grid-system { grid-template-columns: 1fr; } }
-        .card { 
-            background: #ffffff; 
-            border-radius: 20px; 
-            padding: 30px; 
-            box-shadow: 0 8px 30px rgba(0,0,0,0.04); 
-            border: 1px solid rgba(0,0,0,0.02);
-        }
-        .card h2 { font-size: 22px; font-weight: 600; margin-top: 0; margin-bottom: 24px; }
-        .input-group { margin-bottom: 22px; }
-        .input-group label { display: block; font-size: 13px; font-weight: 500; color: #86868b; margin-bottom: 8px; text-transform: uppercase; }
-        select { 
-            width: 100%; 
-            padding: 12px 16px; 
-            border-radius: 12px; 
-            background: var(--apple-gray); 
-            border: none; 
-            font-size: 15px; 
-            color: var(--apple-dark); 
-            font-weight: 500;
-            outline: none;
-        }
-        input[type="range"] { width: 100%; -webkit-appearance: none; background: #e5e5ea; height: 6px; border-radius: 3px; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { 
-            -webkit-appearance: none; 
-            background: var(--apple-blue); 
-            width: 18px; 
-            height: 18px; 
-            border-radius: 50%; 
-            cursor: pointer; 
-        }
-        .action-btn { 
-            width: 100%; 
-            background: var(--apple-blue); 
-            color: #ffffff; 
-            border: none; 
-            padding: 14px; 
-            border-radius: 14px; 
-            font-size: 16px; 
-            font-weight: 600; 
-            cursor: pointer; 
-            transition: background 0.2s ease;
-        }
-        .action-btn:hover { background: #0077ed; }
-        
-        .sensor-matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-        .sensor-btn { 
-            padding: 10px; 
-            font-size: 11px; 
-            font-weight: 600; 
-            border: 1px solid #e5e5ea; 
-            border-radius: 10px; 
-            background: var(--apple-gray); 
-            cursor: pointer; 
-            text-align: center;
-            transition: 0.2s;
-        }
-        .sensor-btn.active { background: var(--apple-blue); color: white; border-color: var(--apple-blue); }
-        .sensor-btn span { display: block; font-size: 9px; color: #86868b; margin-top: 2px; }
-        .sensor-btn.active span { color: rgba(255,255,255,0.8); }
-
-        .verdict-box { margin-top: 24px; padding: 20px; border-radius: 14px; display: none; font-size: 13px; line-height: 1.6; font-family: monospace; white-space: pre-wrap; }
-        .verdict-box.danger { background: #fff2f1; color: var(--apple-danger); border-left: 4px solid var(--apple-danger); }
-        .verdict-box.success { background: #f2fbf4; color: var(--apple-success); border-left: 4px solid var(--apple-success); }
-        .display-screen { background: var(--apple-gray); border-radius: 16px; padding: 16px; margin-bottom: 24px; height: 180px; position: relative; }
-        .display-screen.three-d-box { height: 280px; cursor: grab; background: #ffffff; border: 1px solid #e5e5ea; display: flex; align-items: center; justify-content: center; }
-        svg { width: 100%; height: 100%; display: block; }
-        canvas#heartCanvas { width: 400px; height: 280px; display: block; margin: 0 auto; }
-        .chart-title { font-size: 14px; font-weight: 600; color: #86868b; margin-bottom: 12px; }
-        .hint-text { position: absolute; bottom: 10px; right: 14px; color: #c7c7cc; font-size: 10px; font-family: monospace; pointer-events: none; }
-        .lang-switch { position: absolute; top: 20px; right: 24px; font-size: 13px; }
-        .lang-switch a { color: #86868b; text-decoration: none; font-weight: 500; }
-        .lang-switch a:hover { color: var(--apple-blue); }
-        .disclaimer { max-width: 1100px; margin: 0 auto 30px; padding: 14px 20px; background: #fffbe6; border: 1px solid #f0e3a0; border-radius: 12px; font-size: 12.5px; line-height: 1.5; color: #6b5b00; }
-        .verdict-box { animation: fadeSlideIn 0.35s ease; }
-        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        footer { text-align: center; padding: 30px 20px 50px; font-size: 12px; color: #a1a1a6; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CardioOncoPredict</title>
+<meta name="description" content="Исследовательский прототип: поиск микровольтной альтернации зубца T на ЭКГ как раннего электрического признака кардиотоксичности антрациклинов. Вся математика считается в браузере.">
+<meta property="og:title" content="CardioOncoPredict">
+<meta property="og:description" content="Микровольтная альтернация зубца T: интерактивная лаборатория и мультимодальная нейросеть для кардиоонкологии.">
+<link rel="alternate" hreflang="en" href="index.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="assets/css/site.css">
 </head>
 <body>
 
-    <div class="disclaimer">
-        ⚠️ <strong>Исследовательский прототип — не медицинское изделие.</strong> Демонстрация работает на
-        синтетических сигналах ЭКГ исключительно в учебных целях, не прошла клиническую валидацию и не имеет
-        регуляторного допуска (FDA/CE). Не используйте для реальной диагностики или принятия решений о лечении.
-        См. раздел <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai#limitations--ethical-considerations" style="color:#6b5b00;">Limitations</a> в README.
-    </div>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg width="28" height="18" viewBox="0 0 28 18" aria-hidden="true"><path d="M1 11h6l2-4 3 10 3-16 3 12 2-2h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      CardioOncoPredict
+    </a>
+    <nav class="nav" aria-label="Разделы">
+      <a href="#problem">Проблема</a>
+      <a href="#lab">Лаборатория TWA</a>
+      <a href="#method">Метод</a>
+      <a href="#model">Нейросеть</a>
+      <a href="#roadmap">План</a>
+      <a class="lang" href="index.html" hreflang="en">EN</a>
+    </nav>
+  </div>
+</header>
 
-    <div class="container" style="position: relative;">
-        <div class="lang-switch"><a href="index.html">English version →</a></div>
-        <header>
-            <h1>CardioOncoPredict Pro</h1>
-            <p>Децентрализованный Edge AI Клинический Комплекс | Исследовательский прототип</p>
-        </header>
-
-        <div class="grid-system">
-            <div class="card">
-                <h2>Параметры Сессии</h2>
-                <div class="input-group">
-                    <label>Возраст Пациента: <span id="ageDisplay" style="color:var(--apple-blue); font-weight:600;">45</span> лет</label>
-                    <input type="range" id="patientAge" min="18" max="90" value="45" oninput="document.getElementById('ageDisplay').innerText=this.value">
-                </div>
-                <div class="input-group">
-                    <label>Биологический Пол</label>
-                    <select id="patientSex">
-                        <option value="Мужской">Мужской</option>
-                        <option value="Женский">Женский</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>Входная Частота Дискретизации</label>
-                    <select id="samplingRate">
-                        <option value="250">250 Гц (Портативный Холтер)</option>
-                        <option value="500" selected>500 Гц (Эталонный Клинический ЭКГ)</option>
-                        <option value="1000">1000 Гц (Высокоточный Стационарный Монитор)</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>Протокол Масштабирования (Стресс-Тест)</label>
-                    <select id="chemoHistory" onchange="toggleChemoMode(this.value)">
-                        <option value="stable">Базовый Скрининг (Специфичность)</option>
-                        <option value="injury">🚨 Антрациклиновая Нагрузка (Ферроптоз Ткани)</option>
-                    </select>
-                </div>
-                <button class="action-btn" onclick="executeDiagnosticsPipeline()">Запустить Инференс Edge AI</button>
-                <div id="verdictOutput" class="verdict-box"></div>
-            </div>
-            <div class="card">
-                <h2 style="margin-bottom: 20px;">Электрофизиологическая и Пространственная Аналитика</h2>
-                
-                <label style="font-size: 11px; font-weight: 600; color: #86868b; display:block; margin-bottom:8px; text-transform:uppercase;">Топографические фокальные зоны 12 отведений</label>
-                <div class="sensor-matrix">
-                    <button id="btnAnterior" class="sensor-btn" onclick="selectFocalZone('Anterior')">Передняя стенка<span>V1, V2, V3, V4</span></button>
-                    <button id="btnInferior" class="sensor-btn" onclick="selectFocalZone('Inferior')">Нижняя / Верхушка<span>II, III, aVF</span></button>
-                    <button id="btnLateral" class="sensor-btn" onclick="selectFocalZone('Lateral')">Боковая стенка<span>I, aVL, V5, V6</span></button>
-                </div>
-
-                <p class="chart-title">1. Цифровой ЭКГ-сигнал (Клиентский ресемплинг к 500 Гц)</p>
-                <div class="display-screen">
-                    <svg id="ecgWaveform"><path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/></svg>
-                </div>
-                <p class="chart-title">2. Объяснимый ИИ (XAI): Динамическая аугментация и калибровка ST-T сегмента</p>
-                <div class="display-screen">
-                    <svg id="xaiFocus">
-                        <rect id="alertZone" x="0" y="0" width="0" height="180" fill="rgba(255,59,48,0.12)" display="none"/>
-                        <path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/>
-                    </svg>
-                </div>
-                <p class="chart-title">3. Калиброванная 3D-Топология ткани миокарда (Каркас левого желудочка)</p>
-                <div class="display-screen three-d-box" id="canvasContainer">
-                    <canvas id="heartCanvas" width="400" height="280"></canvas>
-                    <div class="hint-text">ЗАЖМИТЕ И ВРАЩАЙТЕ МЫШЬЮ ДЛЯ ОБЗОРА</div>
-                </div>
-            </div>
+<main id="top">
+  <div class="wrap hero">
+    <div class="hero-head">
+      <div style="display:grid; gap:18px;">
+        <span class="eyebrow">Кардиоонкология · обработка сигналов · ИИ</span>
+        <h1>Услышать сердце <em>до</em>&nbsp;того, как оно ослабнет</h1>
+      </div>
+      <div style="display:grid; gap:18px;">
+        <p class="sub">Химиотерапия антрациклинами спасает от рака, но может повредить сердце. Мы ищем самый ранний электрический след этого повреждения на ЭКГ: чередование зубца T в несколько микровольт.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#lab">Открыть лабораторию</a>
+          <a class="btn ghost" href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">Код на GitHub</a>
+          <a class="btn ghost" href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.ru.md">Полное описание</a>
         </div>
+      </div>
     </div>
 
-    <footer>
-        CardioOncoPredict · учебный исследовательский прототип · <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai" style="color:#a1a1a6;">исходный код на GitHub</a>
-    </footer>
+    <div class="strip" aria-label="Синтетическая ЭКГ со скрытой альтернацией зубца T 12 мкВ">
+      <canvas id="hero-ecg"></canvas>
+      <span class="lead">II · синтетическая запись</span>
+      <span class="scale">25 мм/с · 10 мм/мВ · сетка 1 мм</span>
+    </div>
+    <div class="readouts" aria-live="polite">
+      <div class="readout"><span class="k">ЧСС</span><span class="v" id="ro-hr">—</span><span class="note">по R–R интервалам</span></div>
+      <div class="readout"><span class="k">Альтернация T</span><span class="v" id="ro-valt">—</span><span class="note">вычислена из этой записи</span></div>
+      <div class="readout"><span class="k">K-score</span><span class="v" id="ro-k">—</span><span class="note">сигнал / шум, порог 3</span></div>
+      <div class="readout"><span class="k">На бумаге</span><span class="v" id="ro-mm">—</span><span class="note">глазом не различить</span></div>
+    </div>
+    <p class="notice"><span><strong>Исследовательский прототип, не медицинское изделие.</strong> Сигналы на этой странице синтетические, нейросеть пока не проверена клинически и не имеет регистрации (Росздравнадзор, FDA, CE). Не используйте для диагностики и решений о лечении.</span></p>
+  </div>
 
-    <script>
-        let angleX = -0.5, angleY = 0.6;
-        let points3D = [];
-        let is3DInitialized = false;
-        let activeFocalZone = 'Anterior';
-        let diagnosticsRun = false;
+  <!-- ===================== PROBLEM ===================== -->
+  <section class="block" id="problem">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Проблема</span>
+        <h2>Сердце повреждается тихо, а видим мы это поздно</h2>
+      </div>
+      <div class="cols-2">
+        <div class="prose">
+          <p><b>Антрациклины</b> (доксорубицин, эпирубицин) остаются основой лечения рака молочной железы, лимфом, сарком и детских лейкозов. Их побочный эффект — дозозависимое повреждение кардиомиоцитов, которые почти не восстанавливаются.</p>
+          <p>У 2625 пациентов, получавших антрациклины, кардиотоксичность развилась примерно у 9 %, и в 98 % случаев — в первый год после лечения (Cardinale et al., <i>Circulation</i>, 2015). Чем раньше её замечают и начинают кардиопротекцию, тем чаще функция сердца восстанавливается.</p>
+          <p>Стандартный контроль — эхокардиография с фракцией выброса (ФВ ЛЖ) и биомаркеры (тропонин, NT-proBNP) по рекомендациям ESC 2022. ФВ падает, когда часть ткани уже потеряна. ЭКГ дешевле, делается за минуты и может записываться непрерывно, но изменения на ней слишком малы для глаза.</p>
+          <p><b>Гипотеза проекта:</b> электрические нарушения реполяризации (включая микровольтную альтернацию зубца T) появляются раньше механических, и их можно извлечь математикой.</p>
+        </div>
+        <div style="display:grid; gap:20px;">
+          <figure class="chart-box">
+            <canvas id="dose-chart" height="250" role="img" aria-label="Доля пациентов с сердечной недостаточностью: 5 % при 400 мг/м², 26 % при 550, 48 % при 700"></canvas>
+            <figcaption>Частота сердечной недостаточности в зависимости от кумулятивной дозы доксорубицина (Swain et al., <i>Cancer</i>, 2003).</figcaption>
+          </figure>
+          <div class="cascade" aria-label="Каскад повреждения">
+            <div class="step"><span class="when">Часы–дни</span><div><h3>Молекулярный уровень</h3><p>Топоизомераза IIβ, активные формы кислорода, накопление железа в митохондриях, перекисное окисление липидов (ферроптоз).</p></div></div>
+            <div class="step target"><span class="when">Недели</span><div><h3>Электрический уровень · наша цель</h3><p>Нарушается работа ионных каналов (I<sub>Kr</sub>, Ca²⁺). Реполяризация становится неоднородной: удлиняется QT, чередуется зубец T.</p></div></div>
+            <div class="step"><span class="when">Месяцы</span><div><h3>Механический уровень</h3><p>Падает фракция выброса на ЭхоКГ, появляются симптомы сердечной недостаточности.</p></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        function selectFocalZone(zone) {
-            activeFocalZone = zone;
-            const buttons = ['Anterior', 'Inferior', 'Lateral'];
-            buttons.forEach(b => document.getElementById(`btn${b}`).classList.remove('active'));
-            document.getElementById(`btn${zone}`).classList.add('active');
-            if (diagnosticsRun) draw3DHeart(document.getElementById('chemoHistory').value === 'injury');
-        }
+  <!-- ===================== LAB ===================== -->
+  <section class="block" id="lab">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Интерактивная лаборатория</span>
+        <h2>Найдите альтернацию, которую не видно глазом</h2>
+        <p class="lede">Двигайте ползунки: браузер сгенерирует 128 ударов ЭКГ и проведёт тот же анализ, что и Python-код проекта. Все числа ниже вычисляются заново при каждом изменении.</p>
+      </div>
+      <div class="lab">
+        <form class="controls" onsubmit="return false" aria-label="Параметры сигнала">
+          <div class="presets" role="group" aria-label="Готовые сценарии">
+            <button type="button" class="chip" data-preset='{"alt":0,"noise":15,"hr":72,"tamp":0.35,"mains":0}' aria-pressed="false">Норма</button>
+            <button type="button" class="chip" data-preset='{"alt":6,"noise":15,"hr":78,"tamp":0.26,"mains":10}' aria-pressed="false">Скрытая TWA</button>
+            <button type="button" class="chip" data-preset='{"alt":25,"noise":20,"hr":96,"tamp":0.2,"mains":10}' aria-pressed="false">Выраженная TWA</button>
+            <button type="button" class="chip" data-preset='{"alt":4,"noise":70,"hr":80,"tamp":0.3,"mains":40}' aria-pressed="false">Шум мешает</button>
+          </div>
+          <div class="ctl">
+            <label for="s-alt">Альтернация зубца T <output id="o-alt" for="s-alt"></output></label>
+            <input type="range" id="s-alt" min="0" max="60" step="0.5" value="12">
+            <span class="hint">На сколько чётные и нечётные удары отличаются от среднего</span>
+          </div>
+          <div class="ctl">
+            <label for="s-noise">Мышечный шум <output id="o-noise" for="s-noise"></output></label>
+            <input type="range" id="s-noise" min="0" max="100" step="1" value="15">
+          </div>
+          <div class="ctl">
+            <label for="s-hr">Частота сердечных сокращений <output id="o-hr" for="s-hr"></output></label>
+            <input type="range" id="s-hr" min="45" max="130" step="1" value="80">
+            <span class="hint">TWA обычно ищут при ЧСС 105–110 во время нагрузки</span>
+          </div>
+          <div class="ctl">
+            <label for="s-tamp">Амплитуда зубца T <output id="o-tamp" for="s-tamp"></output></label>
+            <input type="range" id="s-tamp" min="0.05" max="0.5" step="0.01" value="0.3">
+            <span class="hint">Уплощение T — частый признак нарушенной реполяризации</span>
+          </div>
+          <div class="ctl">
+            <label for="s-mains">Сетевая наводка 50 Гц <output id="o-mains" for="s-mains"></output></label>
+            <input type="range" id="s-mains" min="0" max="100" step="1" value="10">
+          </div>
+          <button type="button" class="btn ghost" id="b-reseed">Новая запись с тем же сценарием</button>
+          <div class="file">
+            <label class="file" for="f-file"><b style="font:600 13px var(--display)">Своя ЭКГ (CSV/TXT, одно отведение)</b></label>
+            <input type="file" id="f-file" accept=".csv,.txt,text/csv,text/plain">
+            <div class="row">
+              <div class="ctl"><label for="f-fs">Частота, Гц</label><input type="number" id="f-fs" value="500" min="50" max="10000"></div>
+              <div class="ctl"><label for="f-col">Столбец</label><input type="number" id="f-col" value="0" min="0" max="20"></div>
+            </div>
+            <div class="ctl"><label for="f-unit">Единицы</label><select id="f-unit"><option value="mv">мВ</option><option value="uv">мкВ</option></select></div>
+            <span class="hint" id="f-status">Нужно не меньше 2 минут записи. Файл остаётся в браузере и никуда не отправляется.</span>
+          </div>
+        </form>
 
-        // Автоматическая активация кнопок при выборе повреждения
-        function toggleChemoMode(val) {
-            if (val === 'injury') document.getElementById('btnAnterior').classList.add('active');
-            else { selectFocalZone('Anterior'); document.getElementById('btnAnterior').classList.remove('active'); }
-        }
+        <div class="panels">
+          <div class="verdict neg" id="verdict" aria-live="polite"><span class="pill">…</span><p></p></div>
+          <div class="metrics">
+            <div class="metric"><span class="k">ЧСС</span><span class="v" id="m-hr">—</span><span class="d" id="d-hr"></span></div>
+            <div class="metric"><span class="k">V<sub>alt</sub></span><span class="v" id="m-valt">—</span><span class="d">RMS по окну ST-T</span></div>
+            <div class="metric"><span class="k">Пик</span><span class="v" id="m-peak">—</span><span class="d">в самой «качающейся» точке</span></div>
+            <div class="metric"><span class="k">K-score</span><span class="v" id="m-k">—</span><span class="d">порог 3</span></div>
+            <div class="metric"><span class="k">MMA</span><span class="v" id="m-mma">—</span><span class="d">скользящее среднее</span></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>1 · Запись и найденные R-пики</h3><span class="legend"><span><i style="background:var(--accent)"></i>R-пик</span><span><i style="background:var(--accent-soft); height:10px"></i>окно ST-T</span></span></div>
+            <canvas id="c-strip" height="200"></canvas>
+            <p class="explain">Сигнал отфильтрован (0,5–40 Гц), R-пики найдены алгоритмом Пана–Томпкинса. Окно ST-T подстраивается под ЧСС.</p>
+          </div>
+          <div class="two">
+            <div class="panel">
+              <div class="panel-head"><h3>2 · Чётные и нечётные удары</h3></div>
+              <div class="panel-head"><span class="legend"><span><i style="background:var(--blue)"></i>A (чётные)</span><span><i style="background:var(--accent)"></i>B (нечётные)</span><span><i style="background:var(--muted)"></i>A−B ×10</span></span></div>
+              <canvas id="c-overlay" height="230"></canvas>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>3 · Одна точка ST-T, удар за ударом</h3></div>
+              <div class="panel-head"><span class="legend"><span><i style="background:var(--blue)"></i>чётный</span><span><i style="background:var(--accent)"></i>нечётный</span></span></div>
+              <canvas id="c-series" height="200"></canvas>
+              <p class="explain">При альтернации столбики чередуются вверх-вниз: A, B, A, B.</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>4 · Спектр ряда ударов (спектральный метод)</h3><span class="legend"><span><i style="background:var(--blue-soft); height:10px"></i>полоса шума 0,44–0,49</span><span><i style="background:var(--accent)"></i>0,5 цикла/удар</span></span></div>
+            <canvas id="c-spec" height="200"></canvas>
+            <p class="explain">Чередование через удар — это колебание с частотой ровно 0,5 цикла на удар. Если точка справа поднимается над серой полосой шума, альтернация есть.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        function init3DGeometry() {
-            points3D = [];
-            const layers = 9, radialPoints = 12;
-            for (let i = 0; i <= layers; i++) {
-                let z = (i / layers) * 2.0 - 1.0; 
-                let r = 0.85 - (i / layers) * 0.55; 
-                for (let j = 0; j < radialPoints; j++) {
-                    let rad = (j / radialPoints) * Math.PI * 2;
-                    let wall = "Base";
-                    if (i >= 3 && i <= 6) {
-                        if (rad >= 0 && rad < Math.PI / 2 || rad >= Math.PI * 1.5) wall = "Anterior";
-                        else if (rad >= Math.PI / 2 && rad < Math.PI) wall = "Lateral";
-                        else wall = "Inferior";
-                    } else if (i > 6) wall = "Apex";
-                    points3D.push({ x: Math.cos(rad) * r, y: Math.sin(rad) * r, z: z, wall: wall });
-                }
-            }
-            is3DInitialized = true;
-        }
+  <!-- ===================== METHOD ===================== -->
+  <section class="block" id="method">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Метод</span>
+        <h2>Пять шагов от электрода до числа</h2>
+        <p class="lede">Шаги идут строго по порядку: каждый использует результат предыдущего. Один и тот же алгоритм реализован в Python (<span class="mono">cardioonco/</span>) и в JavaScript (<span class="mono">assets/js/dsp.js</span>) и покрыт тестами.</p>
+      </div>
+      <div class="pipeline">
+        <div class="pstep"><span class="n">1</span><div><h3>Дискретизация и калибровка</h3><p>Электроды измеряют разность потенциалов на коже (≈1 мВ). АЦП превращает её в числа с частотой f<sub>s</sub>. По теореме Котельникова частота должна быть больше удвоенной максимальной частоты сигнала.</p></div>
+          <div class="formula">V[n] = (X<sub>raw</sub>[n] − baseline) / gain  <span class="c">мВ</span><br>t<sub>n</sub> = n / f<sub>s</sub>,   f<sub>s</sub> &gt; 2·f<sub>max</sub></div></div>
+        <div class="pstep"><span class="n">2</span><div><h3>Фильтрация без сдвига фазы</h3><p>Фильтр Баттерворта 0,5–40 Гц убирает дыхательный дрейф и мышечный шум. Прогон вперёд и назад (filtfilt) обнуляет фазовый сдвиг, поэтому форма ST-T не искажается.</p></div>
+          <div class="formula">|H(f)|² = 1 / (1 + (f/f<sub>c</sub>)<sup>2N</sup>)<br>y = reverse(H · reverse(H · x))  <span class="c">→ фаза = 0</span></div></div>
+        <div class="pstep"><span class="n">3</span><div><h3>Поиск R-пиков (Пан–Томпкинс)</h3><p>Полоса 5–15 Гц выделяет крутые фронты QRS, производная и квадрат усиливают их, интегрирование за 150 мс сглаживает. Адаптивный порог и рефрактерный период 250 мс дают по одному пику на удар.</p></div>
+          <div class="formula">d[n] = x[n+1] − x[n−1]<br>e[n] = d[n]²,   m[n] = (1/W)·Σ e[n−k],  W = 150 мс</div></div>
+        <div class="pstep"><span class="n">4</span><div><h3>Спектральный метод TWA</h3><p>128 ударов выравниваются по R-пику. Для каждой точки окна ST-T берётся ряд значений от удара к удару, и считается его спектр. Чередование «через удар» даёт пик ровно на 0,5 цикла/удар, потому что e<sup>−iπn</sup> = (−1)<sup>n</sup>.</p></div>
+          <div class="formula">P(f) = ⟨ |(1/N)·Σ<sub>n</sub> s<sub>k</sub>[n]·e<sup>−2πifn</sup>|² ⟩<sub>k</sub><br>V<sub>alt</sub> = √(P(0,5) − μ<sub>шум</sub>)<br>K = (P(0,5) − μ<sub>шум</sub>) / σ<sub>шум</sub></div></div>
+        <div class="pstep"><span class="n">5</span><div><h3>Решение и проверка устойчивости</h3><p>Альтернация считается значимой при V<sub>alt</sub> ≥ 1,9 мкВ и K ≥ 3. Независимо её проверяет метод модифицированного скользящего среднего (MMA): два шаблона, для чётных и нечётных ударов, обновляются с шагом 1/8.</p></div>
+          <div class="formula">A<sub>n</sub> = A<sub>n−1</sub> + clip((beat<sub>n</sub> − A<sub>n−1</sub>)/8, ±32 мкВ)<br>TWA<sub>MMA</sub> = max |A − B| / 2</div></div>
+      </div>
+    </div>
+  </section>
 
-        function draw3DHeart(showDamage) {
-            if (!is3DInitialized) init3DGeometry();
-            const canvas = document.getElementById('heartCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (!diagnosticsRun) {
-                ctx.fillStyle = "#999999"; ctx.font = "12px monospace"; ctx.textAlign = "center";
-                ctx.fillText("[3D-ДВИЖОК В ОЖИДАНИИ — ЗАПУСТИТЕ АНАЛИЗ]", canvas.width / 2, canvas.height / 2);
-                return;
-            }
-            const scale = 110, cx = canvas.width / 2, cy = canvas.height / 2, radPoints = 12;
-            let projected = points3D.map(p => {
-                let y1 = p.y * Math.cos(angleX) - p.z * Math.sin(angleX);
-                let z1 = p.y * Math.sin(angleX) + p.z * Math.cos(angleX);
-                return { x: cx + (p.x * Math.cos(angleY) + z1 * Math.sin(angleY)) * scale, y: cy + y1 * scale, wall: p.wall };
-            });
-            ctx.lineWidth = 1;
-            for (let i = 0; i < projected.length; i++) {
-                let p1 = projected[i], pNextR = projected[(i + 1) % radPoints + Math.floor(i / radPoints) * radPoints];
-                let col = 'rgba(29, 29, 31, 0.15)';
-                if (showDamage) {
-                    if (activeFocalZone === 'Anterior' && p1.wall === 'Anterior') col = 'rgba(255, 59, 48, 0.95)';
-                    if (activeFocalZone === 'Inferior' && (p1.wall === 'Inferior' || p1.wall === 'Apex')) col = 'rgba(255, 59, 48, 0.95)';
-                    if (activeFocalZone === 'Lateral' && p1.wall === 'Lateral') col = 'rgba(255, 59, 48, 0.95)';
-                }
-                ctx.beginPath(); ctx.strokeStyle = col; ctx.moveTo(p1.x, p1.y); ctx.lineTo(pNextR.x, pNextR.y); ctx.stroke();
-                if (i + radPoints < projected.length) {
-                    let pNextL = projected[i + radPoints];
-                    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(pNextL.x, pNextL.y); ctx.stroke();
-                }
-            }
-            projected.forEach(p => {
-                let active = showDamage && ((activeFocalZone === 'Anterior' && p.wall === 'Anterior') || (activeFocalZone === 'Inferior' && (p.wall === 'Inferior' || p.wall === 'Apex')) || (activeFocalZone === 'Lateral' && p.wall === 'Lateral'));
-                ctx.beginPath(); ctx.arc(p.x, p.y, 1.5, 0, 2 * Math.PI); ctx.fillStyle = active ? '#ff3b30' : '#1d1d1f'; ctx.fill();
-            });
-        }
+  <!-- ===================== MODEL ===================== -->
+  <section class="block" id="model">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Нейросеть</span>
+        <h2>ЭКГ и данные пациента: билинейное слияние</h2>
+        <p class="lede">Одна и та же ЭКГ значит разное для 25-летнего и 70-летнего пациента. Поэтому сеть не просто склеивает признаки, а перемножает каждый признак ЭКГ с каждым клиническим признаком.</p>
+      </div>
+      <div class="arch" role="img" aria-label="Схема: 12 отведений через 1D-ResNet дают вектор v_e из 64 чисел; возраст и пол через MLP дают v_m из 16 чисел; внешнее произведение [v_e;1]⊗[v_m;1] даёт 1105 признаков; линейный слой и сигмоида выдают 5 вероятностей.">
+        <svg viewBox="0 0 980 230" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="12">
+          <g fill="var(--surface-2)" stroke="var(--line)">
+            <rect x="10" y="20" width="170" height="70" rx="8"/><rect x="220" y="20" width="170" height="70" rx="8"/>
+            <rect x="10" y="140" width="170" height="70" rx="8"/><rect x="220" y="140" width="170" height="70" rx="8"/>
+            <rect x="620" y="80" width="150" height="70" rx="8"/><rect x="810" y="80" width="160" height="70" rx="8"/>
+          </g>
+          <rect x="440" y="70" width="140" height="90" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <g fill="var(--ink)">
+            <text x="22" y="46" font-weight="700">ЭКГ 12 × 1000</text><text x="22" y="66" fill="var(--muted)">10 с, 100 Гц, мВ</text>
+            <text x="232" y="46" font-weight="700">1D-ResNet</text><text x="232" y="66" fill="var(--muted)">5 блоков → v_e ∈ ℝ⁶⁴</text>
+            <text x="22" y="166" font-weight="700">Возраст, пол</text><text x="22" y="186" fill="var(--muted)">+ признак пропуска</text>
+            <text x="232" y="166" font-weight="700">MLP</text><text x="232" y="186" fill="var(--muted)">3 → 32 → v_m ∈ ℝ¹⁶</text>
+            <text x="452" y="100" font-weight="700" fill="var(--accent)">[v_e;1] ⊗ [v_m;1]</text><text x="452" y="122" fill="var(--muted)">65 × 17 = 1105</text><text x="452" y="142" fill="var(--muted)">признаков</text>
+            <text x="632" y="106" font-weight="700">Linear + σ</text><text x="632" y="126" fill="var(--muted)">dropout 0,3</text>
+            <text x="822" y="106" font-weight="700">5 вероятностей</text><text x="822" y="126" fill="var(--muted)">NORM MI STTC</text><text x="822" y="142" fill="var(--muted)">CD HYP</text>
+          </g>
+          <g stroke="var(--muted)" stroke-width="1.5" fill="none">
+            <path d="M180 55h40"/><path d="M180 175h40"/><path d="M390 55h20q20 0 20 20v20h10"/><path d="M390 175h20q20 0 20 -20v-20h10"/>
+            <path d="M580 115h40"/><path d="M770 115h40"/>
+          </g>
+        </svg>
+      </div>
+      <div class="cols-2" style="margin-top:28px;">
+        <div class="prose">
+          <p>Добавленная к каждому вектору единица делает так, что в произведении одновременно есть попарные взаимодействия, отдельные признаки ЭКГ, отдельные клинические признаки и свободный член (Tensor Fusion, Zadeh et al., 2017). Модель содержит около 573 тыс. параметров и помещается на смарт-часы после экспорта в ONNX.</p>
+          <p>Обучение идёт на <b>PTB-XL</b> (PhysioNet): 21 799 клинических ЭКГ от 18 869 пациентов с разметкой кардиологов. Класс <b>STTC</b> (изменения ST-T) ближе всего к электрическому фенотипу кардиотоксичности. В PTB-XL нет данных о химиотерапии, поэтому это проверка метода на реальных ЭКГ, а не детектор кардиотоксичности.</p>
+        </div>
+        <div class="status" id="train-status">
+          <h3>Статус обучения</h3>
+          <p></p>
+          <pre class="cmd">bash scripts/download_ptbxl.sh
+python train_ptbxl.py --epochs 30 --export-onnx
+cp runs/ptbxl/metrics.json assets/metrics.json</pre>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        let isDragging = false, prevX = 0, prevY = 0;
-        const box = document.getElementById('canvasContainer');
-        if (box) {
-            box.addEventListener('mousedown', (e) => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
-            window.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                angleY += (e.clientX - prevX) * 0.01; angleX += (e.clientY - prevY) * 0.01;
-                prevX = e.clientX; prevY = e.clientY;
-                draw3DHeart(document.getElementById('chemoHistory').value === 'injury');
-            });
-            window.addEventListener('mouseup', () => isDragging = false);
-        }
-        init3DGeometry(); draw3DHeart(false);
-        async function executeDiagnosticsPipeline() {
-            diagnosticsRun = true;
-            let age = document.getElementById('patientAge').value;
-            let sex = document.getElementById('patientSex').value;
-            let chemo = document.getElementById('chemoHistory').value;
-            let inputHz = parseInt(document.getElementById('samplingRate').value);
-            let isDamaged = (chemo === 'injury');
+  <!-- ===================== HEART ===================== -->
+  <section class="block" id="anatomy">
+    <div class="wrap heart">
+      <div class="heart-stage" id="heart-stage">
+        <canvas id="c-heart" height="360" role="img" aria-label="Каркасная 3D-модель левого желудочка"></canvas>
+        <span class="hint">ПОТЯНИТЕ, ЧТОБЫ ПОВЕРНУТЬ</span>
+      </div>
+      <div style="display:grid; gap:18px;">
+        <span class="eyebrow">Анатомия отведений</span>
+        <h2>Куда «смотрит» каждое отведение</h2>
+        <p class="lede">12 отведений ЭКГ — это 12 направлений, с которых измеряется электрический вектор сердца. Каждая группа лучше видит свою стенку левого желудочка.</p>
+        <div class="leads" role="group" aria-label="Группы отведений">
+          <button type="button" class="leadbtn" data-lead="septal" aria-pressed="false"><b>Перегородка</b><span>V1, V2</span></button>
+          <button type="button" class="leadbtn" data-lead="anterior" aria-pressed="false"><b>Передняя стенка</b><span>V3, V4</span></button>
+          <button type="button" class="leadbtn" data-lead="lateral" aria-pressed="false"><b>Боковая стенка</b><span>I, aVL, V5, V6</span></button>
+          <button type="button" class="leadbtn" data-lead="inferior" aria-pressed="false"><b>Нижняя стенка</b><span>II, III, aVF</span></button>
+        </div>
+        <p style="font-size:15px; color:var(--muted);">Антрациклиновое поражение обычно диффузное, а не очаговое. Эта модель учит анатомии и не показывает место повреждения.</p>
+      </div>
+    </div>
+  </section>
 
-            let resamplingFactor = 500 / inputHz;
-            let points = [];
-            let width = 700, height = 180;
-            
-            for (let i = 0; i < width; i++) {
-                let virtualIndex = i * (1 / resamplingFactor);
-                let t = (virtualIndex % 150) / 150;
-                
-                let p = 15 * Math.exp(-Math.pow((t - 0.2) / 0.03, 2));
-                let q = -10 * Math.exp(-Math.pow((t - 0.28) / 0.01, 2));
-                let r = 140 * Math.exp(-Math.pow((t - 0.3) / 0.015, 2));
-                let s = -35 * Math.exp(-Math.pow((t - 0.32) / 0.015, 2));
-                let tWave = isDamaged ? 6 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 32 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
-                
-                let gaussianNoise = (Math.random() * 4 - 2) * (isDamaged ? 1.4 : 0.8);
-                let y = height / 2 - (p + q + r + s + tWave) + gaussianNoise;
-                points.push(`${i},${y}`);
-            }
-            
-            let pathData = "M " + points.join(" L ");
-            document.querySelector("#ecgWaveform path").setAttribute("d", pathData);
-            document.querySelector("#xaiFocus path").setAttribute("d", pathData);
+  <!-- ===================== ROADMAP ===================== -->
+  <section class="block" id="roadmap">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">План развития</span>
+        <h2>От прототипа к клиническому исследованию</h2>
+      </div>
+      <div class="phases">
+        <div class="phase now"><span class="tag">Сейчас · 2026</span><h3>Честная математика</h3><ul><li>TWA-анализ с тестами</li><li>Нейросеть и скрипт обучения на PTB-XL</li><li>Корректный FHIR-отчёт</li></ul></div>
+        <div class="phase"><span class="tag">Этап 2</span><h3>Реальные данные</h3><ul><li>Обучить на PTB-XL, опубликовать метрики</li><li>Холтеровские записи для TWA</li><li>Внешняя проверка на другом датасете</li></ul></div>
+        <div class="phase"><span class="tag">Этап 3</span><h3>Клиника</h3><ul><li>Наставник-кардиоонколог</li><li>Ретроспективная когорта: ЭКГ до и после химиотерапии</li><li>Этический комитет, обезличивание</li></ul></div>
+        <div class="phase"><span class="tag">Этап 4</span><h3>Проспективно</h3><ul><li>Мониторинг пациентов во время курса</li><li>Сравнение с ЭхоКГ и тропонином</li><li>Статья и открытый код</li></ul></div>
+      </div>
+      <p style="margin-top:16px;"><a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/ROADMAP.ru.md">Подробный план с задачами и критериями успеха →</a></p>
+    </div>
+  </section>
 
-            let dZone = document.getElementById("alertZone");
-            if (isDamaged) {
-                dZone.style.display = "block";
-                dZone.setAttribute("x", "210"); dZone.setAttribute("width", "320");
-                document.querySelector("#xaiFocus path").setAttribute("stroke", "#ff3b30");
-                if(!document.querySelector('.sensor-btn.active')) {
-                    document.getElementById('btnAnterior').classList.add('active');
-                }
-            } else {
-                dZone.style.display = "none";
-                document.querySelector("#xaiFocus path").setAttribute("stroke", "#1d1d1f");
-            }
+  <!-- ===================== LIMITS ===================== -->
+  <section class="block" id="limits">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Ограничения</span>
+        <h2>Что проект пока не умеет</h2>
+      </div>
+      <div class="limits">
+        <div class="limit"><h3>Нет данных о химиотерапии</h3><p>Открытых ЭКГ-датасетов с меткой «кардиотоксичность» почти нет. Связь TWA с антрациклинами — гипотеза, которую предстоит проверить на клинической когорте.</p></div>
+        <div class="limit"><h3>TWA нужна длинная запись</h3><p>Спектральному методу нужно 128 ударов (около 2 минут), лучше при нагрузке. Обычная 10-секундная ЭКГ содержит около 12 ударов.</p></div>
+        <div class="limit"><h3>Не медицинское изделие</h3><p>Нет клинической валидации и регистрации. Результат нельзя использовать для решений о дозе или лечении.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
 
-            try { draw3DHeart(isDamaged); } catch (e) { console.log(e); }
+<footer>
+  <div class="wrap">
+    <span>CardioOncoPredict · podpirovlab · лицензия MIT</span>
+    <span><a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">GitHub</a> · <a href="index.html" hreflang="en">English</a></span>
+  </div>
+</footer>
 
-            let vBox = document.getElementById('verdictOutput');
-            if (vBox) {
-                vBox.style.display = 'block';
-                let risk_status = isDamaged ? "КРИТИЧЕСКИЙ УРОВЕНЬ / ВЫСОКИЙ РИСК" : "СТАБИЛЬНО / ФУНКЦИЯ В НОРМЕ";
-                
-                let baseProb = isDamaged ? 93.42 : 12.45;
-                let confidenceBound = isDamaged ? "±2.18%" : "±1.64%";
-
-                let recs = isDamaged ? 
-                    "1. Срочная консультация с онкокардиологом.\n2. Рассмотреть снижение дозы Доксорубицина на 15%.\n3. Начать превентивную кардиопротекторную терапию (Дексразоксан)." :
-                    "1. Продолжить стандартный протокол химиотерапии.\n2. Следующее плановое обследование перед следующим циклом.";
-
-                vBox.className = isDamaged ? 'verdict-box danger' : 'verdict-box success';
-                let currentSensors = activeFocalZone === 'Anterior' ? 'V1, V2, V3, V4 (Анализ передней стенки)' : 
-                                     (activeFocalZone === 'Inferior' ? 'II, III, aVF (Анализ нижней стенки и верхушки)' : 'I, aVL, V5, V6 (Анализ боковой стенки)');
-
-                vBox.innerHTML = `<strong>CARDIOONCOPREDICT PRO — КЛИНИЧЕСКИЙ ПРОТОКОЛ</strong><br>` +
-                                 `<span style="font-size:11px; opacity:0.75;">(симулированный сценарий — не результат работы обученной модели)</span><br><br>` +
-                                 `• <strong>МЕДИЦИНСКАЯ МЕТРИКА И ДАТА-СТРИМ:</strong><br>` +
-                                 `  - Входной сигнал: Ресемплирован с ${inputHz} Гц до эталонных 500 Гц<br>` +
-                                 `  - Физиологическая аугментация: Добавлена Гауссовская фильтрация шума<br>` +
-                                 `  - Активная матрица ЭКГ: ${currentSensors}<br>` +
-                                 `  - Биологический пол пациента: ${sex}<br><br>` +
-                                 `• <strong>3D-КАРТА ТОПОЛОГИИ МИОКАРДА:</strong><br>` +
-                                 `  - Передняя зона: ${activeFocalZone === 'Anterior' && isDamaged ? '[ОБНАРУЖЕН СУБКЛИНИЧЕСКИЙ ФЕРРОПТОЗ]' : '[СТАБИЛЬНО]'}<br>` +
-                                 `  - Нижняя зона / Верхушка: ${activeFocalZone === 'Inferior' && isDamaged ? '[ПОДТВЕРЖДЕНО ПАТОЛОГИЧЕСКОЕ ИЗМЕНЕНИЕ]' : '[СТАБИЛЬНО]'}<br>` +
-                                 `  - Боковая зона: ${activeFocalZone === 'Lateral' && isDamaged ? '[КРИТИЧЕСКИЙ СЕГМЕНТ ПОД СВЕТОМ ДАТЧИКОВ]' : '[СТАБИЛЬНО]'}<br><br>` +
-                                 `• <strong>КАЛИБРОВАННЫЙ ВЕРДИКТ ИИ (ДОВЕРИТЕЛЬНЫЙ ИНТЕРВАЛ):</strong><br>` +
-                                 `  - Расчетная вероятность повреждения: <strong>${baseProb}% (${confidenceBound})</strong><br>` +
-                                 `  - Статистический статус риска: ${risk_status}<br><br>` +
-                                 `• <strong>РЕКОМЕНДАЦИИ КЛИНИЧЕСКОГО ИИ-АГЕНТА:</strong><br>` +
-                                 `  ${recs.replace(/\n/g, '<br>')}`;
-            }
-        }
-    </script>
+<script src="assets/js/dsp.js"></script>
+<script src="assets/js/site.js"></script>
 </body>
 </html>

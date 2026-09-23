@@ -5,6 +5,8 @@ PyWavelets
 torch
 scikit-learn
 pyedflib
+scipy
+wfdb          # PhysioNet WFDB reader (PTB-XL)
 # Pinning to an exact old Gradio release can drag in a Pillow version with
 # no prebuilt wheel for newer Python — a lower bound keeps installs working
 # across Python versions while still requiring the 4.x+ Blocks/Interface API.

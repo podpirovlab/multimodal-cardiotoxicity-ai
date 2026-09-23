@@ -1,362 +1,319 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CardioOncoPredict Pro</title>
-    <style>
-        :root { 
-            --apple-dark: #1d1d1f; 
-            --apple-gray: #f5f5f7; 
-            --apple-blue: #0071e3; 
-            --apple-danger: #ff3b30; 
-            --apple-success: #34c759; 
-        }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            background-color: #ffffff; 
-            margin: 0; 
-            padding: 0; 
-            color: var(--apple-dark);
-            -webkit-font-smoothing: antialiased;
-        }
-        .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
-        header { text-align: center; margin-bottom: 50px; }
-        header h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
-        header p { font-size: 19px; color: #86868b; margin: 0; }
-        .grid-system { display: grid; grid-template-columns: 380px 1fr; gap: 32px; }
-        @media (max-width: 900px) { .grid-system { grid-template-columns: 1fr; } }
-        .card { 
-            background: #ffffff; 
-            border-radius: 20px; 
-            padding: 30px; 
-            box-shadow: 0 8px 30px rgba(0,0,0,0.04); 
-            border: 1px solid rgba(0,0,0,0.02);
-        }
-        .card h2 { font-size: 22px; font-weight: 600; margin-top: 0; margin-bottom: 24px; }
-        .input-group { margin-bottom: 22px; }
-        .input-group label { display: block; font-size: 13px; font-weight: 500; color: #86868b; margin-bottom: 8px; text-transform: uppercase; }
-        select { 
-            width: 100%; 
-            padding: 12px 16px; 
-            border-radius: 12px; 
-            background: var(--apple-gray); 
-            border: none; 
-            font-size: 15px; 
-            color: var(--apple-dark); 
-            font-weight: 500;
-            outline: none;
-        }
-        input[type="range"] { width: 100%; -webkit-appearance: none; background: #e5e5ea; height: 6px; border-radius: 3px; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { 
-            -webkit-appearance: none; 
-            background: var(--apple-blue); 
-            width: 18px; 
-            height: 18px; 
-            border-radius: 50%; 
-            cursor: pointer; 
-        }
-        .action-btn { 
-            width: 100%; 
-            background: var(--apple-blue); 
-            color: #ffffff; 
-            border: none; 
-            padding: 14px; 
-            border-radius: 14px; 
-            font-size: 16px; 
-            font-weight: 600; 
-            cursor: pointer; 
-            transition: background 0.2s ease;
-        }
-        .action-btn:hover { background: #0077ed; }
-        
-        .sensor-matrix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-        .sensor-btn { 
-            padding: 10px; 
-            font-size: 11px; 
-            font-weight: 600; 
-            border: 1px solid #e5e5ea; 
-            border-radius: 10px; 
-            background: var(--apple-gray); 
-            cursor: pointer; 
-            text-align: center;
-            transition: 0.2s;
-        }
-        .sensor-btn.active { background: var(--apple-blue); color: white; border-color: var(--apple-blue); }
-        .sensor-btn span { display: block; font-size: 9px; color: #86868b; margin-top: 2px; }
-        .sensor-btn.active span { color: rgba(255,255,255,0.8); }
-
-        .verdict-box { margin-top: 24px; padding: 20px; border-radius: 14px; display: none; font-size: 13px; line-height: 1.6; font-family: monospace; white-space: pre-wrap; }
-        .verdict-box.danger { background: #fff2f1; color: var(--apple-danger); border-left: 4px solid var(--apple-danger); }
-        .verdict-box.success { background: #f2fbf4; color: var(--apple-success); border-left: 4px solid var(--apple-success); }
-        .display-screen { background: var(--apple-gray); border-radius: 16px; padding: 16px; margin-bottom: 24px; height: 180px; position: relative; }
-        .display-screen.three-d-box { height: 280px; cursor: grab; background: #ffffff; border: 1px solid #e5e5ea; display: flex; align-items: center; justify-content: center; }
-        svg { width: 100%; height: 100%; display: block; }
-        canvas#heartCanvas { width: 400px; height: 280px; display: block; margin: 0 auto; }
-        .chart-title { font-size: 14px; font-weight: 600; color: #86868b; margin-bottom: 12px; }
-        .hint-text { position: absolute; bottom: 10px; right: 14px; color: #c7c7cc; font-size: 10px; font-family: monospace; pointer-events: none; }
-        .lang-switch { position: absolute; top: 20px; right: 24px; font-size: 13px; }
-        .lang-switch a { color: #86868b; text-decoration: none; font-weight: 500; }
-        .lang-switch a:hover { color: var(--apple-blue); }
-        .disclaimer { max-width: 1100px; margin: 0 auto 30px; padding: 14px 20px; background: #fffbe6; border: 1px solid #f0e3a0; border-radius: 12px; font-size: 12.5px; line-height: 1.5; color: #6b5b00; }
-        .verdict-box { animation: fadeSlideIn 0.35s ease; }
-        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        footer { text-align: center; padding: 30px 20px 50px; font-size: 12px; color: #a1a1a6; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CardioOncoPredict</title>
+<meta name="description" content="Research prototype: detecting microvolt T-wave alternans on the ECG as an early electrical sign of anthracycline cardiotoxicity. All the mathematics runs in your browser.">
+<meta property="og:title" content="CardioOncoPredict">
+<meta property="og:description" content="Microvolt T-wave alternans: an interactive lab and a multimodal neural network for cardio-oncology.">
+<link rel="alternate" hreflang="ru" href="ru.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="assets/css/site.css">
 </head>
 <body>
 
-    <div class="disclaimer">
-        ⚠️ <strong>Research prototype — not a medical device.</strong> This interactive demo runs on synthetic
-        ECG waveforms for educational illustration only. It has not been clinically validated and has no
-        regulatory (FDA/CE) clearance. It must not be used for real diagnosis or treatment decisions.
-        See the <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai#limitations--ethical-considerations" style="color:#6b5b00;">Limitations section</a> of the README.
-    </div>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg width="28" height="18" viewBox="0 0 28 18" aria-hidden="true"><path d="M1 11h6l2-4 3 10 3-16 3 12 2-2h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      CardioOncoPredict
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#problem">Problem</a>
+      <a href="#lab">TWA lab</a>
+      <a href="#method">Method</a>
+      <a href="#model">Network</a>
+      <a href="#roadmap">Roadmap</a>
+      <a class="lang" href="ru.html" hreflang="ru">RU</a>
+    </nav>
+  </div>
+</header>
 
-    <div class="container" style="position: relative;">
-        <div class="lang-switch"><a href="ru.html">Русская версия →</a></div>
-        <header>
-            <h1>CardioOncoPredict Pro</h1>
-            <p>Decentralized Edge AI Clinical Framework | Research Prototype</p>
-        </header>
-
-        <div class="grid-system">
-            <div class="card">
-                <h2>Session Parameters</h2>
-                <div class="input-group">
-                    <label>Patient Age: <span id="ageDisplay" style="color:var(--apple-blue); font-weight:600;">45</span> years</label>
-                    <input type="range" id="patientAge" min="18" max="90" value="45" oninput="document.getElementById('ageDisplay').innerText=this.value">
-                </div>
-                <div class="input-group">
-                    <label>Biological Sex</label>
-                    <select id="patientSex">
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>Input Sampling Rate</label>
-                    <select id="samplingRate">
-                        <option value="250">250 Hz (Portable Holter)</option>
-                        <option value="500" selected>500 Hz (Standard Clinical ECG)</option>
-                        <option value="1000">1000 Hz (High-Precision Monitor)</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>Scaling Protocol (Stress Test)</label>
-                    <select id="chemoHistory" onchange="toggleChemoMode(this.value)">
-                        <option value="stable">Baseline Screening (Specificity Check)</option>
-                        <option value="injury">🚨 Anthracycline Load (Subclinical Ferroptosis)</option>
-                    </select>
-                </div>
-                <button class="action-btn" onclick="executeDiagnosticsPipeline()">Execute Edge AI Inference</button>
-                <div id="verdictOutput" class="verdict-box"></div>
-            </div>
-            <div class="card">
-                <h2 style="margin-bottom: 20px;">Electrophysiological & Spatial Analytics</h2>
-                
-                <label style="font-size: 11px; font-weight: 600; color: #86868b; display:block; margin-bottom:8px; text-transform:uppercase;">12-Lead Core Target Focal Zones</label>
-                <div class="sensor-matrix">
-                    <button id="btnAnterior" class="sensor-btn" onclick="selectFocalZone('Anterior')">Anterior Wall<span>V1, V2, V3, V4</span></button>
-                    <button id="btnInferior" class="sensor-btn" onclick="selectFocalZone('Inferior')">Inferior / Apex<span>II, III, aVF</span></button>
-                    <button id="btnLateral" class="sensor-btn" onclick="selectFocalZone('Lateral')">Lateral Wall<span>I, aVL, V5, V6</span></button>
-                </div>
-
-                <p class="chart-title">1. Digital ECG Waveform (Client-Side Resampling to 500 Hz)</p>
-                <div class="display-screen">
-                    <svg id="ecgWaveform"><path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/></svg>
-                </div>
-                <p class="chart-title">2. Explainable AI (XAI): Dynamic Augmentation & ST-T Segment Calibration</p>
-                <div class="display-screen">
-                    <svg id="xaiFocus">
-                        <rect id="alertZone" x="0" y="0" width="0" height="180" fill="rgba(255,59,48,0.12)" display="none"/>
-                        <path d="" fill="none" stroke="#1d1d1f" stroke-width="1.5"/>
-                    </svg>
-                </div>
-                <p class="chart-title">3. Calibrated 3D Myocardial Tissue Topology (Left Ventricle Mesh)</p>
-                <div class="display-screen three-d-box" id="canvasContainer">
-                    <canvas id="heartCanvas" width="400" height="280"></canvas>
-                    <div class="hint-text">TOUCH/DRAG TO ROTATE</div>
-                </div>
-            </div>
+<main id="top">
+  <div class="wrap hero">
+    <div class="hero-head">
+      <div style="display:grid; gap:18px;">
+        <span class="eyebrow">Cardio-oncology · signal processing · AI</span>
+        <h1>Hear the heart <em>before</em>&nbsp;it weakens</h1>
+      </div>
+      <div style="display:grid; gap:18px;">
+        <p class="sub">Anthracycline chemotherapy cures cancer but can injure the heart. We look for the earliest electrical trace of that injury on the ECG: a T wave that alternates by a few microvolts.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#lab">Open the lab</a>
+          <a class="btn ghost" href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">Code on GitHub</a>
+          <a class="btn ghost" href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.md">Full write-up</a>
         </div>
+      </div>
     </div>
 
-    <footer>
-        CardioOncoPredict · educational research prototype · <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai" style="color:#a1a1a6;">source code on GitHub</a>
-    </footer>
+    <div class="strip" aria-label="Synthetic ECG with hidden 12 µV T-wave alternans">
+      <canvas id="hero-ecg"></canvas>
+      <span class="lead">II · synthetic recording</span>
+      <span class="scale">25 mm/s · 10 mm/mV · 1 mm grid</span>
+    </div>
+    <div class="readouts" aria-live="polite">
+      <div class="readout"><span class="k">Heart rate</span><span class="v" id="ro-hr">—</span><span class="note">from R–R intervals</span></div>
+      <div class="readout"><span class="k">T alternans</span><span class="v" id="ro-valt">—</span><span class="note">computed from this strip</span></div>
+      <div class="readout"><span class="k">K-score</span><span class="v" id="ro-k">—</span><span class="note">signal / noise, threshold 3</span></div>
+      <div class="readout"><span class="k">On paper</span><span class="v" id="ro-mm">—</span><span class="note">invisible to the eye</span></div>
+    </div>
+    <p class="notice"><span><strong>Research prototype, not a medical device.</strong> Signals on this page are synthetic; the neural network has no clinical validation and no regulatory clearance (FDA, CE). Do not use it for diagnosis or treatment decisions.</span></p>
+  </div>
 
-    <script>
-        let angleX = -0.5, angleY = 0.6;
-        let points3D = [];
-        let is3DInitialized = false;
-        let activeFocalZone = 'Anterior';
-        let diagnosticsRun = false;
+  <!-- ===================== PROBLEM ===================== -->
+  <section class="block" id="problem">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Problem</span>
+        <h2>The heart is injured quietly, and we notice late</h2>
+      </div>
+      <div class="cols-2">
+        <div class="prose">
+          <p><b>Anthracyclines</b> (doxorubicin, epirubicin) remain a backbone of treatment for breast cancer, lymphomas, sarcomas and childhood leukaemia. Their side effect is dose-dependent injury to cardiomyocytes, which barely regenerate.</p>
+          <p>Among 2,625 patients treated with anthracyclines, about 9% developed cardiotoxicity, and 98% of those cases appeared within the first year (Cardinale et al., <i>Circulation</i>, 2015). The earlier it is found and cardioprotection starts, the more often heart function recovers.</p>
+          <p>Standard monitoring is echocardiography (LV ejection fraction) plus biomarkers (troponin, NT-proBNP), per the 2022 ESC guidelines. Ejection fraction drops only after tissue is already lost. An ECG is cheap, takes minutes and can be recorded continuously, but the changes are too small for the eye.</p>
+          <p><b>Project hypothesis:</b> electrical repolarisation abnormalities, including microvolt T-wave alternans, appear before mechanical ones and can be extracted with mathematics.</p>
+        </div>
+        <div style="display:grid; gap:20px;">
+          <figure class="chart-box">
+            <canvas id="dose-chart" height="250" role="img" aria-label="Share of patients with heart failure: 5% at 400 mg/m², 26% at 550, 48% at 700"></canvas>
+            <figcaption>Heart-failure incidence by cumulative doxorubicin dose (Swain et al., <i>Cancer</i>, 2003).</figcaption>
+          </figure>
+          <div class="cascade" aria-label="Injury cascade">
+            <div class="step"><span class="when">Hours–days</span><div><h3>Molecular level</h3><p>Topoisomerase IIβ, reactive oxygen species, mitochondrial iron overload, lipid peroxidation (ferroptosis).</p></div></div>
+            <div class="step target"><span class="when">Weeks</span><div><h3>Electrical level · our target</h3><p>Ion channels (I<sub>Kr</sub>, Ca²⁺ handling) are disturbed. Repolarisation becomes uneven: QT lengthens, the T wave alternates.</p></div></div>
+            <div class="step"><span class="when">Months</span><div><h3>Mechanical level</h3><p>Ejection fraction falls on echocardiography; heart-failure symptoms appear.</p></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        function selectFocalZone(zone) {
-            activeFocalZone = zone;
-            const buttons = ['Anterior', 'Inferior', 'Lateral'];
-            buttons.forEach(b => document.getElementById(`btn${b}`).classList.remove('active'));
-            document.getElementById(`btn${zone}`).classList.add('active');
-            if (diagnosticsRun) draw3DHeart(document.getElementById('chemoHistory').value === 'injury');
-        }
+  <!-- ===================== LAB ===================== -->
+  <section class="block" id="lab">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Interactive lab</span>
+        <h2>Find the alternans the eye cannot see</h2>
+        <p class="lede">Move the sliders: the browser generates 128 heartbeats and runs the same analysis as the project's Python code. Every number below is recomputed on each change.</p>
+      </div>
+      <div class="lab">
+        <form class="controls" onsubmit="return false" aria-label="Signal parameters">
+          <div class="presets" role="group" aria-label="Scenarios">
+            <button type="button" class="chip" data-preset='{"alt":0,"noise":15,"hr":72,"tamp":0.35,"mains":0}' aria-pressed="false">Normal</button>
+            <button type="button" class="chip" data-preset='{"alt":6,"noise":15,"hr":78,"tamp":0.26,"mains":10}' aria-pressed="false">Hidden TWA</button>
+            <button type="button" class="chip" data-preset='{"alt":25,"noise":20,"hr":96,"tamp":0.2,"mains":10}' aria-pressed="false">Marked TWA</button>
+            <button type="button" class="chip" data-preset='{"alt":4,"noise":70,"hr":80,"tamp":0.3,"mains":40}' aria-pressed="false">Noisy</button>
+          </div>
+          <div class="ctl">
+            <label for="s-alt">T-wave alternans <output id="o-alt" for="s-alt"></output></label>
+            <input type="range" id="s-alt" min="0" max="60" step="0.5" value="12">
+            <span class="hint">How far even and odd beats sit from the mean</span>
+          </div>
+          <div class="ctl">
+            <label for="s-noise">Muscle noise <output id="o-noise" for="s-noise"></output></label>
+            <input type="range" id="s-noise" min="0" max="100" step="1" value="15">
+          </div>
+          <div class="ctl">
+            <label for="s-hr">Heart rate <output id="o-hr" for="s-hr"></output></label>
+            <input type="range" id="s-hr" min="45" max="130" step="1" value="80">
+            <span class="hint">Clinical TWA tests use exercise to reach 105–110 bpm</span>
+          </div>
+          <div class="ctl">
+            <label for="s-tamp">T-wave amplitude <output id="o-tamp" for="s-tamp"></output></label>
+            <input type="range" id="s-tamp" min="0.05" max="0.5" step="0.01" value="0.3">
+            <span class="hint">A flattened T wave is a common sign of disturbed repolarisation</span>
+          </div>
+          <div class="ctl">
+            <label for="s-mains">50 Hz mains hum <output id="o-mains" for="s-mains"></output></label>
+            <input type="range" id="s-mains" min="0" max="100" step="1" value="10">
+          </div>
+          <button type="button" class="btn ghost" id="b-reseed">New recording, same scenario</button>
+          <div class="file">
+            <label class="file" for="f-file"><b style="font:600 13px var(--display)">Your own ECG (CSV/TXT, one lead)</b></label>
+            <input type="file" id="f-file" accept=".csv,.txt,text/csv,text/plain">
+            <div class="row">
+              <div class="ctl"><label for="f-fs">Sampling, Hz</label><input type="number" id="f-fs" value="500" min="50" max="10000"></div>
+              <div class="ctl"><label for="f-col">Column</label><input type="number" id="f-col" value="0" min="0" max="20"></div>
+            </div>
+            <div class="ctl"><label for="f-unit">Units</label><select id="f-unit"><option value="mv">mV</option><option value="uv">µV</option></select></div>
+            <span class="hint" id="f-status">At least 2 minutes of recording. The file stays in your browser and is never uploaded.</span>
+          </div>
+        </form>
 
-        function toggleChemoMode(val) {
-            if (val === 'injury') document.getElementById('btnAnterior').classList.add('active');
-            else { selectFocalZone('Anterior'); document.getElementById('btnAnterior').classList.remove('active'); }
-        }
+        <div class="panels">
+          <div class="verdict neg" id="verdict" aria-live="polite"><span class="pill">…</span><p></p></div>
+          <div class="metrics">
+            <div class="metric"><span class="k">Heart rate</span><span class="v" id="m-hr">—</span><span class="d" id="d-hr"></span></div>
+            <div class="metric"><span class="k">V<sub>alt</sub></span><span class="v" id="m-valt">—</span><span class="d">RMS over ST-T</span></div>
+            <div class="metric"><span class="k">Peak</span><span class="v" id="m-peak">—</span><span class="d">at the most alternating point</span></div>
+            <div class="metric"><span class="k">K-score</span><span class="v" id="m-k">—</span><span class="d">threshold 3</span></div>
+            <div class="metric"><span class="k">MMA</span><span class="v" id="m-mma">—</span><span class="d">moving average</span></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>1 · Recording and detected R peaks</h3><span class="legend"><span><i style="background:var(--accent)"></i>R peak</span><span><i style="background:var(--accent-soft); height:10px"></i>ST-T window</span></span></div>
+            <canvas id="c-strip" height="200"></canvas>
+            <p class="explain">The signal is filtered (0.5–40 Hz) and R peaks are found with the Pan–Tompkins algorithm. The ST-T window adapts to heart rate.</p>
+          </div>
+          <div class="two">
+            <div class="panel">
+              <div class="panel-head"><h3>2 · Even versus odd beats</h3></div>
+              <div class="panel-head"><span class="legend"><span><i style="background:var(--blue)"></i>A (even)</span><span><i style="background:var(--accent)"></i>B (odd)</span><span><i style="background:var(--muted)"></i>A−B ×10</span></span></div>
+              <canvas id="c-overlay" height="230"></canvas>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>3 · One ST-T point, beat after beat</h3></div>
+              <div class="panel-head"><span class="legend"><span><i style="background:var(--blue)"></i>even</span><span><i style="background:var(--accent)"></i>odd</span></span></div>
+              <canvas id="c-series" height="200"></canvas>
+              <p class="explain">With alternans the bars flip up and down: A, B, A, B.</p>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>4 · Beat-series spectrum (Spectral Method)</h3><span class="legend"><span><i style="background:var(--blue-soft); height:10px"></i>noise band 0.44–0.49</span><span><i style="background:var(--accent)"></i>0.5 cycles/beat</span></span></div>
+            <canvas id="c-spec" height="200"></canvas>
+            <p class="explain">Alternating every other beat is an oscillation at exactly 0.5 cycles per beat. If the right-most point rises above the grey noise band, alternans is present.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        function init3DGeometry() {
-            points3D = [];
-            const layers = 9, radialPoints = 12;
-            for (let i = 0; i <= layers; i++) {
-                let z = (i / layers) * 2.0 - 1.0; 
-                let r = 0.85 - (i / layers) * 0.55; 
-                for (let j = 0; j < radialPoints; j++) {
-                    let rad = (j / radialPoints) * Math.PI * 2;
-                    let wall = "Base";
-                    if (i >= 3 && i <= 6) {
-                        if (rad >= 0 && rad < Math.PI / 2 || rad >= Math.PI * 1.5) wall = "Anterior";
-                        else if (rad >= Math.PI / 2 && rad < Math.PI) wall = "Lateral";
-                        else wall = "Inferior";
-                    } else if (i > 6) wall = "Apex";
-                    points3D.push({ x: Math.cos(rad) * r, y: Math.sin(rad) * r, z: z, wall: wall });
-                }
-            }
-            is3DInitialized = true;
-        }
+  <!-- ===================== METHOD ===================== -->
+  <section class="block" id="method">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Method</span>
+        <h2>Five steps from electrode to number</h2>
+        <p class="lede">The steps run in order; each uses the output of the previous one. The same algorithm is implemented in Python (<span class="mono">cardioonco/</span>) and JavaScript (<span class="mono">assets/js/dsp.js</span>) and is covered by tests.</p>
+      </div>
+      <div class="pipeline">
+        <div class="pstep"><span class="n">1</span><div><h3>Sampling and calibration</h3><p>Electrodes measure a potential difference on the skin (about 1 mV). An ADC turns it into numbers at rate f<sub>s</sub>. By the Nyquist–Shannon theorem the rate must exceed twice the highest signal frequency.</p></div>
+          <div class="formula">V[n] = (X<sub>raw</sub>[n] − baseline) / gain  <span class="c">mV</span><br>t<sub>n</sub> = n / f<sub>s</sub>,   f<sub>s</sub> &gt; 2·f<sub>max</sub></div></div>
+        <div class="pstep"><span class="n">2</span><div><h3>Zero-phase filtering</h3><p>A 0.5–40 Hz Butterworth filter removes breathing drift and muscle noise. Running it forward and backward (filtfilt) cancels the phase shift, so the ST-T shape is preserved.</p></div>
+          <div class="formula">|H(f)|² = 1 / (1 + (f/f<sub>c</sub>)<sup>2N</sup>)<br>y = reverse(H · reverse(H · x))  <span class="c">→ phase = 0</span></div></div>
+        <div class="pstep"><span class="n">3</span><div><h3>R-peak detection (Pan–Tompkins)</h3><p>A 5–15 Hz band isolates the steep QRS edges, derivative and squaring amplify them, a 150 ms integrator smooths them. An adaptive threshold and a 250 ms refractory period give one peak per beat.</p></div>
+          <div class="formula">d[n] = x[n+1] − x[n−1]<br>e[n] = d[n]²,   m[n] = (1/W)·Σ e[n−k],  W = 150 ms</div></div>
+        <div class="pstep"><span class="n">4</span><div><h3>Spectral Method for TWA</h3><p>128 beats are aligned on the R peak. For every point of the ST-T window we take the beat-to-beat series of values and compute its spectrum. Every-other-beat alternation peaks at exactly 0.5 cycles/beat, because e<sup>−iπn</sup> = (−1)<sup>n</sup>.</p></div>
+          <div class="formula">P(f) = ⟨ |(1/N)·Σ<sub>n</sub> s<sub>k</sub>[n]·e<sup>−2πifn</sup>|² ⟩<sub>k</sub><br>V<sub>alt</sub> = √(P(0.5) − μ<sub>noise</sub>)<br>K = (P(0.5) − μ<sub>noise</sub>) / σ<sub>noise</sub></div></div>
+        <div class="pstep"><span class="n">5</span><div><h3>Decision and cross-check</h3><p>Alternans is significant when V<sub>alt</sub> ≥ 1.9 µV and K ≥ 3. The Modified Moving Average (MMA) checks it independently: two templates, for even and odd beats, are updated with step 1/8.</p></div>
+          <div class="formula">A<sub>n</sub> = A<sub>n−1</sub> + clip((beat<sub>n</sub> − A<sub>n−1</sub>)/8, ±32 µV)<br>TWA<sub>MMA</sub> = max |A − B| / 2</div></div>
+      </div>
+    </div>
+  </section>
 
-        function draw3DHeart(showDamage) {
-            if (!is3DInitialized) init3DGeometry();
-            const canvas = document.getElementById('heartCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (!diagnosticsRun) {
-                ctx.fillStyle = "#999999"; ctx.font = "12px monospace"; ctx.textAlign = "center";
-                ctx.fillText("[3D ENGINE STANDBY — RUN DIAGNOSTICS]", canvas.width / 2, canvas.height / 2);
-                return;
-            }
-            const scale = 110, cx = canvas.width / 2, cy = canvas.height / 2, radPoints = 12;
-            let projected = points3D.map(p => {
-                let y1 = p.y * Math.cos(angleX) - p.z * Math.sin(angleX);
-                let z1 = p.y * Math.sin(angleX) + p.z * Math.cos(angleX);
-                return { x: cx + (p.x * Math.cos(angleY) + z1 * Math.sin(angleY)) * scale, y: cy + y1 * scale, wall: p.wall };
-            });
-            ctx.lineWidth = 1;
-            for (let i = 0; i < projected.length; i++) {
-                let p1 = projected[i], pNextR = projected[(i + 1) % radPoints + Math.floor(i / radPoints) * radPoints];
-                let col = 'rgba(29, 29, 31, 0.15)';
-                if (showDamage) {
-                    if (activeFocalZone === 'Anterior' && p1.wall === 'Anterior') col = 'rgba(255, 59, 48, 0.95)';
-                    if (activeFocalZone === 'Inferior' && (p1.wall === 'Inferior' || p1.wall === 'Apex')) col = 'rgba(255, 59, 48, 0.95)';
-                    if (activeFocalZone === 'Lateral' && p1.wall === 'Lateral') col = 'rgba(255, 59, 48, 0.95)';
-                }
-                ctx.beginPath(); ctx.strokeStyle = col; ctx.moveTo(p1.x, p1.y); ctx.lineTo(pNextR.x, pNextR.y); ctx.stroke();
-                if (i + radPoints < projected.length) {
-                    let pNextL = projected[i + radPoints];
-                    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(pNextL.x, pNextL.y); ctx.stroke();
-                }
-            }
-            projected.forEach(p => {
-                let active = showDamage && ((activeFocalZone === 'Anterior' && p.wall === 'Anterior') || (activeFocalZone === 'Inferior' && (p.wall === 'Inferior' || p.wall === 'Apex')) || (activeFocalZone === 'Lateral' && p.wall === 'Lateral'));
-                ctx.beginPath(); ctx.arc(p.x, p.y, 1.5, 0, 2 * Math.PI); ctx.fillStyle = active ? '#ff3b30' : '#1d1d1f'; ctx.fill();
-            });
-        }
+  <!-- ===================== MODEL ===================== -->
+  <section class="block" id="model">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Neural network</span>
+        <h2>ECG and patient data: bilinear fusion</h2>
+        <p class="lede">The same ECG means different things for a 25-year-old and a 70-year-old. So the network does not just concatenate features; it multiplies every ECG feature by every clinical feature.</p>
+      </div>
+      <div class="arch" role="img" aria-label="Diagram: 12 leads through a 1D ResNet give a 64-number vector v_e; age and sex through an MLP give a 16-number vector v_m; the outer product [v_e;1]⊗[v_m;1] gives 1105 features; a linear layer and sigmoid output 5 probabilities.">
+        <svg viewBox="0 0 980 230" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="12">
+          <g fill="var(--surface-2)" stroke="var(--line)">
+            <rect x="10" y="20" width="170" height="70" rx="8"/><rect x="220" y="20" width="170" height="70" rx="8"/>
+            <rect x="10" y="140" width="170" height="70" rx="8"/><rect x="220" y="140" width="170" height="70" rx="8"/>
+            <rect x="620" y="80" width="150" height="70" rx="8"/><rect x="810" y="80" width="160" height="70" rx="8"/>
+          </g>
+          <rect x="440" y="70" width="140" height="90" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"/>
+          <g fill="var(--ink)">
+            <text x="22" y="46" font-weight="700">ECG 12 × 1000</text><text x="22" y="66" fill="var(--muted)">10 s, 100 Hz, mV</text>
+            <text x="232" y="46" font-weight="700">1D ResNet</text><text x="232" y="66" fill="var(--muted)">5 blocks → v_e ∈ ℝ⁶⁴</text>
+            <text x="22" y="166" font-weight="700">Age, sex</text><text x="22" y="186" fill="var(--muted)">+ missing flag</text>
+            <text x="232" y="166" font-weight="700">MLP</text><text x="232" y="186" fill="var(--muted)">3 → 32 → v_m ∈ ℝ¹⁶</text>
+            <text x="452" y="100" font-weight="700" fill="var(--accent)">[v_e;1] ⊗ [v_m;1]</text><text x="452" y="122" fill="var(--muted)">65 × 17 = 1105</text><text x="452" y="142" fill="var(--muted)">features</text>
+            <text x="632" y="106" font-weight="700">Linear + σ</text><text x="632" y="126" fill="var(--muted)">dropout 0.3</text>
+            <text x="822" y="106" font-weight="700">5 probabilities</text><text x="822" y="126" fill="var(--muted)">NORM MI STTC</text><text x="822" y="142" fill="var(--muted)">CD HYP</text>
+          </g>
+          <g stroke="var(--muted)" stroke-width="1.5" fill="none">
+            <path d="M180 55h40"/><path d="M180 175h40"/><path d="M390 55h20q20 0 20 20v20h10"/><path d="M390 175h20q20 0 20 -20v-20h10"/>
+            <path d="M580 115h40"/><path d="M770 115h40"/>
+          </g>
+        </svg>
+      </div>
+      <div class="cols-2" style="margin-top:28px;">
+        <div class="prose">
+          <p>Appending a 1 to each vector means the product contains pairwise interactions, ECG-only terms, metadata-only terms and a bias all at once (Tensor Fusion, Zadeh et al., 2017). The model has about 573 thousand parameters and fits on a smartwatch after ONNX export.</p>
+          <p>Training uses <b>PTB-XL</b> (PhysioNet): 21,799 clinical ECGs from 18,869 patients labelled by cardiologists. The <b>STTC</b> class (ST-T changes) is the closest to the electrical phenotype of cardiotoxicity. PTB-XL has no chemotherapy data, so this validates the method on real ECGs; it is not a cardiotoxicity detector.</p>
+        </div>
+        <div class="status" id="train-status">
+          <h3>Training status</h3>
+          <p></p>
+          <pre class="cmd">bash scripts/download_ptbxl.sh
+python train_ptbxl.py --epochs 30 --export-onnx
+cp runs/ptbxl/metrics.json assets/metrics.json</pre>
+        </div>
+      </div>
+    </div>
+  </section>
 
-        let isDragging = false, prevX = 0, prevY = 0;
-        const box = document.getElementById('canvasContainer');
-        if (box) {
-            box.addEventListener('mousedown', (e) => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
-            window.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                angleY += (e.clientX - prevX) * 0.01; angleX += (e.clientY - prevY) * 0.01;
-                prevX = e.clientX; prevY = e.clientY;
-                draw3DHeart(document.getElementById('chemoHistory').value === 'injury');
-            });
-            window.addEventListener('mouseup', () => isDragging = false);
-        }
-        init3DGeometry(); draw3DHeart(false);
-        async function executeDiagnosticsPipeline() {
-            diagnosticsRun = true;
-            let age = document.getElementById('patientAge').value;
-            let sex = document.getElementById('patientSex').value;
-            let chemo = document.getElementById('chemoHistory').value;
-            let inputHz = parseInt(document.getElementById('samplingRate').value);
-            let isDamaged = (chemo === 'injury');
+  <!-- ===================== HEART ===================== -->
+  <section class="block" id="anatomy">
+    <div class="wrap heart">
+      <div class="heart-stage" id="heart-stage">
+        <canvas id="c-heart" height="360" role="img" aria-label="Wireframe 3D model of the left ventricle"></canvas>
+        <span class="hint">DRAG TO ROTATE</span>
+      </div>
+      <div style="display:grid; gap:18px;">
+        <span class="eyebrow">Lead anatomy</span>
+        <h2>Where each lead is looking</h2>
+        <p class="lede">The 12 ECG leads are 12 directions from which the heart's electrical vector is measured. Each group sees its own wall of the left ventricle best.</p>
+        <div class="leads" role="group" aria-label="Lead groups">
+          <button type="button" class="leadbtn" data-lead="septal" aria-pressed="false"><b>Septum</b><span>V1, V2</span></button>
+          <button type="button" class="leadbtn" data-lead="anterior" aria-pressed="false"><b>Anterior wall</b><span>V3, V4</span></button>
+          <button type="button" class="leadbtn" data-lead="lateral" aria-pressed="false"><b>Lateral wall</b><span>I, aVL, V5, V6</span></button>
+          <button type="button" class="leadbtn" data-lead="inferior" aria-pressed="false"><b>Inferior wall</b><span>II, III, aVF</span></button>
+        </div>
+        <p style="font-size:15px; color:var(--muted);">Anthracycline injury is usually diffuse rather than focal. This model teaches anatomy; it does not show where damage is.</p>
+      </div>
+    </div>
+  </section>
 
-            let resamplingFactor = 500 / inputHz;
-            let points = [];
-            let width = 700, height = 180;
-            
-            for (let i = 0; i < width; i++) {
-                let virtualIndex = i * (1 / resamplingFactor);
-                let t = (virtualIndex % 150) / 150;
-                
-                let p = 15 * Math.exp(-Math.pow((t - 0.2) / 0.03, 2));
-                let q = -10 * Math.exp(-Math.pow((t - 0.28) / 0.01, 2));
-                let r = 140 * Math.exp(-Math.pow((t - 0.3) / 0.015, 2));
-                let s = -35 * Math.exp(-Math.pow((t - 0.32) / 0.015, 2));
-                let tWave = isDamaged ? 6 * Math.exp(-Math.pow((t - 0.55) / 0.09, 2)) : 32 * Math.exp(-Math.pow((t - 0.55) / 0.05, 2));
-                
-                let gaussianNoise = (Math.random() * 4 - 2) * (isDamaged ? 1.4 : 0.8);
-                let y = height / 2 - (p + q + r + s + tWave) + gaussianNoise;
-                points.push(`${i},${y}`);
-            }
-            
-            let pathData = "M " + points.join(" L ");
-            document.querySelector("#ecgWaveform path").setAttribute("d", pathData);
-            document.querySelector("#xaiFocus path").setAttribute("d", pathData);
+  <!-- ===================== ROADMAP ===================== -->
+  <section class="block" id="roadmap">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Roadmap</span>
+        <h2>From prototype to clinical study</h2>
+      </div>
+      <div class="phases">
+        <div class="phase now"><span class="tag">Now · 2026</span><h3>Honest mathematics</h3><ul><li>Tested TWA analysis</li><li>Network and PTB-XL training script</li><li>Valid FHIR report</li></ul></div>
+        <div class="phase"><span class="tag">Phase 2</span><h3>Real data</h3><ul><li>Train on PTB-XL, publish metrics</li><li>Holter recordings for TWA</li><li>External validation on another dataset</li></ul></div>
+        <div class="phase"><span class="tag">Phase 3</span><h3>Clinic</h3><ul><li>A cardio-oncologist mentor</li><li>Retrospective cohort: ECGs before and after chemotherapy</li><li>Ethics approval, de-identification</li></ul></div>
+        <div class="phase"><span class="tag">Phase 4</span><h3>Prospective</h3><ul><li>Monitoring patients during treatment</li><li>Comparison with echo and troponin</li><li>Paper and open code</li></ul></div>
+      </div>
+      <p style="margin-top:16px;"><a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/ROADMAP.md">Detailed plan with tasks and success criteria →</a></p>
+    </div>
+  </section>
 
-            let dZone = document.getElementById("alertZone");
-            if (isDamaged) {
-                dZone.style.display = "block";
-                dZone.setAttribute("x", "210"); dZone.setAttribute("width", "320");
-                document.querySelector("#xaiFocus path").setAttribute("stroke", "#ff3b30");
-                if(!document.querySelector('.sensor-btn.active')) {
-                    document.getElementById('btnAnterior').classList.add('active');
-                }
-            } else {
-                dZone.style.display = "none";
-                document.querySelector("#xaiFocus path").setAttribute("stroke", "#1d1d1f");
-            }
+  <!-- ===================== LIMITS ===================== -->
+  <section class="block" id="limits">
+    <div class="wrap">
+      <div class="block-head">
+        <span class="eyebrow">Limitations</span>
+        <h2>What the project cannot do yet</h2>
+      </div>
+      <div class="limits">
+        <div class="limit"><h3>No chemotherapy labels</h3><p>Open ECG datasets labelled for cardiotoxicity barely exist. The link between TWA and anthracyclines is a hypothesis to be tested on a clinical cohort.</p></div>
+        <div class="limit"><h3>TWA needs long recordings</h3><p>The Spectral Method needs 128 beats (about 2 minutes), ideally during exercise. A standard 10-second ECG has about 12 beats.</p></div>
+        <div class="limit"><h3>Not a medical device</h3><p>No clinical validation and no clearance. Results must not inform dosing or treatment.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
 
-            try { draw3DHeart(isDamaged); } catch (e) { console.log(e); }
+<footer>
+  <div class="wrap">
+    <span>CardioOncoPredict · podpirovlab · MIT licence</span>
+    <span><a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">GitHub</a> · <a href="ru.html" hreflang="ru">Русская версия</a></span>
+  </div>
+</footer>
 
-            let vBox = document.getElementById('verdictOutput');
-            if (vBox) {
-                vBox.style.display = 'block';
-                let risk_status = isDamaged ? "CRITICAL LEVEL / HIGH RISK" : "STABLE / NORMAL FUNCTION";
-                
-                let baseProb = isDamaged ? 93.42 : 12.45;
-                let confidenceBound = isDamaged ? "±2.18%" : "±1.64%";
-
-                let recs = isDamaged ? 
-                    "1. Urgent consultation with an onco-cardiologist.\n2. Consider reducing Doxorubicin payload by 15%.\n3. Initiate preventive cardioprotective therapy (Dexrazoxane)." :
-                    "1. Continue standard chemotherapy protocol.\n2. Next routine check-up scheduled before the next cycle.";
-
-                vBox.className = isDamaged ? 'verdict-box danger' : 'verdict-box success';
-                let currentSensors = activeFocalZone === 'Anterior' ? 'V1, V2, V3, V4 (Anterior Wall Metrics)' : 
-                                     (activeFocalZone === 'Inferior' ? 'II, III, aVF (Inferior & Apex Matrix)' : 'I, aVL, V5, V6 (Lateral Array)');
-
-                vBox.innerHTML = `<strong>CARDIOONCOPREDICT PRO — CLINICAL PROTOCOL</strong><br>` +
-                                 `<span style="font-size:11px; opacity:0.75;">(simulated scenario output — not live model inference)</span><br><br>` +
-                                 `• <strong>BIOMEDICAL METRICS & DATA STREAM:</strong><br>` +
-                                 `  - Input Signal: Resampled from ${inputHz} Hz to baseline 500 Hz<br>` +
-                                 `  - Physiological Augmentation: Gaussian noise filtering deployed<br>` +
-                                 `  - Active ECG Array: ${currentSensors}<br>` +
-                                 `  - Patient Biological Sex: ${sex}<br><br>` +
-                                 `• <strong>3D MYOCARDIAL TOPOLOGY MESH MAP:</strong><br>` +
-                                 `  - Anterior Zone Focus: ${activeFocalZone === 'Anterior' && isDamaged ? '[SUBCLINICAL FERROPTOSIS DETECTED]' : '[STABLE]'}<br>` +
-                                 `  - Inferior / Apex Focus: ${activeFocalZone === 'Inferior' && isDamaged ? '[PATHOLOGICAL TRANSFORMATION CONFIRMED]' : '[STABLE]'}<br>` +
-                                 `  - Lateral Zone Focus: ${activeFocalZone === 'Lateral' && isDamaged ? '[CRITICAL TISSUE SEGMENT UNDER TARGET]' : '[STABLE]'}<br><br>` +
-                                 `• <strong>CALIBRATED AI VERDICT (CONFIDENCE INTERVAL):</strong><br>` +
-                                 `  - Computed Injury Probability: <strong>${baseProb}% (${confidenceBound})</strong><br>` +
-                                 `  - Statistical Risk Status: ${risk_status}<br><br>` +
-                                 `• <strong>EXPERT CLINICAL AI-AGENT RECOMMENDATIONS:</strong><br>` +
-                                 `  ${recs.replace(/\n/g, '<br>')}`;
-            }
-        }
-    </script>
+<script src="assets/js/dsp.js"></script>
+<script src="assets/js/site.js"></script>
 </body>
 </html>

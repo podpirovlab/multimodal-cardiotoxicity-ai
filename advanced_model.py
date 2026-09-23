@@ -46,12 +46,13 @@ def generate_3d_heart_mesh(is_damaged=True):
     for i in range(Z.shape[0]):
         for j in range(Z.shape[1]):
             if is_damaged and (0 <= Theta[i,j] <= np.pi/2) and (Z[i,j] > 1.3):
-                color_matrix[i, j] = [0.85, 0.15, 0.15, 0.85] # Очаг ферроптоза
+                color_matrix[i, j] = [0.85, 0.15, 0.15, 0.85] # Условная зона (визуализация, не локализация поражения)
             else:
                 color_matrix[i, j] = [0.12, 0.45, 0.40, 0.60] # Норма
     return X, Y, Z, color_matrix
 
-# 3. РАСЧЕТ ОЛИМПИЙСКИХ МЕТРИК НАДЕЖНОСТИ (ROC-AUC)
+# 3. ДЕМОНСТРАЦИЯ МЕТОДИКИ ROC-AUC НА СИНТЕТИЧЕСКИХ МЕТКАХ (не реальная точность!)
+#    Настоящие метрики на реальных ЭКГ считает train_ptbxl.py -> runs/ptbxl/metrics.json
 def calculate_system_roc_auc():
     np.random.seed(2026)
     y_true = np.random.choice([0, 1], size=100, p=[0.4, 0.6])
@@ -74,4 +75,4 @@ class EnhancedCardioOncoNet(nn.Module):
         return torch.sigmoid(self.classifier(flat_fusion))
 
 if __name__ == "__main__":
-    print("✅ Автономный сервер ИИ CardioOncoPredict успешно запущен в облаке!")
+    print("advanced_model.py: учебная модель (8x8 fusion). Рабочая модель: cardioonco/model.py + train_ptbxl.py")

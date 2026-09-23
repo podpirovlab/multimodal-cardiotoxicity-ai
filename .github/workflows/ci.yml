@@ -23,7 +23,15 @@ jobs:
           pip install -r requirements.txt
 
       - name: Byte-compile all Python sources (syntax / import sanity check)
-        run: python -m compileall -q main_model.py advanced_model.py app.py export_edge_onnx.py federated_fhir_core.py
+        run: python -m compileall -q cardioonco main_model.py advanced_model.py app.py export_edge_onnx.py federated_fhir_core.py train_ptbxl.py predict.py
+
+      - name: Unit tests (signal processing, TWA maths, training pipeline on fake PTB-XL)
+        run: |
+          pip install pytest
+          python -m pytest -q tests
+
+      - name: Smoke-test predict.py (synthetic Holter strip + FHIR report)
+        run: python predict.py --demo --alternans 20 --fhir-out report.json
 
       - name: Smoke-test federated averaging + FHIR export
         run: python federated_fhir_core.py
@@ -44,11 +52,12 @@ jobs:
           print('advanced_model.py smoke test OK, AUC =', auc_val)
           "
 
-      - name: Smoke-test Gradio app (build + one inference call, no server launch)
+      - name: Smoke-test Gradio app (one computed TWA analysis, no server launch)
         run: |
           MPLBACKEND=Agg python -c "
           import app
-          status, _ = app.predict_cardio(52, 'Мужчина', 'Критическая кумулятивная доза Доксорубицина')
-          assert 'ВЫСОКИЙ РИСК' in status
-          print('app.py smoke test OK:', status)
+          positive, _ = app.run_lab(20, 15, 75, 0.35)
+          negative, _ = app.run_lab(0, 15, 75, 0.35)
+          assert positive.startswith('TWA POSITIVE') and not negative.startswith('TWA POSITIVE')
+          print('app.py smoke test OK')
           "
