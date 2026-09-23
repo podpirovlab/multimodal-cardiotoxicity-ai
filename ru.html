@@ -255,20 +255,21 @@ cp runs/ptbxl/metrics.json assets/metrics.json</pre>
   <section class="block" id="anatomy">
     <div class="wrap heart">
       <div class="heart-stage" id="heart-stage">
-        <canvas id="c-heart" height="360" role="img" aria-label="Каркасная 3D-модель левого желудочка"></canvas>
+        <canvas id="c-heart" height="360" role="img" aria-label="Каркасная 3D-модель левого желудочка, окрашенная по тяжести альтернации, рассчитанной вживую в лаборатории выше"></canvas>
         <span class="hint">ПОТЯНИТЕ, ЧТОБЫ ПОВЕРНУТЬ</span>
+        <span class="heart-live" id="heart-live"></span>
       </div>
       <div style="display:grid; gap:18px;">
-        <span class="eyebrow">Анатомия отведений</span>
+        <span class="eyebrow">Анатомия отведений · 12-канальная ЭКГ</span>
         <h2>Куда «смотрит» каждое отведение</h2>
-        <p class="lede">12 отведений ЭКГ — это 12 направлений, с которых измеряется электрический вектор сердца. Каждая группа лучше видит свою стенку левого желудочка.</p>
+        <p class="lede">Стандартная 12-канальная ЭКГ измеряет электрический вектор сердца с 12 направлений. Каждая группа ниже лучше видит свою стенку левого желудочка. Покрутите модель — её оттенок в реальном времени следует за тяжестью альтернации Т-зубца, которую считает лаборатория выше.</p>
         <div class="leads" role="group" aria-label="Группы отведений">
           <button type="button" class="leadbtn" data-lead="septal" aria-pressed="false"><b>Перегородка</b><span>V1, V2</span></button>
           <button type="button" class="leadbtn" data-lead="anterior" aria-pressed="false"><b>Передняя стенка</b><span>V3, V4</span></button>
           <button type="button" class="leadbtn" data-lead="lateral" aria-pressed="false"><b>Боковая стенка</b><span>I, aVL, V5, V6</span></button>
           <button type="button" class="leadbtn" data-lead="inferior" aria-pressed="false"><b>Нижняя стенка</b><span>II, III, aVF</span></button>
         </div>
-        <p style="font-size:15px; color:var(--muted);">Антрациклиновое поражение обычно диффузное, а не очаговое. Эта модель учит анатомии и не показывает место повреждения.</p>
+        <p style="font-size:15px; color:var(--muted);">Весь желудочек светится целиком, а не один сегмент: антрациклиновое поражение обычно диффузное, а не очаговое, поэтому цвет — это индикатор единственного числа из лаборатории, а не карта повреждений. Нажмите на стенку, чтобы увидеть, какие из 12 отведений на неё смотрят.</p>
       </div>
     </div>
   </section>

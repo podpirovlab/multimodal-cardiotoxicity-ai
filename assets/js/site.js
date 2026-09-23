@@ -23,6 +23,7 @@
       cls: "Класс", auc: "AUC (95% ДИ)", sens: "Чувств.", spec: "Специф.", prev: "Доля",
       heartIdle: "Выберите группу отведений", dose: "Кумулятивная доза доксорубицина, мг/м²", hf: "Сердечная недостаточность",
       heartHint: "ПОТЯНИТЕ, ЧТОБЫ ПОВЕРНУТЬ", mv: "мВ", paperScale: "25 мм/с · 10 мм/мВ",
+      heartLive: (pct, vAlt, k) => `тяжесть ${pct}% · V_alt ${fmt(vAlt, 1)} мкВ · K ${fmt(k, 1)}`,
     },
     en: {
       pos: "TWA detected", neg: "No TWA", err: "Could not analyse",
@@ -42,6 +43,7 @@
       cls: "Class", auc: "AUC (95% CI)", sens: "Sens.", spec: "Spec.", prev: "Prevalence",
       heartIdle: "Choose a lead group", dose: "Cumulative doxorubicin dose, mg/m²", hf: "Heart failure",
       heartHint: "DRAG TO ROTATE", mv: "mV", paperScale: "25 mm/s · 10 mm/mV",
+      heartLive: (pct, vAlt, k) => `severity ${pct}% · V_alt ${fmt(vAlt, 1)} µV · K ${fmt(k, 1)}`,
     },
   }[LANG === "ru" ? "ru" : "en"];
 
@@ -57,7 +59,7 @@
   let C = {};
   function readColors() {
     const cs = getComputedStyle(document.documentElement);
-    for (const k of ["paper", "surface", "ink", "muted", "line", "grid-minor", "grid-major", "trace", "accent", "blue", "ok", "accent-soft", "blue-soft"])
+    for (const k of ["paper", "surface", "ink", "muted", "line", "grid-minor", "grid-major", "trace", "accent", "blue", "ok", "warn", "accent-soft", "blue-soft"])
       C[k] = cs.getPropertyValue("--" + k).trim();
   }
   readColors();
@@ -222,6 +224,7 @@
       box.querySelector("p").textContent = e.message;
     }
     drawLab();
+    drawHeart();
   }
 
   function drawLab() {
@@ -380,6 +383,26 @@
     heart.pts = pts;
   }
   const LEADS = { septal: ["septal"], anterior: ["anterior", "apex"], lateral: ["lateral"], inferior: ["inferior", "apex"] };
+
+  // ---- illustrative severity: derived from the lab's own V_alt / K, not a per-lead measurement ----
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  function twaSeverity() {
+    const r = lab.res;
+    if (!r || !isFinite(r.vAlt) || !isFinite(r.k)) return 0;
+    return clamp01((r.vAlt - 1.9) / 13) * clamp01(r.k / 3);
+  }
+  function hexRgb(hex) {
+    let h = (hex || "").trim().replace("#", "");
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+    const n = parseInt(h, 16) || 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function sevRgb(t) {
+    const ok = hexRgb(C.ok), warn = hexRgb(C.warn), acc = hexRgb(C.accent);
+    const mix = (a, b, u) => a.map((v, i) => Math.round(v + (b[i] - v) * u));
+    const c = t < 0.5 ? mix(ok, warn, t / 0.5) : mix(warn, acc, (t - 0.5) / 0.5);
+    return `${c[0]},${c[1]},${c[2]}`;
+  }
   function drawHeart() {
     const cv = $("#c-heart"); if (!cv) return;
     const { ctx, w, h } = setupCanvas(cv);
@@ -392,6 +415,28 @@
       return { X: cx + x1 * s, Y: cy - y2 * s, d: z2, t: p.t };
     }));
     const active = heart.sel ? LEADS[heart.sel] : [];
+    const sev = twaSeverity();
+    // Diffuse heat wash: the whole wall tints together (anthracycline injury is diffuse, not focal),
+    // its strength following the lab's live alternans severity — not a per-territory measurement.
+    if (sev > 0.02 && P.length > 1) {
+      const rgb = sevRgb(sev), quads = [];
+      for (let i = 0; i < P.length - 1; i++) {
+        const row = P[i], next = P[i + 1], n = row.length;
+        for (let j = 0; j < n; j++) {
+          const a = row[j], b = row[(j + 1) % n], c = next[(j + 1) % n], d = next[j];
+          quads.push({ pts: [a, b, c, d], depth: (a.d + b.d + c.d + d.d) / 4 });
+        }
+      }
+      quads.sort((u, v) => u.depth - v.depth);
+      ctx.fillStyle = `rgb(${rgb})`;
+      for (const q of quads) {
+        ctx.globalAlpha = sev * (q.depth > 0 ? 0.55 : 0.16);
+        ctx.beginPath(); ctx.moveTo(q.pts[0].X, q.pts[0].Y);
+        for (let k = 1; k < 4; k++) ctx.lineTo(q.pts[k].X, q.pts[k].Y);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
     const segs = [];
     for (let i = 0; i < P.length; i++) for (let j = 0; j < P[i].length; j++) {
       const a = P[i][j], b = P[i][(j + 1) % P[i].length];
@@ -411,6 +456,8 @@
     ctx.font = MONO; ctx.fillStyle = C.muted; ctx.textAlign = "left"; ctx.textBaseline = "top";
     ctx.fillText(LANG === "ru" ? "ОСНОВАНИЕ" : "BASE", 12, 12);
     ctx.textBaseline = "bottom"; ctx.fillText(LANG === "ru" ? "ВЕРХУШКА ↓" : "APEX ↓", 12, h - 10);
+    const live = $("#heart-live"), r = lab.res;
+    if (live) live.textContent = T.heartLive(Math.round(sev * 100), r ? r.vAlt : 0, r ? r.k : 0);
   }
   function initHeart() {
     initHeartGeom(); drawHeart();

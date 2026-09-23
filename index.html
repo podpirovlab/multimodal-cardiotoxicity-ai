@@ -255,20 +255,21 @@ cp runs/ptbxl/metrics.json assets/metrics.json</pre>
   <section class="block" id="anatomy">
     <div class="wrap heart">
       <div class="heart-stage" id="heart-stage">
-        <canvas id="c-heart" height="360" role="img" aria-label="Wireframe 3D model of the left ventricle"></canvas>
+        <canvas id="c-heart" height="360" role="img" aria-label="Wireframe 3D model of the left ventricle, tinted by the alternans severity computed live in the lab above"></canvas>
         <span class="hint">DRAG TO ROTATE</span>
+        <span class="heart-live" id="heart-live"></span>
       </div>
       <div style="display:grid; gap:18px;">
-        <span class="eyebrow">Lead anatomy</span>
+        <span class="eyebrow">Lead anatomy · 12-lead ECG</span>
         <h2>Where each lead is looking</h2>
-        <p class="lede">The 12 ECG leads are 12 directions from which the heart's electrical vector is measured. Each group sees its own wall of the left ventricle best.</p>
+        <p class="lede">A standard 12-lead ECG measures the heart's electrical vector from 12 directions. Each group below sees its own wall of the left ventricle best. Drag the model to rotate it freely; its tint follows the T-wave alternans severity computed live, in real time, from the interactive lab above.</p>
         <div class="leads" role="group" aria-label="Lead groups">
           <button type="button" class="leadbtn" data-lead="septal" aria-pressed="false"><b>Septum</b><span>V1, V2</span></button>
           <button type="button" class="leadbtn" data-lead="anterior" aria-pressed="false"><b>Anterior wall</b><span>V3, V4</span></button>
           <button type="button" class="leadbtn" data-lead="lateral" aria-pressed="false"><b>Lateral wall</b><span>I, aVL, V5, V6</span></button>
           <button type="button" class="leadbtn" data-lead="inferior" aria-pressed="false"><b>Inferior wall</b><span>II, III, aVF</span></button>
         </div>
-        <p style="font-size:15px; color:var(--muted);">Anthracycline injury is usually diffuse rather than focal. This model teaches anatomy; it does not show where damage is.</p>
+        <p style="font-size:15px; color:var(--muted);">The whole ventricle glows together, not one segment: anthracycline injury is usually diffuse rather than focal, so the colour is a readout of the lab's one number, not a map of where damage is. Click a wall to see which of the 12 leads look at it.</p>
       </div>
     </div>
   </section>
