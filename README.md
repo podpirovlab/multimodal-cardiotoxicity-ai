@@ -10,7 +10,7 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-research%20prototype-yellow)
 
-**[Live interactive lab →](https://podpirovlab.github.io/multimodal-cardiotoxicity-ai/)** · [Русская версия](README.ru.md) · [Roadmap](ROADMAP.md)
+**[Try the live tool →](https://podpirovlab.github.io/multimodal-cardiotoxicity-ai/)** · [Русская версия](README.ru.md) · [Roadmap](ROADMAP.md)
 
 > **Disclaimer.** CardioOncoPredict is a research and education prototype. It is not a medical
 > device, has no clinical validation and no regulatory clearance. It must not be used to make
@@ -21,6 +21,8 @@
 ---
 
 ## Contents
+
+**[Try it on a real ECG](#try-it-on-a-real-ecg)** — upload EDF/CSV, PhysioNet data, patient context, FHIR export, lead anatomy
 
 1. [Summary](#1-summary)
 2. [Medicine and biochemistry: how anthracyclines injure the heart](#2-medicine-and-biochemistry-how-anthracyclines-injure-the-heart)
@@ -34,6 +36,44 @@
 10. [What changed in version 0.3](#10-what-changed-in-version-03)
 11. [Limitations and ethics](#11-limitations-and-ethics)
 12. [References](#12-references)
+
+---
+
+## Try it on a real ECG
+
+The [live tool](https://podpirovlab.github.io/multimodal-cardiotoxicity-ai/) runs the analysis below entirely in your browser — nothing you upload leaves your device or touches a server.
+
+**What it needs:** one lead of ECG, at least ~2 minutes long. The Spectral Method looks at 128 beats ([§4.4](#44-the-spectral-method-for-t-wave-alternans)); a standard 10-second clinical ECG only has about 12, so it will load but the tool will tell you there isn't enough to measure alternans reliably.
+
+**File formats:**
+- **EDF / EDF+** — read directly in the browser (`assets/js/edf.js`, no server). If the file has more than one channel, a dropdown lets you pick which one is the ECG lead.
+- **CSV / TXT** — one column of numbers, in mV or µV, with the sampling rate typed in by hand.
+
+**Getting a real recording from PhysioNet:**
+- [T-Wave Alternans Challenge Database](https://physionet.org/content/twadb/1.0.0/) — Holter-length real and simulated recordings built specifically for testing TWA detectors.
+- [PTB-XL](https://physionet.org/content/ptb-xl/1.0.3/) — 21,799 real clinical ECGs (used for training in [§5.4](#54-data-ptb-xl)), but only 10 seconds each, so on its own it's too short for TWA. Good for checking the tool runs correctly on a real waveform.
+
+Both ship as WFDB (`.dat` + `.hea`), which the browser can't read directly — convert one lead to CSV first:
+
+```bash
+pip install wfdb
+python scripts/wfdb_to_csv.py records100/00000/00001_lr --lead II --out ecg.csv
+```
+
+Then upload `ecg.csv` and set the sampling rate the script prints on the upload form.
+
+**Patient context and the FHIR export.** Age, sex and cumulative anthracycline dose next to the upload are optional. They don't change the TWA numbers — the analysis only ever looks at the ECG — they exist so the "Export FHIR report" button can attach them to a downloadable `DiagnosticReport` JSON alongside the measurement (same structure as `cardioonco/fhir.py`, [§6.3](#63-hl7-fhir-r4)). The dose field also shows where that number falls on the population dose–response curve from [§2.1](#21-the-clinical-scale-of-the-problem) — a group statistic, not a prediction for that one patient.
+
+**Which lead sees which wall.** The 12 ECG leads look at the heart from 12 directions:
+
+| Wall | Leads that see it best |
+|---|---|
+| Septum | V1, V2 |
+| Anterior wall | V3, V4 |
+| Lateral wall | I, aVL, V5, V6 |
+| Inferior wall | II, III, aVF |
+
+aVR doesn't localise to a wall and is left out, as usual. Anthracycline injury is typically diffuse across the ventricle rather than confined to one wall, so this table is about ECG anatomy, not about where any particular patient's damage is — the tool does not try to localise anything.
 
 ---
 

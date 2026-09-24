@@ -1,8 +1,9 @@
-/* CardioOncoPredict — page logic: hero monitor, TWA lab, charts, 3D heart, training status.
-   All numbers are computed by CardioDSP (assets/js/dsp.js). Nothing is hard-coded. */
+/* CardioOncoPredict — page logic: upload/synthesise a recording, run the TWA analysis, draw the charts.
+   All numbers are computed by CardioDSP (assets/js/dsp.js) and CardioEDF (assets/js/edf.js). Nothing is hard-coded. */
 (function () {
   "use strict";
   const D = window.CardioDSP;
+  const EDF = window.CardioEDF;
   const LANG = (document.documentElement.lang || "en").slice(0, 2);
   const T = {
     ru: {
@@ -16,14 +17,17 @@
       paper: "на бумаге", mm: "мм", even: "чётные удары (A)", odd: "нечётные удары (B)", diff: "разность A−B ×10",
       series: "значение в точке ST-T от удара к удару", band: "полоса шума", alt: "0,5 цикла/удар",
       stt: "окно ST-T", rp: "R-пики", cpb: "циклы / удар", beat: "номер удара", fromR: "время от R-пика, с",
+      mv: "мВ", paperScale: "25 мм/с · 10 мм/мВ",
       fileErr: "В файле не найдено чисел. Нужен CSV/TXT: один столбец значений в мВ (или мкВ).",
+      fileErrEdf: (msg) => `Не удалось прочитать EDF: ${msg}`,
       fileOk: (n, fs) => `Загружено ${n} отсчётов, ${fs} Гц`,
-      pending: "Модель ещё не обучена на реальных данных. Запустите обучение — и сюда автоматически подтянутся метрики из assets/metrics.json.",
-      trained: (m) => `Обучено на PTB-XL: лучшая эпоха ${m.best_epoch}, тестовая выборка ${m.n_test} ЭКГ, macro-AUC ${fmt(m.test_macro_auc, 3)}.`,
-      cls: "Класс", auc: "AUC (95% ДИ)", sens: "Чувств.", spec: "Специф.", prev: "Доля",
-      heartIdle: "Выберите группу отведений", dose: "Кумулятивная доза доксорубицина, мг/м²", hf: "Сердечная недостаточность",
-      heartHint: "ПОТЯНИТЕ, ЧТОБЫ ПОВЕРНУТЬ", mv: "мВ", paperScale: "25 мм/с · 10 мм/мВ",
-      heartLive: (pct, vAlt, k) => `тяжесть ${pct}% · V_alt ${fmt(vAlt, 1)} мкВ · K ${fmt(k, 1)}`,
+      edfOk: (n, fs, label) => `EDF: канал «${label}», ${n} отсчётов, ${fs} Гц`,
+      edfChannel: "Канал (отведение)", edfAnnotations: "(служебный канал, пропущен)",
+      shortWarn: (n) => `Найдено всего ${n} ударов. Спектральному методу нужно около 128 (~2 минуты записи) для надёжного результата — при меньшей длине запись всё равно анализируется, но осторожнее с выводами.`,
+      pAge: "Возраст, лет", pSex: "Пол", pSexU: "не указан", pSexM: "мужской", pSexF: "женский",
+      pDose: "Кумулятивная доза доксорубицина, мг/м²", pDoseHint: "необязательно — только для контекста в отчёте, не входит в расчёт TWA",
+      doseCtx: (pct, dose) => `При дозе ${fmt(dose, 0)} мг/м² в популяции сердечная недостаточность развивается примерно у ${fmt(pct, 0)} % пациентов (Swain et al., Cancer, 2003). Это статистика по группе, не прогноз для конкретного человека.`,
+      fhirBtn: "Экспортировать FHIR-отчёт", fhirNote: "Скачивает JSON (FHIR DiagnosticReport) с этими числами и указанным контекстом пациента — на устройство, никуда не отправляется.",
     },
     en: {
       pos: "TWA detected", neg: "No TWA", err: "Could not analyse",
@@ -36,14 +40,17 @@
       paper: "on paper", mm: "mm", even: "even beats (A)", odd: "odd beats (B)", diff: "A−B difference ×10",
       series: "ST-T value at one point, beat after beat", band: "noise band", alt: "0.5 cycles/beat",
       stt: "ST-T window", rp: "R peaks", cpb: "cycles / beat", beat: "beat number", fromR: "time from R peak, s",
+      mv: "mV", paperScale: "25 mm/s · 10 mm/mV",
       fileErr: "No numbers found. Use CSV/TXT with one column of values in mV (or µV).",
+      fileErrEdf: (msg) => `Could not read the EDF file: ${msg}`,
       fileOk: (n, fs) => `Loaded ${n} samples at ${fs} Hz`,
-      pending: "The model has not been trained on real data yet. Run training and the metrics from assets/metrics.json will appear here automatically.",
-      trained: (m) => `Trained on PTB-XL: best epoch ${m.best_epoch}, test set ${m.n_test} ECGs, macro-AUC ${fmt(m.test_macro_auc, 3)}.`,
-      cls: "Class", auc: "AUC (95% CI)", sens: "Sens.", spec: "Spec.", prev: "Prevalence",
-      heartIdle: "Choose a lead group", dose: "Cumulative doxorubicin dose, mg/m²", hf: "Heart failure",
-      heartHint: "DRAG TO ROTATE", mv: "mV", paperScale: "25 mm/s · 10 mm/mV",
-      heartLive: (pct, vAlt, k) => `severity ${pct}% · V_alt ${fmt(vAlt, 1)} µV · K ${fmt(k, 1)}`,
+      edfOk: (n, fs, label) => `EDF: channel "${label}", ${n} samples at ${fs} Hz`,
+      edfChannel: "Channel (lead)", edfAnnotations: "(service channel, skipped)",
+      shortWarn: (n) => `Only ${n} beats found. The Spectral Method wants about 128 (~2 minutes) for a reliable read — it still runs on shorter recordings, but treat the result with more caution.`,
+      pAge: "Age, years", pSex: "Sex", pSexU: "unspecified", pSexM: "male", pSexF: "female",
+      pDose: "Cumulative doxorubicin dose, mg/m²", pDoseHint: "optional — for report context only, not used in the TWA math above",
+      doseCtx: (pct, dose) => `At ${fmt(dose, 0)} mg/m², population heart-failure incidence is about ${fmt(pct, 0)}% (Swain et al., Cancer, 2003) — a group statistic, not a prediction for this person.`,
+      fhirBtn: "Export FHIR report", fhirNote: "Downloads a JSON file (FHIR DiagnosticReport) with these numbers and the patient context above — saved to your device, sent nowhere.",
     },
   }[LANG === "ru" ? "ru" : "en"];
 
@@ -53,13 +60,12 @@
     return LANG === "ru" ? s.replace(".", ",") : s;
   }
   const $ = (s) => document.querySelector(s);
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // ---------- theme-aware colours ----------
+  // ---------- theme-aware colours (read once from CSS custom properties) ----------
   let C = {};
   function readColors() {
     const cs = getComputedStyle(document.documentElement);
-    for (const k of ["paper", "surface", "ink", "muted", "line", "grid-minor", "grid-major", "trace", "accent", "blue", "ok", "warn", "accent-soft", "blue-soft"])
+    for (const k of ["paper", "surface", "ink", "muted", "line", "grid-minor", "grid-major", "trace", "accent", "blue", "accent-soft", "blue-soft"])
       C[k] = cs.getPropertyValue("--" + k).trim();
   }
   readColors();
@@ -116,75 +122,32 @@
     for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
     return out;
   }
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
-  // ======================= HERO MONITOR =======================
-  const hero = { sig: null, res: null, t0: performance.now() - 20000 };  // start mid-recording: the first frame is a full strip
-  function initHero() {
-    hero.sig = D.synth({ altUv: 12, hr: 72, noiseUv: 12, tAmp: 0.3, seed: 2026, wanderMv: 0.05 });
-    try { hero.res = D.analyzeTWA(hero.sig.x, hero.sig.fs); } catch (e) { hero.res = null; }
-    const r = hero.res;
-    if (r) {
-      $("#ro-hr").innerHTML = `${fmt(r.hr, 0)} <small>${T.bpm}</small>`;
-      $("#ro-valt").innerHTML = `${fmt(r.vPeak, 1)} <small>${T.uv}</small>`;
-      $("#ro-k").innerHTML = `${fmt(r.k, 0)}`;
-      $("#ro-mm").innerHTML = `${fmt(r.vPeak / 100, 2)} <small>${T.mm}</small>`;
+  // ======================= PATIENT CONTEXT (age / sex / dose) =======================
+  // Reference points: heart-failure incidence by cumulative doxorubicin dose (Swain et al., Cancer 2003).
+  const DOSE_POINTS = [[0, 0], [400, 5], [550, 26], [700, 48], [1000, 48]];
+  function doseIncidence(dose) {
+    for (let i = 1; i < DOSE_POINTS.length; i++) {
+      const [d0, p0] = DOSE_POINTS[i - 1], [d1, p1] = DOSE_POINTS[i];
+      if (dose <= d1) return p0 + (p1 - p0) * (dose - d0) / (d1 - d0);
     }
-    drawHero();
-    if (!reduceMotion) requestAnimationFrame(loopHero);
+    return DOSE_POINTS[DOSE_POINTS.length - 1][1];
   }
-  function drawHero(now) {
-    const cv = $("#hero-ecg"); if (!cv) return;
-    const { ctx, w, h } = setupCanvas(cv);
-    const pxmm = Math.max(4, w / 150), pps = 25 * pxmm, pxmv = 10 * pxmm;
-    const calW = 8 * pxmm, plotW = w - calW, win = plotW / pps;
-    paperGrid(ctx, w, h, pxmm);
-    const base = h * 0.62;
-    // 1 mV calibration pulse: 10 mm tall, 5 mm wide
-    ctx.strokeStyle = C.trace; ctx.lineWidth = 1.6; ctx.beginPath();
-    ctx.moveTo(pxmm, base); ctx.lineTo(2 * pxmm, base); ctx.lineTo(2 * pxmm, base - pxmv);
-    ctx.lineTo(7 * pxmm, base - pxmv); ctx.lineTo(7 * pxmm, base); ctx.lineTo(8 * pxmm, base); ctx.stroke();
-    const { x, fs } = hero.sig, n = x.length, total = n / fs;
-    const elapsed = now ? (now - hero.t0) / 1000 : win * 0.999;
-    const sweep = Math.floor(elapsed / win), cursor = (elapsed % win) * pps, gap = 12;
-    ctx.beginPath(); ctx.strokeStyle = C.trace; ctx.lineWidth = 1.5; ctx.lineJoin = "round";
-    let pen = false;
-    for (let px = 0; px < plotW; px += 1) {
-      if (px > cursor && px < cursor + gap) { pen = false; continue; }
-      const s = px <= cursor ? sweep : sweep - 1;
-      if (s < 0 && now) { pen = false; continue; }
-      let ts = (s * win + px / pps) % total; if (ts < 0) ts += total;
-      const i = Math.min(n - 1, Math.floor(ts * fs));
-      const y = base - x[i] * pxmv;
-      if (!pen) { ctx.moveTo(calW + px, y); pen = true; } else ctx.lineTo(calW + px, y);
-    }
-    ctx.stroke();
-    if (now) { ctx.fillStyle = C.accent; ctx.beginPath(); ctx.arc(calW + cursor, base - x[Math.min(n - 1, Math.floor(((sweep * win + cursor / pps) % total) * fs))] * pxmv, 3, 0, 7); ctx.fill(); }
+  function patient() {
+    const age = parseFloat($("#p-age").value);
+    const sex = $("#p-sex").value;
+    const dose = parseFloat($("#p-dose").value);
+    return { age: isFinite(age) ? age : null, sex: sex || null, dose: isFinite(dose) && dose > 0 ? dose : null };
   }
-  let heroVisible = true;
-  function loopHero(now) { if (heroVisible) drawHero(now); requestAnimationFrame(loopHero); }
-  if ("IntersectionObserver" in window) {
-    new IntersectionObserver((e) => { heroVisible = e[0].isIntersecting; }).observe($("#hero-ecg"));
-  }
-
-  // ======================= DOSE CHART (Swain et al., Cancer 2003) =======================
-  function drawDose() {
-    const cv = $("#dose-chart"); if (!cv) return;
-    const { ctx, w, h } = setupCanvas(cv, 250);
-    const pad = { l: 44, r: 16, t: 26, b: 34 };
-    const { X, Y } = axes(ctx, w, h, pad, [300, 750], [0, 50], { xt: [300, 400, 500, 600, 700], yt: [0, 10, 20, 30, 40, 50],
-      yf: (v) => v + "%", xl: T.dose, yl: T.hf });
-    const pts = [[400, 5], [550, 26], [700, 48]];
-    const bw = Math.min(46, (w - pad.l - pad.r) / 9);
-    for (const [d, p] of pts) {
-      ctx.fillStyle = C.accent; ctx.globalAlpha = 0.85;
-      ctx.fillRect(X(d) - bw / 2, Y(p), bw, Y(0) - Y(p)); ctx.globalAlpha = 1;
-      ctx.fillStyle = C.ink; ctx.font = "600 13px 'JetBrains Mono', monospace"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
-      ctx.fillText(p + "%", X(d), Y(p) - 4);
-    }
+  function updatePatientContext() {
+    const p = patient(), out = $("#p-context");
+    if (!out) return;
+    out.textContent = p.dose ? T.doseCtx(clamp01(doseIncidence(p.dose) / 100) * 100, p.dose) : "";
   }
 
   // ======================= TWA LAB =======================
-  const lab = { res: null, sig: null, seed: 7, source: "synth", fileSig: null, fileFs: 500, fileName: "" };
+  const lab = { res: null, sig: null, seed: 7, source: "synth", fileSig: null, fileFs: 500, fileName: "", edf: null, csvRawText: null };
   const sliders = ["alt", "noise", "hr", "tamp", "mains"];
   function params() {
     const v = (id) => parseFloat($("#s-" + id).value);
@@ -212,19 +175,22 @@
       lab.res = r;
       box.className = "verdict " + (r.positive ? "pos" : "neg");
       box.querySelector(".pill").textContent = r.positive ? T.pos : T.neg;
-      box.querySelector("p").textContent = (lab.source === "file" ? lab.fileName + ". " : "") + (r.positive ? T.posText(r) : T.negText(r));
+      let msg = (lab.source === "file" ? lab.fileName + ". " : "") + (r.positive ? T.posText(r) : T.negText(r));
+      if (r.nBeats < 100) msg += " " + T.shortWarn(r.nBeats);
+      box.querySelector("p").textContent = msg;
       $("#m-hr").innerHTML = `${fmt(r.hr, 0)} <small>${T.bpm}</small>`; $("#d-hr").textContent = T.beats(r.nBeats);
       $("#m-valt").innerHTML = `${fmt(r.vAlt, 2)} <small>${T.uv}</small>`;
       $("#m-peak").innerHTML = `${fmt(r.vPeak, 1)} <small>${T.uv}</small>`;
       $("#m-k").innerHTML = fmt(r.k, 1);
       $("#m-mma").innerHTML = `${fmt(r.mma, 1)} <small>${T.uv}</small>`;
+      $("#b-fhir").disabled = false;
     } catch (e) {
       lab.res = null;
       box.className = "verdict err"; box.querySelector(".pill").textContent = T.err;
       box.querySelector("p").textContent = e.message;
+      $("#b-fhir").disabled = true;
     }
     drawLab();
-    drawHeart();
   }
 
   function drawLab() {
@@ -322,26 +288,117 @@
     ctx.fillStyle = r.positive ? C.accent : C.muted; ctx.beginPath(); ctx.arc(X(0.5) - 2, Y(Math.log10(pa)), 4.5, 0, 7); ctx.fill();
   }
 
-  // file upload
+  // ---------- file upload: plain CSV/TXT, or binary EDF/EDF+ with a channel picker ----------
+  function isEdf(file) {
+    return /\.edf$/i.test(file.name);
+  }
+  function loadFromChannel(sig, fs, name) {
+    lab.fileSig = sig; lab.fileFs = fs; lab.fileName = name; lab.source = "file";
+    runLab();
+  }
+  function populateEdfChannels(edf) {
+    const sel = $("#f-edf-channel");
+    sel.innerHTML = "";
+    edf.signals.forEach((s, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = s.annotations ? `${s.label} ${T.edfAnnotations}` : `${s.label} (${fmt(s.fs, 0)} Hz)`;
+      opt.disabled = s.annotations;
+      sel.appendChild(opt);
+    });
+    const guess = edf.signals.findIndex((s) => !s.annotations && /ecg|ekg|\bii\b|lead/i.test(s.label));
+    const first = edf.signals.findIndex((s) => !s.annotations);
+    sel.value = String(guess >= 0 ? guess : Math.max(0, first));
+    selectEdfChannel(parseInt(sel.value, 10));
+  }
+  function selectEdfChannel(idx) {
+    const edf = lab.edf; if (!edf) return;
+    const s = edf.signals[idx];
+    const sig = edf.getChannel(idx);
+    $("#f-status").textContent = T.edfOk(sig.length, Math.round(s.fs), s.label);
+    loadFromChannel(sig, s.fs, lab.fileName);
+  }
+  function parseCsvText(text) {
+    const col = Math.max(0, parseInt($("#f-col").value || "0", 10));
+    const unit = $("#f-unit").value, fs = Math.max(50, parseFloat($("#f-fs").value) || 500);
+    const vals = [];
+    for (const line of text.split(/\r?\n/)) {
+      const parts = line.split(/[,;\t ]+/).filter(Boolean);
+      const v = parseFloat(parts[col]);
+      if (isFinite(v)) vals.push(unit === "uv" ? v / 1000 : v);
+    }
+    const status = $("#f-status");
+    if (vals.length < fs * 10) { status.textContent = T.fileErr; return; }
+    status.textContent = T.fileOk(vals.length, fs);
+    loadFromChannel(Float64Array.from(vals), fs, lab.fileName);
+  }
   function onFile(ev) {
     const file = ev.target.files && ev.target.files[0]; if (!file) return;
+    lab.fileName = file.name;
+    const csvWrap = $("#f-csv-wrap"), edfWrap = $("#f-edf-wrap");
+    if (isEdf(file)) {
+      lab.csvRawText = null;
+      const rd = new FileReader();
+      rd.onload = () => {
+        try {
+          const edf = EDF.parseEDF(rd.result);
+          lab.edf = edf;
+          csvWrap.hidden = true; edfWrap.hidden = false;
+          populateEdfChannels(edf);
+        } catch (e) {
+          $("#f-status").textContent = T.fileErrEdf(e.message);
+        }
+      };
+      rd.readAsArrayBuffer(file);
+      return;
+    }
+    csvWrap.hidden = false; edfWrap.hidden = true; lab.edf = null;
     const rd = new FileReader();
-    rd.onload = () => {
-      const col = Math.max(0, parseInt($("#f-col").value || "0", 10));
-      const unit = $("#f-unit").value, fs = Math.max(50, parseFloat($("#f-fs").value) || 500);
-      const vals = [];
-      for (const line of String(rd.result).split(/\r?\n/)) {
-        const parts = line.split(/[,;\t ]+/).filter(Boolean);
-        const v = parseFloat(parts[col]);
-        if (isFinite(v)) vals.push(unit === "uv" ? v / 1000 : v);
-      }
-      const status = $("#f-status");
-      if (vals.length < fs * 10) { status.textContent = T.fileErr; return; }
-      lab.fileSig = Float64Array.from(vals); lab.fileFs = fs; lab.fileName = file.name; lab.source = "file";
-      status.textContent = T.fileOk(vals.length, fs);
-      runLab();
-    };
+    rd.onload = () => { lab.csvRawText = String(rd.result); parseCsvText(lab.csvRawText); };
     rd.readAsText(file);
+  }
+
+  // ---------- FHIR export (mirrors cardioonco/fhir.py: same codes, same "research only" tag) ----------
+  const FHIR_CS = "https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/fhir/CodeSystem/cardioonco";
+  const UCUM = "http://unitsofmeasure.org";
+  function fhirObs(id, code, display, value, unit) {
+    return { resourceType: "Observation", id, status: "final",
+      code: { coding: [{ system: FHIR_CS, code, display }], text: display },
+      valueQuantity: { value: +value.toFixed(4), unit, system: UCUM, code: unit } };
+  }
+  function exportFHIR() {
+    const r = lab.res; if (!r) return;
+    const p = patient();
+    const now = new Date().toISOString();
+    const contained = [
+      fhirObs("hr", "heart-rate", "Heart rate (from R-R intervals)", r.hr, "/min"),
+      fhirObs("valt", "twa-valt", "T-wave alternans voltage (Spectral Method)", r.vAlt, "uV"),
+      fhirObs("kscore", "twa-k", "T-wave alternans K-score", r.k, "1"),
+      fhirObs("mma", "twa-mma", "T-wave alternans (Modified Moving Average)", r.mma, "uV"),
+    ];
+    const patientResource = {
+      resourceType: "Patient", id: "patient",
+      gender: p.sex === "male" ? "male" : p.sex === "female" ? "female" : "unknown",
+    };
+    if (p.age) patientResource.extension = [{ url: "age-years", valueInteger: Math.round(p.age) }];
+    if (p.dose) patientResource.extension = (patientResource.extension || []).concat(
+      [{ url: `${FHIR_CS}/cumulative-doxorubicin-dose-mg-m2`, valueDecimal: p.dose }]);
+    const report = {
+      resourceType: "DiagnosticReport", id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2),
+      meta: { tag: [{ system: FHIR_CS, code: "research-only", display: "Research prototype output - not for clinical use" }] },
+      contained: [patientResource, ...contained],
+      status: "preliminary",
+      category: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/v2-0074", code: "EC", display: "Electrocardiac (e.g., EKG, EEC, Holter)" }] }],
+      code: { coding: [{ system: "http://loinc.org", code: "11524-6", display: "EKG study" }], text: "CardioOncoPredict TWA analysis (research prototype)" },
+      subject: { reference: "#patient" },
+      effectiveDateTime: now, issued: now,
+      result: contained.map((o) => ({ reference: `#${o.id}` })),
+      conclusion: r.positive ? T.posText(r) : T.negText(r),
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "cardioonco_twa_report.json";
+    document.body.appendChild(a); a.click(); a.remove();
   }
 
   function initLab() {
@@ -353,160 +410,22 @@
     }));
     $("#b-reseed").addEventListener("click", () => { lab.seed = (lab.seed * 48271) % 2147483647; lab.source = "synth"; schedule(); });
     $("#f-file").addEventListener("change", onFile);
-    syncOutputs(); runLab();
+    ["#f-fs", "#f-col", "#f-unit"].forEach((sel) => $(sel).addEventListener("input", () => { if (lab.csvRawText) parseCsvText(lab.csvRawText); }));
+    $("#f-edf-channel").addEventListener("change", (e) => selectEdfChannel(parseInt(e.target.value, 10)));
+    ["#p-age", "#p-sex", "#p-dose"].forEach((sel) => $(sel).addEventListener("input", updatePatientContext));
+    $("#b-fhir").addEventListener("click", exportFHIR);
+    syncOutputs(); updatePatientContext(); runLab();
   }
   function clearPresets() { document.querySelectorAll("[data-preset]").forEach((b) => b.setAttribute("aria-pressed", "false")); }
 
-  // ======================= 3D LEFT VENTRICLE =======================
-  const heart = { ax: -0.35, ay: 0.5, sel: null, pts: [], drag: false };
-  const TERR = { septal: [45, 135], inferior: [135, 225], lateral: [225, 315], anterior: [315, 45] };
-  function territory(phiDeg, z) {
-    if (z < -0.72) return "apex";
-    for (const [k, [a, b]] of Object.entries(TERR)) {
-      if (a < b ? phiDeg >= a && phiDeg < b : phiDeg >= a || phiDeg < b) return k;
-    }
-    return "anterior";
-  }
-  function initHeartGeom() {
-    // half prolate ellipsoid ("bullet"): open, widest at the base, closing to the apex
-    const rings = 16, seg = 28, pts = [];
-    for (let i = 0; i <= rings; i++) {
-      const u = i / rings, z = 0.85 - u * 1.8;         // base (0.85) → apex (−0.95)
-      const rad = 0.62 * Math.sqrt(Math.max(0, 1 - u * u));
-      const row = [];
-      for (let j = 0; j < seg; j++) {
-        const phi = (j / seg) * 2 * Math.PI;
-        row.push({ x: rad * Math.sin(phi), y: z, z: rad * Math.cos(phi), t: territory((phi * 180) / Math.PI, z) });
-      }
-      pts.push(row);
-    }
-    heart.pts = pts;
-  }
-  const LEADS = { septal: ["septal"], anterior: ["anterior", "apex"], lateral: ["lateral"], inferior: ["inferior", "apex"] };
-
-  // ---- illustrative severity: derived from the lab's own V_alt / K, not a per-lead measurement ----
-  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
-  function twaSeverity() {
-    const r = lab.res;
-    if (!r || !isFinite(r.vAlt) || !isFinite(r.k)) return 0;
-    return clamp01((r.vAlt - 1.9) / 13) * clamp01(r.k / 3);
-  }
-  function hexRgb(hex) {
-    let h = (hex || "").trim().replace("#", "");
-    if (h.length === 3) h = h.split("").map((c) => c + c).join("");
-    const n = parseInt(h, 16) || 0;
-    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  }
-  function sevRgb(t) {
-    const ok = hexRgb(C.ok), warn = hexRgb(C.warn), acc = hexRgb(C.accent);
-    const mix = (a, b, u) => a.map((v, i) => Math.round(v + (b[i] - v) * u));
-    const c = t < 0.5 ? mix(ok, warn, t / 0.5) : mix(warn, acc, (t - 0.5) / 0.5);
-    return `${c[0]},${c[1]},${c[2]}`;
-  }
-  function drawHeart() {
-    const cv = $("#c-heart"); if (!cv) return;
-    const { ctx, w, h } = setupCanvas(cv);
-    ctx.fillStyle = C.surface; ctx.fillRect(0, 0, w, h);
-    const s = Math.min(w, h) * 0.42, cx = w / 2, cy = h / 2;
-    const ca = Math.cos(heart.ax), sa = Math.sin(heart.ax), cb = Math.cos(heart.ay), sb = Math.sin(heart.ay);
-    const P = heart.pts.map((row) => row.map((p) => {
-      const x1 = p.x * cb + p.z * sb, z1 = -p.x * sb + p.z * cb;
-      const y2 = p.y * ca - z1 * sa, z2 = p.y * sa + z1 * ca;
-      return { X: cx + x1 * s, Y: cy - y2 * s, d: z2, t: p.t };
-    }));
-    const active = heart.sel ? LEADS[heart.sel] : [];
-    const sev = twaSeverity();
-    // Diffuse heat wash: the whole wall tints together (anthracycline injury is diffuse, not focal),
-    // its strength following the lab's live alternans severity — not a per-territory measurement.
-    if (sev > 0.02 && P.length > 1) {
-      const rgb = sevRgb(sev), quads = [];
-      for (let i = 0; i < P.length - 1; i++) {
-        const row = P[i], next = P[i + 1], n = row.length;
-        for (let j = 0; j < n; j++) {
-          const a = row[j], b = row[(j + 1) % n], c = next[(j + 1) % n], d = next[j];
-          quads.push({ pts: [a, b, c, d], depth: (a.d + b.d + c.d + d.d) / 4 });
-        }
-      }
-      quads.sort((u, v) => u.depth - v.depth);
-      ctx.fillStyle = `rgb(${rgb})`;
-      for (const q of quads) {
-        ctx.globalAlpha = sev * (q.depth > 0 ? 0.55 : 0.16);
-        ctx.beginPath(); ctx.moveTo(q.pts[0].X, q.pts[0].Y);
-        for (let k = 1; k < 4; k++) ctx.lineTo(q.pts[k].X, q.pts[k].Y);
-        ctx.closePath(); ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-    }
-    const segs = [];
-    for (let i = 0; i < P.length; i++) for (let j = 0; j < P[i].length; j++) {
-      const a = P[i][j], b = P[i][(j + 1) % P[i].length];
-      segs.push([a, b]);
-      if (i + 1 < P.length) segs.push([a, P[i + 1][j]]);
-    }
-    segs.sort((u, v) => (u[0].d + u[1].d) - (v[0].d + v[1].d));
-    for (const [a, b] of segs) {
-      const depth = (a.d + b.d) / 2, front = depth > 0;
-      const on = active.includes(a.t) && active.includes(b.t);
-      ctx.strokeStyle = on ? C.accent : C.trace;
-      ctx.globalAlpha = on ? (front ? 0.95 : 0.3) : (front ? 0.35 : 0.08);
-      ctx.lineWidth = on && front ? 1.8 : 1;
-      ctx.beginPath(); ctx.moveTo(a.X, a.Y); ctx.lineTo(b.X, b.Y); ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-    ctx.font = MONO; ctx.fillStyle = C.muted; ctx.textAlign = "left"; ctx.textBaseline = "top";
-    ctx.fillText(LANG === "ru" ? "ОСНОВАНИЕ" : "BASE", 12, 12);
-    ctx.textBaseline = "bottom"; ctx.fillText(LANG === "ru" ? "ВЕРХУШКА ↓" : "APEX ↓", 12, h - 10);
-    const live = $("#heart-live"), r = lab.res;
-    if (live) live.textContent = T.heartLive(Math.round(sev * 100), r ? r.vAlt : 0, r ? r.k : 0);
-  }
-  function initHeart() {
-    initHeartGeom(); drawHeart();
-    const st = $("#heart-stage");
-    let px = 0, py = 0;
-    st.addEventListener("pointerdown", (e) => { heart.drag = true; px = e.clientX; py = e.clientY; st.setPointerCapture(e.pointerId); });
-    st.addEventListener("pointermove", (e) => { if (!heart.drag) return; heart.ay += (e.clientX - px) * 0.01; heart.ax += (e.clientY - py) * 0.01; px = e.clientX; py = e.clientY; drawHeart(); });
-    st.addEventListener("pointerup", () => (heart.drag = false));
-    document.querySelectorAll("[data-lead]").forEach((b) => b.addEventListener("click", () => {
-      const on = b.getAttribute("aria-pressed") === "true";
-      document.querySelectorAll("[data-lead]").forEach((x) => x.setAttribute("aria-pressed", "false"));
-      heart.sel = on ? null : b.dataset.lead;
-      if (!on) b.setAttribute("aria-pressed", "true");
-      drawHeart();
-    }));
-    if (!reduceMotion) {
-      let last = performance.now(), vis = true;
-      if ("IntersectionObserver" in window) new IntersectionObserver((e) => (vis = e[0].isIntersecting)).observe(st);
-      const spin = (now) => { if (vis && !heart.drag) { heart.ay += (now - last) * 0.00025; drawHeart(); } last = now; requestAnimationFrame(spin); };
-      requestAnimationFrame(spin);
-    }
-  }
-
-  // ======================= TRAINING STATUS =======================
-  function initStatus() {
-    const box = $("#train-status"); if (!box) return;
-    box.querySelector("p").textContent = T.pending;
-    fetch("assets/metrics.json", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((m) => {
-      if (!m || !m.per_class) return;
-      box.querySelector("p").textContent = T.trained(m);
-      box.classList.add("done");
-      const rows = Object.entries(m.per_class).map(([c, v]) =>
-        `<tr><td>${c}</td><td>${fmt(v.auc, 3)} (${fmt(v.auc_ci95[0], 3)}–${fmt(v.auc_ci95[1], 3)})</td><td>${fmt(v.sensitivity * 100, 0)}%</td><td>${fmt(v.specificity * 100, 0)}%</td><td>${fmt(v.prevalence * 100, 0)}%</td></tr>`).join("");
-      const tw = document.createElement("div"); tw.className = "table-wrap";
-      tw.innerHTML = `<table><thead><tr><th>${T.cls}</th><th>${T.auc}</th><th>${T.sens}</th><th>${T.spec}</th><th>${T.prev}</th></tr></thead><tbody>${rows}</tbody></table>`;
-      box.appendChild(tw);
-      const cmd = box.querySelector("pre"); if (cmd) cmd.hidden = true;
-    }).catch(() => {});
-  }
-
   // ======================= boot / resize / theme =======================
-  function redrawAll() { readColors(); drawHero(); drawDose(); if (lab.sig) drawLab(); drawHeart(); }
+  function redrawAll() { readColors(); if (lab.sig) drawLab(); }
   let rz = null;
   window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(redrawAll, 120); });
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redrawAll);
   new MutationObserver(redrawAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   function boot() {
-    initHero(); drawDose(); initLab(); initHeart(); initStatus();
+    initLab();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();

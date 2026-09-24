@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CardioOncoPredict</title>
-<meta name="description" content="Исследовательский прототип: поиск микровольтной альтернации зубца T на ЭКГ как раннего электрического признака кардиотоксичности антрациклинов. Вся математика считается в браузере.">
+<meta name="description" content="Загрузите 12-канальную ЭКГ (EDF/EDF+ или CSV/TXT) и проверьте её на микровольтную альтернацию зубца T — ранний электрический признак кардиотоксичности антрациклинов. Всё считается в браузере.">
 <meta property="og:title" content="CardioOncoPredict">
-<meta property="og:description" content="Микровольтная альтернация зубца T: интерактивная лаборатория и мультимодальная нейросеть для кардиоонкологии.">
+<meta property="og:description" content="Загрузите ЭКГ и проверьте её на альтернацию зубца T — ранний электрический признак кардиотоксичности антрациклинов.">
 <link rel="alternate" hreflang="en" href="index.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
 <link rel="stylesheet" href="assets/css/site.css">
 </head>
 <body>
@@ -22,11 +22,9 @@
       CardioOncoPredict
     </a>
     <nav class="nav" aria-label="Разделы">
-      <a href="#problem">Проблема</a>
-      <a href="#lab">Лаборатория TWA</a>
-      <a href="#method">Метод</a>
-      <a href="#model">Нейросеть</a>
-      <a href="#roadmap">План</a>
+      <a href="#lab">Загрузка и анализ</a>
+      <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.ru.md">Полное описание</a>
+      <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">GitHub</a>
       <a class="lang" href="index.html" hreflang="en">EN</a>
     </nav>
   </div>
@@ -36,112 +34,90 @@
   <div class="wrap hero">
     <div class="hero-head">
       <div style="display:grid; gap:18px;">
-        <span class="eyebrow">Кардиоонкология · обработка сигналов · ИИ</span>
+        <span class="eyebrow">Кардиоонкология · обработка сигналов</span>
         <h1>Услышать сердце <em>до</em>&nbsp;того, как оно ослабнет</h1>
       </div>
       <div style="display:grid; gap:18px;">
-        <p class="sub">Химиотерапия антрациклинами спасает от рака, но может повредить сердце. Мы ищем самый ранний электрический след этого повреждения на ЭКГ: чередование зубца T в несколько микровольт.</p>
+        <p class="sub">Химиотерапия антрациклинами спасает от рака, но может повредить сердце — часто ещё до того, как это увидит ЭхоКГ. Инструмент ищет самый ранний электрический след этого повреждения в реальной ЭКГ, которую вы загружаете: чередование зубца T на несколько микровольт, от удара к удару.</p>
         <div class="hero-actions">
-          <a class="btn" href="#lab">Открыть лабораторию</a>
-          <a class="btn ghost" href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">Код на GitHub</a>
-          <a class="btn ghost" href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.ru.md">Полное описание</a>
+          <a class="btn" href="#lab">Загрузить запись</a>
+          <a class="btn ghost" href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.ru.md">Как это работает, подробно</a>
         </div>
       </div>
     </div>
-
-    <div class="strip" aria-label="Синтетическая ЭКГ со скрытой альтернацией зубца T 12 мкВ">
-      <canvas id="hero-ecg"></canvas>
-      <span class="lead">II · синтетическая запись</span>
-      <span class="scale">25 мм/с · 10 мм/мВ · сетка 1 мм</span>
-    </div>
-    <div class="readouts" aria-live="polite">
-      <div class="readout"><span class="k">ЧСС</span><span class="v" id="ro-hr">—</span><span class="note">по R–R интервалам</span></div>
-      <div class="readout"><span class="k">Альтернация T</span><span class="v" id="ro-valt">—</span><span class="note">вычислена из этой записи</span></div>
-      <div class="readout"><span class="k">K-score</span><span class="v" id="ro-k">—</span><span class="note">сигнал / шум, порог 3</span></div>
-      <div class="readout"><span class="k">На бумаге</span><span class="v" id="ro-mm">—</span><span class="note">глазом не различить</span></div>
-    </div>
-    <p class="notice"><span><strong>Исследовательский прототип, не медицинское изделие.</strong> Сигналы на этой странице синтетические, нейросеть пока не проверена клинически и не имеет регистрации (Росздравнадзор, FDA, CE). Не используйте для диагностики и решений о лечении.</span></p>
+    <p class="notice"><span><strong>Исследовательский прототип, не медицинское изделие.</strong> Нет клинической валидации и регистрации (Росздравнадзор, FDA, CE). Не используйте для диагностики и решений о лечении.</span></p>
   </div>
 
-  <!-- ===================== PROBLEM ===================== -->
-  <section class="block" id="problem">
-    <div class="wrap">
-      <div class="block-head">
-        <span class="eyebrow">Проблема</span>
-        <h2>Сердце повреждается тихо, а видим мы это поздно</h2>
-      </div>
-      <div class="cols-2">
-        <div class="prose">
-          <p><b>Антрациклины</b> (доксорубицин, эпирубицин) остаются основой лечения рака молочной железы, лимфом, сарком и детских лейкозов. Их побочный эффект — дозозависимое повреждение кардиомиоцитов, которые почти не восстанавливаются.</p>
-          <p>У 2625 пациентов, получавших антрациклины, кардиотоксичность развилась примерно у 9 %, и в 98 % случаев — в первый год после лечения (Cardinale et al., <i>Circulation</i>, 2015). Чем раньше её замечают и начинают кардиопротекцию, тем чаще функция сердца восстанавливается.</p>
-          <p>Стандартный контроль — эхокардиография с фракцией выброса (ФВ ЛЖ) и биомаркеры (тропонин, NT-proBNP) по рекомендациям ESC 2022. ФВ падает, когда часть ткани уже потеряна. ЭКГ дешевле, делается за минуты и может записываться непрерывно, но изменения на ней слишком малы для глаза.</p>
-          <p><b>Гипотеза проекта:</b> электрические нарушения реполяризации (включая микровольтную альтернацию зубца T) появляются раньше механических, и их можно извлечь математикой.</p>
-        </div>
-        <div style="display:grid; gap:20px;">
-          <figure class="chart-box">
-            <canvas id="dose-chart" height="250" role="img" aria-label="Доля пациентов с сердечной недостаточностью: 5 % при 400 мг/м², 26 % при 550, 48 % при 700"></canvas>
-            <figcaption>Частота сердечной недостаточности в зависимости от кумулятивной дозы доксорубицина (Swain et al., <i>Cancer</i>, 2003).</figcaption>
-          </figure>
-          <div class="cascade" aria-label="Каскад повреждения">
-            <div class="step"><span class="when">Часы–дни</span><div><h3>Молекулярный уровень</h3><p>Топоизомераза IIβ, активные формы кислорода, накопление железа в митохондриях, перекисное окисление липидов (ферроптоз).</p></div></div>
-            <div class="step target"><span class="when">Недели</span><div><h3>Электрический уровень · наша цель</h3><p>Нарушается работа ионных каналов (I<sub>Kr</sub>, Ca²⁺). Реполяризация становится неоднородной: удлиняется QT, чередуется зубец T.</p></div></div>
-            <div class="step"><span class="when">Месяцы</span><div><h3>Механический уровень</h3><p>Падает фракция выброса на ЭхоКГ, появляются симптомы сердечной недостаточности.</p></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== LAB ===================== -->
+  <!-- ===================== UPLOAD & ANALYSE ===================== -->
   <section class="block" id="lab">
     <div class="wrap">
       <div class="block-head">
-        <span class="eyebrow">Интерактивная лаборатория</span>
-        <h2>Найдите альтернацию, которую не видно глазом</h2>
-        <p class="lede">Двигайте ползунки: браузер сгенерирует 128 ударов ЭКГ и проведёт тот же анализ, что и Python-код проекта. Все числа ниже вычисляются заново при каждом изменении.</p>
+        <span class="eyebrow">Загрузка и анализ</span>
+        <h2>Проверьте на реальной записи</h2>
+        <p class="lede">Загрузите одно отведение реальной ЭКГ — EDF/EDF+ или обычный CSV/TXT, не короче ~2 минут — и браузер проведёт тот же анализ, что и Python-код проекта. Ничего не покидает ваше устройство. Нет файла под рукой — попробуйте синтетический пример.</p>
       </div>
       <div class="lab">
-        <form class="controls" onsubmit="return false" aria-label="Параметры сигнала">
-          <div class="presets" role="group" aria-label="Готовые сценарии">
-            <button type="button" class="chip" data-preset='{"alt":0,"noise":15,"hr":72,"tamp":0.35,"mains":0}' aria-pressed="false">Норма</button>
-            <button type="button" class="chip" data-preset='{"alt":6,"noise":15,"hr":78,"tamp":0.26,"mains":10}' aria-pressed="false">Скрытая TWA</button>
-            <button type="button" class="chip" data-preset='{"alt":25,"noise":20,"hr":96,"tamp":0.2,"mains":10}' aria-pressed="false">Выраженная TWA</button>
-            <button type="button" class="chip" data-preset='{"alt":4,"noise":70,"hr":80,"tamp":0.3,"mains":40}' aria-pressed="false">Шум мешает</button>
-          </div>
-          <div class="ctl">
-            <label for="s-alt">Альтернация зубца T <output id="o-alt" for="s-alt"></output></label>
-            <input type="range" id="s-alt" min="0" max="60" step="0.5" value="12">
-            <span class="hint">На сколько чётные и нечётные удары отличаются от среднего</span>
-          </div>
-          <div class="ctl">
-            <label for="s-noise">Мышечный шум <output id="o-noise" for="s-noise"></output></label>
-            <input type="range" id="s-noise" min="0" max="100" step="1" value="15">
-          </div>
-          <div class="ctl">
-            <label for="s-hr">Частота сердечных сокращений <output id="o-hr" for="s-hr"></output></label>
-            <input type="range" id="s-hr" min="45" max="130" step="1" value="80">
-            <span class="hint">TWA обычно ищут при ЧСС 105–110 во время нагрузки</span>
-          </div>
-          <div class="ctl">
-            <label for="s-tamp">Амплитуда зубца T <output id="o-tamp" for="s-tamp"></output></label>
-            <input type="range" id="s-tamp" min="0.05" max="0.5" step="0.01" value="0.3">
-            <span class="hint">Уплощение T — частый признак нарушенной реполяризации</span>
-          </div>
-          <div class="ctl">
-            <label for="s-mains">Сетевая наводка 50 Гц <output id="o-mains" for="s-mains"></output></label>
-            <input type="range" id="s-mains" min="0" max="100" step="1" value="10">
-          </div>
-          <button type="button" class="btn ghost" id="b-reseed">Новая запись с тем же сценарием</button>
-          <div class="file">
-            <label class="file" for="f-file"><b style="font:600 13px var(--display)">Своя ЭКГ (CSV/TXT, одно отведение)</b></label>
-            <input type="file" id="f-file" accept=".csv,.txt,text/csv,text/plain">
+        <form class="controls" onsubmit="return false" aria-label="Контекст пациента и запись">
+          <div class="patient">
+            <b style="font:600 13px var(--display); color:var(--ink)">Контекст пациента</b>
             <div class="row">
-              <div class="ctl"><label for="f-fs">Частота, Гц</label><input type="number" id="f-fs" value="500" min="50" max="10000"></div>
-              <div class="ctl"><label for="f-col">Столбец</label><input type="number" id="f-col" value="0" min="0" max="20"></div>
+              <div class="ctl"><label for="p-age">Возраст, лет</label><input type="number" id="p-age" min="0" max="120" placeholder="—"></div>
+              <div class="ctl"><label for="p-sex">Пол</label><select id="p-sex"><option value="">не указан</option><option value="male">мужской</option><option value="female">женский</option></select></div>
             </div>
-            <div class="ctl"><label for="f-unit">Единицы</label><select id="f-unit"><option value="mv">мВ</option><option value="uv">мкВ</option></select></div>
+            <div class="ctl"><label for="p-dose">Кумулятивная доза доксорубицина, <span style="white-space:nowrap">мг/м²</span></label><input type="number" id="p-dose" min="0" max="1200" placeholder="—"></div>
+            <span class="hint">Необязательно — используется только в отчёте ниже, не входит в сам анализ альтернации зубца T.</span>
+            <p class="hint" id="p-context"></p>
+          </div>
+
+          <div class="file">
+            <label class="file" for="f-file"><b style="font:600 13px var(--display)">Загрузите ЭКГ (EDF/EDF+ или CSV/TXT, одно отведение)</b></label>
+            <input type="file" id="f-file" accept=".edf,.csv,.txt,text/csv,text/plain">
+            <div id="f-edf-wrap" hidden>
+              <div class="ctl"><label for="f-edf-channel">Канал (отведение)</label><select id="f-edf-channel"></select></div>
+            </div>
+            <div id="f-csv-wrap">
+              <div class="row">
+                <div class="ctl"><label for="f-fs">Частота, Гц</label><input type="number" id="f-fs" value="500" min="50" max="10000"></div>
+                <div class="ctl"><label for="f-col">Столбец</label><input type="number" id="f-col" value="0" min="0" max="20"></div>
+              </div>
+              <div class="ctl"><label for="f-unit">Единицы</label><select id="f-unit"><option value="mv">мВ</option><option value="uv">мкВ</option></select></div>
+            </div>
             <span class="hint" id="f-status">Нужно не меньше 2 минут записи. Файл остаётся в браузере и никуда не отправляется.</span>
           </div>
+
+          <details class="demo">
+            <summary>Или попробуйте синтетический пример</summary>
+            <div style="display:grid; gap:18px; padding-top:14px;">
+              <div class="presets" role="group" aria-label="Готовые сценарии">
+                <button type="button" class="chip" data-preset='{"alt":0,"noise":15,"hr":72,"tamp":0.35,"mains":0}' aria-pressed="false">Норма</button>
+                <button type="button" class="chip" data-preset='{"alt":6,"noise":15,"hr":78,"tamp":0.26,"mains":10}' aria-pressed="false">Скрытая TWA</button>
+                <button type="button" class="chip" data-preset='{"alt":25,"noise":20,"hr":96,"tamp":0.2,"mains":10}' aria-pressed="false">Выраженная TWA</button>
+                <button type="button" class="chip" data-preset='{"alt":4,"noise":70,"hr":80,"tamp":0.3,"mains":40}' aria-pressed="false">Шум мешает</button>
+              </div>
+              <div class="ctl">
+                <label for="s-alt">Альтернация зубца T <output id="o-alt" for="s-alt"></output></label>
+                <input type="range" id="s-alt" min="0" max="60" step="0.5" value="12">
+                <span class="hint">На сколько чётные и нечётные удары отличаются от среднего</span>
+              </div>
+              <div class="ctl">
+                <label for="s-noise">Мышечный шум <output id="o-noise" for="s-noise"></output></label>
+                <input type="range" id="s-noise" min="0" max="100" step="1" value="15">
+              </div>
+              <div class="ctl">
+                <label for="s-hr">Частота сердечных сокращений <output id="o-hr" for="s-hr"></output></label>
+                <input type="range" id="s-hr" min="45" max="130" step="1" value="80">
+              </div>
+              <div class="ctl">
+                <label for="s-tamp">Амплитуда зубца T <output id="o-tamp" for="s-tamp"></output></label>
+                <input type="range" id="s-tamp" min="0.05" max="0.5" step="0.01" value="0.3">
+              </div>
+              <div class="ctl">
+                <label for="s-mains">Сетевая наводка 50 Гц <output id="o-mains" for="s-mains"></output></label>
+                <input type="range" id="s-mains" min="0" max="100" step="1" value="10">
+              </div>
+              <button type="button" class="btn ghost" id="b-reseed">Новая запись с тем же сценарием</button>
+            </div>
+          </details>
         </form>
 
         <div class="panels">
@@ -176,132 +152,11 @@
             <canvas id="c-spec" height="200"></canvas>
             <p class="explain">Чередование через удар — это колебание с частотой ровно 0,5 цикла на удар. Если точка справа поднимается над серой полосой шума, альтернация есть.</p>
           </div>
+          <div class="fhir-row">
+            <button type="button" class="btn ghost" id="b-fhir" disabled>Экспортировать FHIR-отчёт</button>
+            <span class="hint">Скачивает JSON (FHIR DiagnosticReport) с этими числами и указанным контекстом пациента — на устройство, никуда не отправляется.</span>
+          </div>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== METHOD ===================== -->
-  <section class="block" id="method">
-    <div class="wrap">
-      <div class="block-head">
-        <span class="eyebrow">Метод</span>
-        <h2>Пять шагов от электрода до числа</h2>
-        <p class="lede">Шаги идут строго по порядку: каждый использует результат предыдущего. Один и тот же алгоритм реализован в Python (<span class="mono">cardioonco/</span>) и в JavaScript (<span class="mono">assets/js/dsp.js</span>) и покрыт тестами.</p>
-      </div>
-      <div class="pipeline">
-        <div class="pstep"><span class="n">1</span><div><h3>Дискретизация и калибровка</h3><p>Электроды измеряют разность потенциалов на коже (≈1 мВ). АЦП превращает её в числа с частотой f<sub>s</sub>. По теореме Котельникова частота должна быть больше удвоенной максимальной частоты сигнала.</p></div>
-          <div class="formula">V[n] = (X<sub>raw</sub>[n] − baseline) / gain  <span class="c">мВ</span><br>t<sub>n</sub> = n / f<sub>s</sub>,   f<sub>s</sub> &gt; 2·f<sub>max</sub></div></div>
-        <div class="pstep"><span class="n">2</span><div><h3>Фильтрация без сдвига фазы</h3><p>Фильтр Баттерворта 0,5–40 Гц убирает дыхательный дрейф и мышечный шум. Прогон вперёд и назад (filtfilt) обнуляет фазовый сдвиг, поэтому форма ST-T не искажается.</p></div>
-          <div class="formula">|H(f)|² = 1 / (1 + (f/f<sub>c</sub>)<sup>2N</sup>)<br>y = reverse(H · reverse(H · x))  <span class="c">→ фаза = 0</span></div></div>
-        <div class="pstep"><span class="n">3</span><div><h3>Поиск R-пиков (Пан–Томпкинс)</h3><p>Полоса 5–15 Гц выделяет крутые фронты QRS, производная и квадрат усиливают их, интегрирование за 150 мс сглаживает. Адаптивный порог и рефрактерный период 250 мс дают по одному пику на удар.</p></div>
-          <div class="formula">d[n] = x[n+1] − x[n−1]<br>e[n] = d[n]²,   m[n] = (1/W)·Σ e[n−k],  W = 150 мс</div></div>
-        <div class="pstep"><span class="n">4</span><div><h3>Спектральный метод TWA</h3><p>128 ударов выравниваются по R-пику. Для каждой точки окна ST-T берётся ряд значений от удара к удару, и считается его спектр. Чередование «через удар» даёт пик ровно на 0,5 цикла/удар, потому что e<sup>−iπn</sup> = (−1)<sup>n</sup>.</p></div>
-          <div class="formula">P(f) = ⟨ |(1/N)·Σ<sub>n</sub> s<sub>k</sub>[n]·e<sup>−2πifn</sup>|² ⟩<sub>k</sub><br>V<sub>alt</sub> = √(P(0,5) − μ<sub>шум</sub>)<br>K = (P(0,5) − μ<sub>шум</sub>) / σ<sub>шум</sub></div></div>
-        <div class="pstep"><span class="n">5</span><div><h3>Решение и проверка устойчивости</h3><p>Альтернация считается значимой при V<sub>alt</sub> ≥ 1,9 мкВ и K ≥ 3. Независимо её проверяет метод модифицированного скользящего среднего (MMA): два шаблона, для чётных и нечётных ударов, обновляются с шагом 1/8.</p></div>
-          <div class="formula">A<sub>n</sub> = A<sub>n−1</sub> + clip((beat<sub>n</sub> − A<sub>n−1</sub>)/8, ±32 мкВ)<br>TWA<sub>MMA</sub> = max |A − B| / 2</div></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== MODEL ===================== -->
-  <section class="block" id="model">
-    <div class="wrap">
-      <div class="block-head">
-        <span class="eyebrow">Нейросеть</span>
-        <h2>ЭКГ и данные пациента: билинейное слияние</h2>
-        <p class="lede">Одна и та же ЭКГ значит разное для 25-летнего и 70-летнего пациента. Поэтому сеть не просто склеивает признаки, а перемножает каждый признак ЭКГ с каждым клиническим признаком.</p>
-      </div>
-      <div class="arch" role="img" aria-label="Схема: 12 отведений через 1D-ResNet дают вектор v_e из 64 чисел; возраст и пол через MLP дают v_m из 16 чисел; внешнее произведение [v_e;1]⊗[v_m;1] даёт 1105 признаков; линейный слой и сигмоида выдают 5 вероятностей.">
-        <svg viewBox="0 0 980 230" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="12">
-          <g fill="var(--surface-2)" stroke="var(--line)">
-            <rect x="10" y="20" width="170" height="70" rx="8"/><rect x="220" y="20" width="170" height="70" rx="8"/>
-            <rect x="10" y="140" width="170" height="70" rx="8"/><rect x="220" y="140" width="170" height="70" rx="8"/>
-            <rect x="620" y="80" width="150" height="70" rx="8"/><rect x="810" y="80" width="160" height="70" rx="8"/>
-          </g>
-          <rect x="440" y="70" width="140" height="90" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"/>
-          <g fill="var(--ink)">
-            <text x="22" y="46" font-weight="700">ЭКГ 12 × 1000</text><text x="22" y="66" fill="var(--muted)">10 с, 100 Гц, мВ</text>
-            <text x="232" y="46" font-weight="700">1D-ResNet</text><text x="232" y="66" fill="var(--muted)">5 блоков → v_e ∈ ℝ⁶⁴</text>
-            <text x="22" y="166" font-weight="700">Возраст, пол</text><text x="22" y="186" fill="var(--muted)">+ признак пропуска</text>
-            <text x="232" y="166" font-weight="700">MLP</text><text x="232" y="186" fill="var(--muted)">3 → 32 → v_m ∈ ℝ¹⁶</text>
-            <text x="452" y="100" font-weight="700" fill="var(--accent)">[v_e;1] ⊗ [v_m;1]</text><text x="452" y="122" fill="var(--muted)">65 × 17 = 1105</text><text x="452" y="142" fill="var(--muted)">признаков</text>
-            <text x="632" y="106" font-weight="700">Linear + σ</text><text x="632" y="126" fill="var(--muted)">dropout 0,3</text>
-            <text x="822" y="106" font-weight="700">5 вероятностей</text><text x="822" y="126" fill="var(--muted)">NORM MI STTC</text><text x="822" y="142" fill="var(--muted)">CD HYP</text>
-          </g>
-          <g stroke="var(--muted)" stroke-width="1.5" fill="none">
-            <path d="M180 55h40"/><path d="M180 175h40"/><path d="M390 55h20q20 0 20 20v20h10"/><path d="M390 175h20q20 0 20 -20v-20h10"/>
-            <path d="M580 115h40"/><path d="M770 115h40"/>
-          </g>
-        </svg>
-      </div>
-      <div class="cols-2" style="margin-top:28px;">
-        <div class="prose">
-          <p>Добавленная к каждому вектору единица делает так, что в произведении одновременно есть попарные взаимодействия, отдельные признаки ЭКГ, отдельные клинические признаки и свободный член (Tensor Fusion, Zadeh et al., 2017). Модель содержит около 573 тыс. параметров и помещается на смарт-часы после экспорта в ONNX.</p>
-          <p>Обучение идёт на <b>PTB-XL</b> (PhysioNet): 21 799 клинических ЭКГ от 18 869 пациентов с разметкой кардиологов. Класс <b>STTC</b> (изменения ST-T) ближе всего к электрическому фенотипу кардиотоксичности. В PTB-XL нет данных о химиотерапии, поэтому это проверка метода на реальных ЭКГ, а не детектор кардиотоксичности.</p>
-        </div>
-        <div class="status" id="train-status">
-          <h3>Статус обучения</h3>
-          <p></p>
-          <pre class="cmd">bash scripts/download_ptbxl.sh
-python train_ptbxl.py --epochs 30 --export-onnx
-cp runs/ptbxl/metrics.json assets/metrics.json</pre>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== HEART ===================== -->
-  <section class="block" id="anatomy">
-    <div class="wrap heart">
-      <div class="heart-stage" id="heart-stage">
-        <canvas id="c-heart" height="360" role="img" aria-label="Каркасная 3D-модель левого желудочка, окрашенная по тяжести альтернации, рассчитанной вживую в лаборатории выше"></canvas>
-        <span class="hint">ПОТЯНИТЕ, ЧТОБЫ ПОВЕРНУТЬ</span>
-        <span class="heart-live" id="heart-live"></span>
-      </div>
-      <div style="display:grid; gap:18px;">
-        <span class="eyebrow">Анатомия отведений · 12-канальная ЭКГ</span>
-        <h2>Куда «смотрит» каждое отведение</h2>
-        <p class="lede">Стандартная 12-канальная ЭКГ измеряет электрический вектор сердца с 12 направлений. Каждая группа ниже лучше видит свою стенку левого желудочка. Покрутите модель — её оттенок в реальном времени следует за тяжестью альтернации Т-зубца, которую считает лаборатория выше.</p>
-        <div class="leads" role="group" aria-label="Группы отведений">
-          <button type="button" class="leadbtn" data-lead="septal" aria-pressed="false"><b>Перегородка</b><span>V1, V2</span></button>
-          <button type="button" class="leadbtn" data-lead="anterior" aria-pressed="false"><b>Передняя стенка</b><span>V3, V4</span></button>
-          <button type="button" class="leadbtn" data-lead="lateral" aria-pressed="false"><b>Боковая стенка</b><span>I, aVL, V5, V6</span></button>
-          <button type="button" class="leadbtn" data-lead="inferior" aria-pressed="false"><b>Нижняя стенка</b><span>II, III, aVF</span></button>
-        </div>
-        <p style="font-size:15px; color:var(--muted);">Весь желудочек светится целиком, а не один сегмент: антрациклиновое поражение обычно диффузное, а не очаговое, поэтому цвет — это индикатор единственного числа из лаборатории, а не карта повреждений. Нажмите на стенку, чтобы увидеть, какие из 12 отведений на неё смотрят.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===================== ROADMAP ===================== -->
-  <section class="block" id="roadmap">
-    <div class="wrap">
-      <div class="block-head">
-        <span class="eyebrow">План развития</span>
-        <h2>От прототипа к клиническому исследованию</h2>
-      </div>
-      <div class="phases">
-        <div class="phase now"><span class="tag">Сейчас · 2026</span><h3>Честная математика</h3><ul><li>TWA-анализ с тестами</li><li>Нейросеть и скрипт обучения на PTB-XL</li><li>Корректный FHIR-отчёт</li></ul></div>
-        <div class="phase"><span class="tag">Этап 2</span><h3>Реальные данные</h3><ul><li>Обучить на PTB-XL, опубликовать метрики</li><li>Холтеровские записи для TWA</li><li>Внешняя проверка на другом датасете</li></ul></div>
-        <div class="phase"><span class="tag">Этап 3</span><h3>Клиника</h3><ul><li>Наставник-кардиоонколог</li><li>Ретроспективная когорта: ЭКГ до и после химиотерапии</li><li>Этический комитет, обезличивание</li></ul></div>
-        <div class="phase"><span class="tag">Этап 4</span><h3>Проспективно</h3><ul><li>Мониторинг пациентов во время курса</li><li>Сравнение с ЭхоКГ и тропонином</li><li>Статья и открытый код</li></ul></div>
-      </div>
-      <p style="margin-top:16px;"><a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/ROADMAP.ru.md">Подробный план с задачами и критериями успеха →</a></p>
-    </div>
-  </section>
-
-  <!-- ===================== LIMITS ===================== -->
-  <section class="block" id="limits">
-    <div class="wrap">
-      <div class="block-head">
-        <span class="eyebrow">Ограничения</span>
-        <h2>Что проект пока не умеет</h2>
-      </div>
-      <div class="limits">
-        <div class="limit"><h3>Нет данных о химиотерапии</h3><p>Открытых ЭКГ-датасетов с меткой «кардиотоксичность» почти нет. Связь TWA с антрациклинами — гипотеза, которую предстоит проверить на клинической когорте.</p></div>
-        <div class="limit"><h3>TWA нужна длинная запись</h3><p>Спектральному методу нужно 128 ударов (около 2 минут), лучше при нагрузке. Обычная 10-секундная ЭКГ содержит около 12 ударов.</p></div>
-        <div class="limit"><h3>Не медицинское изделие</h3><p>Нет клинической валидации и регистрации. Результат нельзя использовать для решений о дозе или лечении.</p></div>
       </div>
     </div>
   </section>
@@ -310,11 +165,12 @@ cp runs/ptbxl/metrics.json assets/metrics.json</pre>
 <footer>
   <div class="wrap">
     <span>CardioOncoPredict · podpirovlab · лицензия MIT</span>
-    <span><a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">GitHub</a> · <a href="index.html" hreflang="en">English</a></span>
+    <span><a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.ru.md">Полное описание (физика, метод, модель, 3D-анатомия, план)</a> · <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">GitHub</a> · <a href="index.html" hreflang="en">English</a></span>
   </div>
 </footer>
 
 <script src="assets/js/dsp.js"></script>
+<script src="assets/js/edf.js"></script>
 <script src="assets/js/site.js"></script>
 </body>
 </html>
