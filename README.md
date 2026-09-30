@@ -30,7 +30,7 @@
 4. [Mathematics and signal processing](#4-mathematics-and-signal-processing)
 5. [Computer science: the multimodal neural network](#5-computer-science-the-multimodal-neural-network)
 6. [Deployment: edge devices, federated learning, hospital systems](#6-deployment-edge-devices-federated-learning-hospital-systems)
-7. [What has been verified so far](#7-what-has-been-verified-so-far)
+7. [What has been verified so far](#7-what-has-been-verified-so-far), including [the PhysioNet TWA challenge](#71-check-against-the-physionet-twa-challenge)
 8. [Repository map](#8-repository-map)
 9. [How to run everything](#9-how-to-run-everything)
 10. [What changed in version 0.3](#10-what-changed-in-version-03)
@@ -43,14 +43,16 @@
 
 The [live tool](https://podpirovlab.github.io/multimodal-cardiotoxicity-ai/) runs the analysis below entirely in your browser — nothing you upload leaves your device or touches a server.
 
-**What it needs:** one lead of ECG, at least ~2 minutes long. The Spectral Method looks at 128 beats ([§4.4](#44-the-spectral-method-for-t-wave-alternans)); a standard 10-second clinical ECG only has about 12, so it will load but the tool will tell you there isn't enough to measure alternans reliably.
+**What it needs:** one lead of ECG, at least ~2 minutes long. The Spectral Method looks at 128 beats at a time ([§4.4](#44-the-spectral-method-for-t-wave-alternans)); a longer file is scanned in 128-beat windows from start to end. A standard 10-second clinical ECG only has about 12 beats, so the tool refuses it rather than call it normal.
+
+**Three possible answers**, following the Spectral Method's clinical rules [11]: *alternans criterion met* (≥ 1.9 µV, K ≥ 3, heart rate ≤ 110, noise ≤ 1.8 µV in some window), *no significant alternans* (nothing significant, and at least one clean window at ≥ 105 bpm), and *indeterminate* with the reason — too noisy, too many ectopic beats, alternans only above 110 bpm, or a heart rate that never reached 105. Those rules were written for exercise tests, so a resting recording without alternans comes out indeterminate, not negative.
 
 **File formats:**
 - **EDF / EDF+** — read directly in the browser (`assets/js/edf.js`, no server). If the file has more than one channel, a dropdown lets you pick which one is the ECG lead.
 - **CSV / TXT** — one column of numbers, in mV or µV, with the sampling rate typed in by hand.
 
 **Getting a real recording from PhysioNet:**
-- [T-Wave Alternans Challenge Database](https://physionet.org/content/twadb/1.0.0/) — Holter-length real and simulated recordings built specifically for testing TWA detectors.
+- [T-Wave Alternans Challenge Database](https://physionet.org/content/twadb/1.0.0/) — 100 two-minute recordings, real and simulated, built for testing TWA detectors; [§7.1](#71-check-against-the-physionet-twa-challenge) uses it to check this algorithm.
 - [PTB-XL](https://physionet.org/content/ptb-xl/1.0.3/) — 21,799 real clinical ECGs (used for training in [§5.4](#54-data-ptb-xl)), but only 10 seconds each, so on its own it's too short for TWA. Good for checking the tool runs correctly on a real waveform.
 
 Both ship as WFDB (`.dat` + `.hea`), which the browser can't read directly — convert one lead to CSV first:
@@ -381,22 +383,56 @@ Results are written as a FHIR `DiagnosticReport` so they can enter an electronic
 | R-peak detection is correct at 55 / 75 / 110 bpm | `test_r_peak_detection` | ✅ |
 | No false TWA without alternans (K < 3) | `test_no_alternans_is_negative` | ✅ |
 | $V_{alt}$ grows monotonically; peak estimator recovers 40 µV within 15% | `test_strong_alternans_is_positive_and_monotonic` | ✅ |
-| Browser (JS) and Python give the same heart rate, V_alt (±10%) and decision | `tests/test_js_parity.py` | ✅ |
+| Browser (JS) and Python give the same heart rate, V_alt (±10%), outcome and reason | `tests/test_js_parity.py` | ✅ |
+| A T wave mistaken for a beat is removed; a missed beat does not flip the ABAB phase | `test_extra_detection_on_t_wave_is_removed`, `test_missed_beat_keeps_abab_parity` | ✅ |
+| Too-short recordings are refused, not called negative | `test_short_recording_is_refused_not_called_negative` | ✅ |
+| Agreement with the PhysioNet 2008 TWA challenge reference | `scripts/validate_twadb.py`, [§7.1](#71-check-against-the-physionet-twa-challenge) | ⚠️ partial |
 | Training pipeline runs end to end and exports ONNX | `tests/test_train_smoke.py` | ✅ |
 | Einthoven's law holds in the synthetic 12-lead model | Figure 3c (residual ≈ 10⁻¹⁶ mV) | ✅ |
 | Network accuracy on real ECGs (PTB-XL test fold) | `train_ptbxl.py` | ⏳ to run |
 | TWA is associated with anthracycline cardiotoxicity | needs a clinical cohort | ❌ not yet studied |
 
-Python vs JavaScript on the same synthetic signal (seed 3, 50 Hz hum 20 µV):
+Python vs JavaScript on the same synthetic signal (128 beats at 75 bpm, seed 3, 50 Hz hum 20 µV); V_alt / K / outcome:
 
-| Injected alternans | Noise | Python V_alt / K | JavaScript V_alt / K |
+| Injected alternans | Noise | Python | JavaScript |
 |---|---|---|---|
-| 0 µV | 15 µV | 0.00 / −1.2 | 0.00 / −1.8 |
-| 5 µV | 10 µV | 1.91 / 9.8 | 1.93 / 12.3 |
-| 20 µV | 15 µV | 7.97 / 152 | 7.98 / 195 |
-| 20 µV | 60 µV | 7.12 / 52 | 7.27 / 65 |
+| 0 µV | 15 µV | 0.00 / −1.3 / indeterminate | 0.00 / −1.7 / indeterminate |
+| 5 µV | 10 µV | 2.15 / 16.6 / positive | 1.97 / 13.5 / positive |
+| 20 µV | 15 µV | 8.78 / 260 / positive | 8.45 / 246 / positive |
+| 20 µV | 60 µV | 9.91 / 25.3 / indeterminate | 9.09 / 30.2 / indeterminate |
 
-V_alt agrees within 2%. K differs more because it divides by the spread of only six noise-band bins, which is sensitive to small filter differences. Both implementations reach the same decision in every case.
+The two filters are built differently (a 4th-order Butterworth in Python, biquads in the browser), so V_alt differs by up to 9%. The outcome and its reason are the same in every case. The first row is indeterminate rather than negative because 75 bpm is below the 105 bpm the method requires for a negative result.
+
+### 7.1 Check against the PhysioNet TWA challenge
+
+The [T-Wave Alternans Challenge Database](https://physionet.org/content/challenge-2008/1.0.0/) [26] has 100 two-minute recordings: 68 real ECGs from six PhysioNet databases and 32 simulated ones. There is no true alternans amplitude to compare with. What exists is a reference ranking of the 100 records built from the consensus of the 2008 challenge entries, scored with Kendall's rank correlation τ. Entries in 2008 reached τ between about 0.64 and 0.91.
+
+`scripts/validate_twadb.py` runs the whole pipeline on every lead and ranks the records by the median over leads of the significance-gated amplitude: in each lead, the largest V_alt among 128-beat windows with K ≥ 3, or 0 if there is none.
+
+| Version | All 100 | Synthetic (32) | Real, held out (34) |
+|---|---|---|---|
+| 0.4 — first 128 beats, one fixed window | 0.095 (p = 0.16) | 0.14 | 0.04 |
+| 0.6 — current | **0.43** (p ≈ 10⁻⁸) | 0.48 | 0.08 (p = 0.59) |
+
+What changed between them, in order of effect:
+
+1. **Beats that are not beats.** On several synthetic records the T wave is taller and sharper than the QRS, and the detector counted it as a beat. One extra beat flips the even/odd order of every beat after it, and the alternans cancels out. Detections that split one normal R-R interval in two and don't look like a QRS are now removed [27]; a gap of two R-R intervals gets a placeholder so the order survives a missed beat; the leads of one recording share one set of R peaks.
+2. **Ectopy control that flagged everything.** The window used to compare beat shapes ran 0.5 s past the R peak, which at 128 bpm reaches into the next beat, so almost every beat looked abnormal. It now ends where the ST-T window ends, and R-R intervals are compared with their neighbours instead of the whole-recording median, so a slowly drifting heart rate is not mistaken for ectopy.
+3. **The baseline.** Each beat's ST-T segment was centred on its own median, which removes part of the alternans. It is now measured from the PR segment, as usual for the method.
+4. **Beat alignment** by QRS cross-correlation, and a record-level estimate taken as the median over leads, so one noisy lead cannot carry a record.
+
+**How the numbers were kept honest.** Changes were first made on the 32 synthetic records alone. Version 0.5 was then frozen and run once on the 68 real records: τ = 0.00. After that the real records were split in half by source database with a fixed seed. Version 0.6 was developed on one half and run once on the other. That second half is the "held out" column. It is not perfectly clean, because the τ of 0.5 over all 68 real records had already been seen.
+
+**What this means.** The overall agreement comes from two things: telling the simulated recordings with alternans apart from the real ones, and ordering the simulated ones. On real ECGs the ranking does not agree with the 2008 consensus beyond chance. Even the plain difference between the average even and odd beat does not (τ ≈ 0.01 on the development half), so part of the gap may lie in the reference itself, which is an average of other algorithms and not measured truth. Either way, this project has **not** shown that its TWA estimate tracks alternans in real patients; that needs recordings with a known answer, such as paced or exercise tests.
+
+Data: PhysioNet Challenge 2008, Open Data Commons Attribution License v1.0; cite Moody [26] and Goldberger et al. (PhysioNet). To reproduce:
+
+```bash
+python -c "import wfdb; wfdb.dl_database('twadb', dl_dir='data/twadb')"
+curl -o data/twadb/reference-ranks https://physionet.org/files/challenge-2008/1.0.0/reference-ranks
+curl -o data/twadb/about-records.txt https://physionet.org/files/challenge-2008/1.0.0/about-records.txt
+python scripts/validate_twadb.py
+```
 
 ---
 
@@ -406,7 +442,7 @@ V_alt agrees within 2%. K differs more because it divides by the spread of only 
 cardioonco/            core library (tested)
   synth.py             synthetic single-lead and 12-lead (dipole) ECG with alternans
   preprocess.py        Butterworth filtfilt, notch, Pan–Tompkins
-  twa.py               Spectral Method, MMA, full analysis pipeline
+  twa.py               Spectral Method, MMA, whole-recording windows, three outcomes
   model.py             CardioOncoNet: 1D ResNet + MLP + tensor fusion
   fhir.py              HL7 FHIR R4 DiagnosticReport
 train_ptbxl.py         training / evaluation on PTB-XL (bootstrap CIs, ONNX export)
@@ -415,6 +451,7 @@ app.py                 Gradio TWA laboratory (python app.py)
 scripts/
   download_ptbxl.sh    fetch PTB-XL from PhysioNet (1.7 GB)
   make_figures.py      regenerate every figure in docs/figures/{en,ru}
+  validate_twadb.py    score the pipeline on the PhysioNet TWA challenge (§7.1)
 tests/                 pytest: maths, detector, JS parity, training smoke test
 index.html, ru.html    the web lab (GitHub Pages), assets/js/dsp.js = JS port of the maths
 main_model.py          step-by-step NumPy walkthrough of bilinear fusion (teaching)
@@ -467,6 +504,7 @@ An internal review of version 0.2 found several places where the project claimed
 
 - **The central hypothesis is unproven.** QT prolongation and ST-T changes are described after anthracyclines, but microvolt TWA as an *early* marker of anthracycline cardiotoxicity has not been established. This project provides the tools to test it; it does not claim the answer.
 - **TWA needs long recordings.** The Spectral Method needs about 128 beats (roughly 2 minutes), ideally at a raised heart rate. A routine 10-second ECG contains about 12 beats. Practical use would need Holter or exercise recordings.
+- **Agreement on real ECGs is not shown.** On the PhysioNet challenge the ranking of real recordings does not agree with the reference beyond chance ([§7.1](#71-check-against-the-physionet-twa-challenge)).
 - **The network has not been trained on real data yet**, and PTB-XL has no chemotherapy information. Its STTC class is a proxy, not the target.
 - **Synthetic signals are simplified.** The dipole model ignores torso inhomogeneity and electrode placement variation; the alternans is injected as a clean amplitude modulation, whereas real TWA can vary in phase and shape.
 - **Not a medical device.** No ethics approval, clinical validation or regulatory clearance. Any clinical study would require ethics-committee approval, informed consent and de-identified data.
@@ -501,6 +539,9 @@ An internal review of version 0.2 found several places where the project claimed
 23. McSharry PE, Clifford GD, Tarassenko L, Smith LA. A dynamical model for generating synthetic electrocardiogram signals. *IEEE Trans Biomed Eng*. 2003;50(3):289–294.
 24. Torrence C, Compo GP. A practical guide to wavelet analysis. *Bull Am Meteorol Soc*. 1998;79(1):61–78.
 25. Attia ZI, Kapa S, Lopez-Jimenez F, et al. Screening for cardiac contractile dysfunction using an artificial intelligence–enabled electrocardiogram. *Nature Medicine*. 2019;25(1):70–74.
+26. Moody GB. The PhysioNet/Computers in Cardiology Challenge 2008: T-wave alternans. *Computers in Cardiology*. 2008;35:505–508.
+27. Lipponen JA, Tarvainen MP. A robust algorithm for heart rate variability time series artefact correction using novel beat classification. *J Med Eng Technol*. 2019;43(3):173–181.
+28. Armoundas AA. On the estimation of T-wave alternans using the spectral fast Fourier transform method. *Heart Rhythm*. 2012;9(3):449–456.
 
 ---
 

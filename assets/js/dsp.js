@@ -4,7 +4,8 @@
  *    synth()          parametric PQRST generator with microvolt T-wave alternans
  *    bandpass()       zero-phase Butterworth (biquad, forward + backward)
  *    detectRPeaks()   Pan–Tompkins: 5–15 Hz band-pass → derivative → square → 150 ms integration
- *    analyzeTWA()     beat alignment → Spectral Method (V_alt, K-score) + Modified Moving Average
+ *    analyzeTWA()     whole-recording TWA: beat clean-up and alignment → 128-beat Spectral Method
+ *                     windows (V_alt, K-score) + Modified Moving Average → three outcomes
  *
  *  Units: seconds, millivolts (mV); TWA outputs in microvolts (µV).
  *  Research / education prototype — not a medical device.
@@ -130,6 +131,17 @@
   }
   const median = (a) => percentile(a, 50);
 
+  // ---------- small vector helpers ----------
+  const mean = (a) => { let s = 0; for (const v of a) s += v; return s / a.length; };
+  const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
+  const norm = (a) => Math.sqrt(dot(a, a));
+  function colMedian(rows) {                        // per-sample median over beats
+    const L = rows[0].length, out = new Float64Array(L), col = new Float64Array(rows.length);
+    for (let k = 0; k < L; k++) { for (let i = 0; i < rows.length; i++) col[i] = rows[i][k]; out[k] = median(col); }
+    return out;
+  }
+  const centred = (a) => { const m = mean(a); return Float64Array.from(a, (v) => v - m); };
+
   // ---------- Pan–Tompkins R-peak detection ----------
   function detectRPeaks(x, fs) {
     const qrs = bandpass(x, fs, 5, 15);
@@ -151,57 +163,143 @@
       for (let i = a; i < b; i++) if (Math.abs(xf[i]) > Math.abs(xf[best])) best = i;
       if (!r.length || best !== r[r.length - 1]) r.push(best);
     }
-    return { r, xf };
+    return { r: removeExtraBeats(r, xf, fs), xf };
   }
 
-  // ---------- TWA ----------
-  function beatMatrix(xf, r, fs, startS, endS) {
-    const a = Math.round(startS * fs), b = Math.round(endS * fs), rows = [];
-    for (const ri of r) {
-      if (ri + a < 0 || ri + b > xf.length) continue;
-      const row = Array.from(xf.subarray(ri + a, ri + b));
-      const m = median(row);
-      rows.push(row.map((v) => v - m));
-    }
-    return rows;
+  // median of the surrounding ±context R-R intervals, for each interval
+  function localRR(rr, context = 4) {
+    return rr.map((_, i) => median(rr.slice(Math.max(0, i - context), i + context + 1)));
+  }
+  const diffs = (r) => r.slice(1).map((v, i) => v - r[i]);
+
+  // correlation of each detection's ±50 ms neighbourhood with the median QRS
+  function qrsSimilarity(xf, r, fs, halfS = 0.05) {
+    const h = Math.trunc(halfS * fs), sim = new Float64Array(r.length).fill(1);
+    const ok = r.map((_, i) => i).filter((i) => r[i] - h >= 0 && r[i] + h <= xf.length);
+    if (ok.length < 3) return sim;
+    const seg = ok.map((i) => centred(xf.subarray(r[i] - h, r[i] + h)));
+    const t = centred(colMedian(seg)), tn = norm(t);
+    ok.forEach((i, j) => { sim[i] = dot(seg[j], t) / (norm(seg[j]) * tn + 1e-12); });
+    return sim;
   }
 
-  function spectral(beats, band = [0.44, 0.49]) {
-    const N = beats.length, L = beats[0].length;
-    const nF = Math.floor(N / 2) + 1, P = new Float64Array(nF), Pk = [];
-    const mean = new Float64Array(L);
-    for (const row of beats) for (let k = 0; k < L; k++) mean[k] += row[k] / N;
-    for (let k = 0; k < L; k++) Pk.push(new Float64Array(nF));
-    for (let f = 0; f < nF; f++) {
-      const w = 2 * Math.PI * f / N;
-      for (let k = 0; k < L; k++) {
-        let re = 0, im = 0;
-        for (let n = 0; n < N; n++) {
-          const s = (beats[n][k] - mean[k]) * 1000;           // µV
-          re += s * Math.cos(w * n); im -= s * Math.sin(w * n);
-        }
-        const p = (re * re + im * im) / (N * N);
-        Pk[k][f] = p; P[f] += p / L;
+  // A tall, sharp T wave can pass the QRS threshold: a short interval whose sum with the
+  // next is one normal R-R (Lipponen & Tarvainen 2019). Every such extra "beat" would flip
+  // the ABAB parity of all later beats. A candidate that still looks like a QRS is kept.
+  function removeExtraBeats(r, xf, fs, tol = 0.20, context = 15, minSim = 0.90) {
+    for (let pass = 0; pass < 2; pass++) {
+      if (r.length < 4) return r;
+      const ref = localRR(diffs(r), context);
+      const sim = xf ? qrsSimilarity(xf, r, fs) : new Float64Array(r.length);
+      const kept = [r[0]];
+      for (let i = 1; i < r.length - 1; i++) {
+        const cycle = ref[i - 1], prev = kept[kept.length - 1];
+        if (r[i] - prev < (1 - tol) * cycle && Math.abs(r[i + 1] - prev - cycle) < tol * cycle && sim[i] < minSim) continue;
+        kept.push(r[i]);
       }
+      kept.push(r[r.length - 1]);
+      r = kept;
     }
+    return r;
+  }
+
+  // A gap of about two R-R intervals is a missed beat; a flagged placeholder keeps the parity.
+  function fillMissedBeats(r, tol = 0.20) {
+    if (r.length < 4) return { r: r.slice(), filled: r.map(() => false) };
+    const rr = diffs(r), ref = localRR(rr), out = [r[0]], filled = [false];
+    rr.forEach((gap, i) => {
+      if (Math.abs(gap - 2 * ref[i]) < 2 * tol * ref[i]) { out.push(r[i] + Math.round(gap / 2)); filled.push(true); }
+      out.push(r[i + 1]); filled.push(false);
+    });
+    return { r: out, filled };
+  }
+
+  // Superimpose the beats to a sample: cross-correlate each QRS with the median QRS (±20 ms).
+  function alignBeats(xf, r, fs, halfS = 0.05, maxShiftS = 0.02, passes = 2) {
+    const h = Math.trunc(halfS * fs), m = Math.trunc(maxShiftS * fs);
+    r = r.slice();
+    const inRange = (i) => r[i] - h - m >= 0 && r[i] + h + m < xf.length;
+    let ok = r.map((_, i) => i).filter(inRange);
+    if (ok.length < 3 || m === 0) return r;
+    for (let pass = 0; pass < passes; pass++) {
+      const t = centred(colMedian(ok.map((i) => xf.subarray(r[i] - h, r[i] + h))));
+      for (const i of ok) {
+        let best = -Infinity, shift = 0;
+        for (let s = -m; s <= m; s++) {
+          let c = 0;
+          for (let k = 0; k < t.length; k++) c += xf[r[i] + s - h + k] * t[k];
+          if (c > best) { best = c; shift = s; }
+        }
+        r[i] += shift;
+      }
+      ok = ok.filter(inRange);
+    }
+    return r;
+  }
+
+  // premature / post-ectopic / misshapen beats: R-R >20% off the local median, or shape r < 0.9
+  function flagEctopic(r, full, rrTol = 0.20, minCorr = 0.90, context = 4) {
+    const flags = r.map(() => false), rr = diffs(r);
+    if (rr.length) localRR(rr, context).forEach((ref, i) => { if (Math.abs(rr[i] - ref) > rrTol * ref) flags[i + 1] = true; });
+    const t = centred(colMedian(full)), tn = norm(t);
+    full.forEach((row, i) => {
+      const v = centred(row), den = norm(v) * tn;
+      if (den === 0 || dot(v, t) / den < minCorr) flags[i] = true;
+    });
+    return flags;
+  }
+
+  // replace flagged beats by the median of same-parity beats, keeping the ABAB phase
+  function replaceFlagged(beats, flags) {
+    const out = beats.slice();
+    for (const parity of [0, 1]) {
+      const idx = []; for (let i = parity; i < out.length; i += 2) idx.push(i);
+      const good = idx.filter((i) => !flags[i]), bad = idx.filter((i) => flags[i]);
+      if (bad.length && good.length) { const m = colMedian(good.map((i) => beats[i])); for (const i of bad) out[i] = m; }
+    }
+    return out;
+  }
+
+  function windowStarts(n, size, hop) {
+    if (n <= size) return [0];
+    const s = []; for (let i = 0; i <= n - size; i += hop) s.push(i);
+    if (s[s.length - 1] !== n - size) s.push(n - size);
+    return s;
+  }
+
+  // ---------- Spectral Method ----------
+  // allBins = false computes only the noise band and 0.5 cycles/beat (the per-window scan)
+  function spectral(beats, band = [0.44, 0.49], allBins = true) {
+    const N = beats.length, L = beats[0].length, nF = Math.floor(N / 2) + 1;
     const freqs = Array.from({ length: nF }, (_, f) => f / N);
     const iAlt = nF - 1, inBand = freqs.map((f) => f >= band[0] && f <= band[1]);
+    const P = new Float64Array(nF), Palt = new Float64Array(L), Pband = new Float64Array(L);
+    const mu0 = new Float64Array(L);
+    for (const row of beats) for (let k = 0; k < L; k++) mu0[k] += row[k] / N;
+    for (let f = 0; f < nF; f++) {
+      if (!allBins && !inBand[f] && f !== iAlt) continue;
+      const w = 2 * Math.PI * f / N, c = new Float64Array(N), s = new Float64Array(N);
+      for (let n = 0; n < N; n++) { c[n] = Math.cos(w * n); s[n] = Math.sin(w * n); }
+      for (let k = 0; k < L; k++) {
+        let re = 0, im = 0;
+        for (let n = 0; n < N; n++) { const v = (beats[n][k] - mu0[k]) * 1000; re += v * c[n]; im -= v * s[n]; }  // µV
+        const p = (re * re + im * im) / (N * N);
+        P[f] += p / L;
+        if (f === iAlt) Palt[k] = p; else if (inBand[f]) Pband[k] += p;
+      }
+    }
     const bandVals = Array.from(P).filter((_, i) => inBand[i]);
-    const mu = bandVals.reduce((s, v) => s + v, 0) / bandVals.length;
+    const mu = mean(bandVals);
     const sd = Math.sqrt(bandVals.reduce((s, v) => s + (v - mu) ** 2, 0) / (bandVals.length - 1)) + 1e-12;
     let peak = 0;
-    for (let k = 0; k < L; k++) {
-      let nb = 0, cnt = 0;
-      for (let f = 0; f < nF; f++) if (inBand[f]) { nb += Pk[k][f]; cnt++; }
-      peak = Math.max(peak, Pk[k][iAlt] - nb / cnt);
-    }
+    for (let k = 0; k < L; k++) peak = Math.max(peak, Palt[k] - Pband[k] / bandVals.length);
     return { freqs, P: Array.from(P), vAlt: Math.sqrt(Math.max(P[iAlt] - mu, 0)),
              k: (P[iAlt] - mu) / sd, noise: Math.sqrt(mu), vPeak: Math.sqrt(Math.max(peak, 0)) };
   }
 
   function mma(beats, step = 1 / 8, limit = 32) {
     const L = beats[0].length;
-    const A = beats[0].map((v) => v * 1000), B = beats[1].map((v) => v * 1000);
+    const A = Array.from(beats[0], (v) => v * 1000), B = Array.from(beats[1], (v) => v * 1000);
     for (let i = 2; i < beats.length; i++) {
       const T = i % 2 === 0 ? A : B;
       for (let k = 0; k < L; k++) {
@@ -215,30 +313,81 @@
   }
 
   // Below 64 beats the 0.44–0.49 noise band holds too few spectral bins for a usable estimate.
-  const MIN_BEATS = 64, STANDARD_BEATS = 128;
+  const MIN_BEATS = 64, STANDARD_BEATS = 128, WINDOW_HOP = 16, MAX_ECTOPIC = 0.10;
+  const V_ALT_MIN = 1.9, K_MIN = 3, NOISE_MAX = 1.8, HR_ONSET_MAX = 110, HR_NEGATIVE_MIN = 105;
   function analysisError(code, message, extra) {
     return Object.assign(new Error(message), { code }, extra || {});
   }
 
-  function analyzeTWA(x, fs, nBeats = STANDARD_BEATS) {
-    const { r, xf } = detectRPeaks(x, fs);
-    if (r.length < 3) throw analysisError("no_beats", "too few R peaks");
-    const rrMed = median(r.slice(1).map((v, i) => v - r[i])) / fs;
-    const hr = 60 / rrMed, scale = Math.sqrt(rrMed / 0.8);
-    let beats = beatMatrix(xf, r, fs, 0.10 * scale, 0.42 * scale).slice(0, nBeats);
-    if (beats.length % 2) beats = beats.slice(0, -1);
-    if (beats.length < MIN_BEATS)
-      throw analysisError("too_short", `recording too short: ${beats.length} usable beats, at least ${MIN_BEATS} needed`,
-        { nBeats: beats.length, minBeats: MIN_BEATS });
-    const s = spectral(beats);
-    if (!isFinite(s.k)) throw analysisError("no_noise_estimate", "noise band estimate unavailable");
-    const full = beatMatrix(xf, r, fs, -0.25, 0.55).slice(0, beats.length);
-    return { r, xf, hr, nBeats: beats.length, vAlt: s.vAlt, vPeak: s.vPeak, k: s.k, noise: s.noise,
-             mma: mma(beats), freqs: s.freqs, P: s.P, positive: s.vAlt >= 1.9 && s.k >= 3,
-             fullBeats: full, window: [0.10 * scale, 0.42 * scale] };
+  // Whole-recording pipeline, the same as cardioonco/twa.py analyze():
+  // R peaks -> missed/extra beats -> alignment -> PR baseline -> ectopy control ->
+  // 128-beat windows every 16 beats -> positive / negative / indeterminate.
+  function analyzeTWA(x, fs, opts) {
+    const o = Object.assign({ nBeats: STANDARD_BEATS, hop: WINDOW_HOP, rPeaks: null }, opts || {});
+    let r0, xf;
+    if (o.rPeaks) { r0 = Array.from(o.rPeaks); xf = bandpass(x, fs, 0.5, 40); }
+    else ({ r: r0, xf } = detectRPeaks(x, fs));
+    if (r0.length < 3) throw analysisError("no_beats", "too few R peaks");
+    const rrMed = median(diffs(r0)) / fs, hr = 60 / rrMed, scale = Math.sqrt(rrMed / 0.8);
+    const fill = fillMissedBeats(r0);
+    const rAll = alignBeats(xf, fill.r, fs);
+    const aSt = Math.trunc(0.10 * scale * fs), bSt = Math.trunc(0.42 * scale * fs);
+    const aFull = Math.trunc(-0.10 * fs), bFull = bSt;                // never into the next beat
+    const aPr = Math.trunc(-0.08 * fs), bPr = Math.trunc(-0.04 * fs);
+    const lo = Math.min(aSt, aFull), hi = Math.max(bSt, bFull);
+    const keepIdx = rAll.map((_, i) => i).filter((i) => rAll[i] + lo >= 0 && rAll[i] + hi <= xf.length);
+    const r = keepIdx.map((i) => rAll[i]), filled = keepIdx.map((i) => fill.filled[i]);
+    const usable = r.length - (r.length % 2);
+    if (usable < MIN_BEATS)
+      throw analysisError("too_short", `recording too short: ${usable} usable beats, at least ${MIN_BEATS} needed`,
+        { nBeats: usable, minBeats: MIN_BEATS });
+
+    const pr = r.map((ri) => median(xf.subarray(ri + aPr, ri + bPr)));
+    const st = r.map((ri, i) => Float64Array.from(xf.subarray(ri + aSt, ri + bSt), (v) => v - pr[i]));
+    const full = r.map((ri) => xf.subarray(ri + aFull, ri + bFull));
+    const flags = flagEctopic(r, full).map((f, i) => f || filled[i]);
+
+    const size = Math.min(o.nBeats, usable) - (Math.min(o.nBeats, usable) % 2);
+    const windows = windowStarts(r.length, size, o.hop).map((s0) => {
+      const wf = flags.slice(s0, s0 + size), beats = replaceFlagged(st.slice(s0, s0 + size), wf);
+      const s = spectral(beats, undefined, false);
+      return { start: s0, hr: 60 / (median(diffs(r.slice(s0, s0 + size))) / fs), vAlt: s.vAlt, k: s.k,
+               noise: s.noise, vPeak: s.vPeak, ectopic: wf.filter(Boolean).length / size, mma: mma(beats) };
+    });
+    if (!windows.every((w) => isFinite(w.k))) throw analysisError("no_noise_estimate", "noise band estimate unavailable");
+
+    const valid = windows.filter((w) => w.ectopic <= MAX_ECTOPIC);
+    const significant = valid.filter((w) => w.k >= K_MIN && w.vAlt >= V_ALT_MIN);
+    const estimate = Math.max(0, ...valid.filter((w) => w.k >= K_MIN).map((w) => w.vAlt));
+    const clean = valid.filter((w) => w.noise <= NOISE_MAX);
+    const hrMaxClean = clean.length ? Math.max(...clean.map((w) => w.hr)) : NaN;
+    let outcome, reason;
+    if (!valid.length) [outcome, reason] = ["indeterminate", "ectopy"];
+    else if (significant.some((w) => w.hr <= HR_ONSET_MAX && w.noise <= NOISE_MAX)) [outcome, reason] = ["positive", "criterion_met"];
+    else if (significant.some((w) => w.hr > HR_ONSET_MAX)) [outcome, reason] = ["indeterminate", "hr_too_high"];
+    else if (significant.length) [outcome, reason] = ["indeterminate", "noise"];
+    else if (!clean.length) [outcome, reason] = ["indeterminate", "noise"];
+    else if (hrMaxClean >= HR_NEGATIVE_MIN) [outcome, reason] = ["negative", "criterion_not_met"];
+    else [outcome, reason] = ["indeterminate", "hr_too_low"];
+
+    const pool = significant.length ? significant : valid.length ? valid : windows;
+    const best = pool.reduce((a, b) => (b.vAlt > a.vAlt ? b : a));
+    const bi = best.start, wflags = flags.slice(bi, bi + size);
+    const spec = spectral(replaceFlagged(st.slice(bi, bi + size), wflags));   // full spectrum for the plot
+    // display beats -0.25..+0.55 s of the reported window (edge samples clamped), PR baseline removed
+    const d0 = Math.trunc(-0.25 * fs), d1 = Math.trunc(0.55 * fs);
+    const shown = r.slice(bi, bi + size).map((ri, j) => Float64Array.from({ length: d1 - d0 },
+      (_, k) => xf[Math.min(xf.length - 1, Math.max(0, ri + d0 + k))] - pr[bi + j]));
+    return { r, xf, hr, nBeats: r.length, nWindows: windows.length, windowStart: bi, windowHr: best.hr,
+             windowBeats: size, ectopic: best.ectopic, vAlt: best.vAlt, vPeak: best.vPeak, k: best.k,
+             noise: best.noise, mma: Math.max(...(valid.length ? valid : [best]).map((w) => w.mma)),
+             estimate, hrMaxClean, outcome, reason, positive: outcome === "positive",
+             freqs: spec.freqs, P: spec.P, fullBeats: replaceFlagged(shown, wflags),
+             window: [aSt / fs, bSt / fs], windows };
   }
 
-  root.CardioDSP = { version: "0.4.0", MIN_BEATS, STANDARD_BEATS,
-    rng, synth, bandpass, detectRPeaks, beatMatrix, spectral, mma, analyzeTWA, percentile };
+  root.CardioDSP = { version: "0.6.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
+    HR_ONSET_MAX, HR_NEGATIVE_MIN, MAX_ECTOPIC, rng, synth, bandpass, detectRPeaks, removeExtraBeats,
+    fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile };
   if (typeof module !== "undefined") module.exports = root.CardioDSP;
 })(typeof window !== "undefined" ? window : globalThis);

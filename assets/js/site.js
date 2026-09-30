@@ -7,12 +7,19 @@
   const LANG = (document.documentElement.lang || "en").slice(0, 2);
   const T = {
     ru: {
-      pos: "Критерий альтернации выполнен", neg: "Критерий не выполнен", err: "Анализ невозможен",
+      pos: "Критерий альтернации выполнен", neg: "Значимой альтернации нет", ind: "Не определено", err: "Анализ невозможен",
+      busy: "Анализ…", busyText: "Считаю окна по всей записи.",
       none: "Запись не загружена", noneText: "Загрузите запись или откройте пример ниже.",
       synthPrefix: "Пример · синтетическая запись. ",
-      posText: (r) => `Альтернация ${fmt(r.vAlt, 1)} мкВ при ${kEq(r.k)}: выполнен критерий спектрального метода (не меньше 1,9 мкВ и K не меньше 3). На бумажной ЭКГ это ${fmt(r.vPeak / 100, 2)} мм — глазом не увидеть.`,
-      negText: (r) => r.vAlt >= 1.9 ? `Альтернация ${fmt(r.vAlt, 1)} мкВ, но ${kEq(r.k)} меньше 3: пик на 0,5 цикла на удар не выделяется из шума.`
-                                    : `Альтернация ${fmt(r.vAlt, 1)} мкВ — меньше порога 1,9 мкВ (${kEq(r.k)}).`,
+      posText: (r) => `Альтернация ${fmt(r.vAlt, 1)} мкВ при ${kEq(r.k)} в окне с ЧСС ${fmt(r.windowHr, 0)} уд/мин: выполнен критерий спектрального метода (не меньше 1,9 мкВ, K не меньше 3, ЧСС не выше 110, шум не выше 1,8 мкВ). На бумажной ЭКГ это ${fmt(r.vPeak / 100, 2)} мм — глазом не увидеть.`,
+      negText: (r) => `Значимой альтернации нет ни в одном окне (наибольшая ${fmt(r.vAlt, 1)} мкВ, ${kEq(r.k)}), в том числе в чистых окнах с ЧСС до ${fmt(r.hrMaxClean, 0)} уд/мин. Это отрицательный результат по правилам метода: для него ЧСС должна дойти до 105.`,
+      indText: {
+        hr_too_low: (r) => `Значимой альтернации нет, но ЧСС в чистых окнах не поднималась до 105 уд/мин (максимум ${fmt(r.hrMaxClean, 0)}). По правилам спектрального метода отрицательный результат без этого не выдаётся: альтернация часто появляется только при нагрузке.`,
+        hr_too_high: (r) => `Альтернация ${fmt(r.vAlt, 1)} мкВ (${kEq(r.k)}) есть только в окнах с ЧСС выше 110 уд/мин. По правилам метода такое начало положительным результатом не считается.`,
+        noise: (r) => `Шум в полосе 0,44–0,49 цикла на удар — ${fmt(r.noise, 1)} мкВ, а допустимо не больше 1,8 мкВ. Сказать ни «да», ни «нет» нельзя: нужна более чистая запись.`,
+        ectopy: () => "В каждом окне больше 10% экстрасистол или артефактов, поэтому альтернацию оценить нельзя.",
+      },
+      windows: (n) => `${n} ${plural(n, "окно", "окна", "окон")}`,
       tooShort: (n, min) => `Запись слишком короткая: ${n} пригодных ударов, а нужно не меньше ${min} (около минуты; стандарт метода — 128 ударов, около 2 минут). Результат «норма» здесь был бы неправдой.`,
       noBeats: "В записи не удалось найти удары сердца. Проверьте частоту дискретизации, единицы и выбранный канал.",
       noNoise: "Не удалось оценить уровень шума — результат был бы бессмысленным.",
@@ -31,12 +38,19 @@
       shortWarn: (n) => `Проанализировано ${n} ударов — меньше стандартных 128, поэтому к результату стоит относиться осторожнее.`,
     },
     en: {
-      pos: "Alternans criterion met", neg: "Criterion not met", err: "Cannot analyse",
+      pos: "Alternans criterion met", neg: "No significant alternans", ind: "Indeterminate", err: "Cannot analyse",
+      busy: "Analysing…", busyText: "Scanning windows across the whole recording.",
       none: "No recording loaded", noneText: "Upload a recording or open an example below.",
       synthPrefix: "Example · synthetic recording. ",
-      posText: (r) => `Alternans ${fmt(r.vAlt, 1)} µV with ${kEq(r.k)}: meets the Spectral Method criterion (at least 1.9 µV and K at least 3). On paper ECG that is ${fmt(r.vPeak / 100, 2)} mm, invisible to the eye.`,
-      negText: (r) => r.vAlt >= 1.9 ? `Alternans ${fmt(r.vAlt, 1)} µV, but ${kEq(r.k)} is below 3: the peak at 0.5 cycles per beat does not rise above the noise.`
-                                    : `Alternans ${fmt(r.vAlt, 1)} µV — below the 1.9 µV threshold (${kEq(r.k)}).`,
+      posText: (r) => `Alternans ${fmt(r.vAlt, 1)} µV with ${kEq(r.k)} in a window at ${fmt(r.windowHr, 0)} bpm: meets the Spectral Method criterion (at least 1.9 µV, K at least 3, heart rate at most 110, noise at most 1.8 µV). On paper ECG that is ${fmt(r.vPeak / 100, 2)} mm, invisible to the eye.`,
+      negText: (r) => `No significant alternans in any window (largest ${fmt(r.vAlt, 1)} µV, ${kEq(r.k)}), including clean windows at up to ${fmt(r.hrMaxClean, 0)} bpm. That is a negative result under the method's rules, which require the heart rate to reach 105.`,
+      indText: {
+        hr_too_low: (r) => `No significant alternans, but the heart rate in clean windows never reached 105 bpm (highest ${fmt(r.hrMaxClean, 0)}). The Spectral Method does not call a test negative without it: alternans often appears only on exertion.`,
+        hr_too_high: (r) => `Alternans of ${fmt(r.vAlt, 1)} µV (${kEq(r.k)}) appears only in windows above 110 bpm. Under the method's rules an onset that late does not count as positive.`,
+        noise: (r) => `Noise in the 0.44–0.49 cycles/beat band is ${fmt(r.noise, 1)} µV, above the 1.8 µV limit. Neither yes nor no can be said; a cleaner recording is needed.`,
+        ectopy: () => "Every window has more than 10% ectopic or artefactual beats, so alternans cannot be assessed.",
+      },
+      windows: (n) => `${n} window${n === 1 ? "" : "s"}`,
       tooShort: (n, min) => `Recording too short: ${n} usable beats, at least ${min} are needed (about a minute; the method's standard is 128 beats, about 2 minutes). Calling this "normal" would be untrue.`,
       noBeats: "No heartbeats found in this recording. Check the sampling rate, units and selected channel.",
       noNoise: "The noise level could not be estimated, so a result would be meaningless.",
@@ -56,6 +70,10 @@
     },
   }[LANG === "ru" ? "ru" : "en"];
 
+  function plural(n, one, few, many) {
+    const m10 = n % 10, m100 = n % 100;
+    return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many;
+  }
   function fmt(v, d) {
     if (!isFinite(v)) return "—";
     const s = v.toFixed(d);
@@ -163,7 +181,7 @@
     $("#d-hr").textContent = "";
   }
   function showEmpty() {
-    lab.res = null; lab.sig = null;
+    runSeq++; lab.res = null; lab.sig = null;
     const box = $("#verdict");
     box.className = "verdict none";
     box.querySelector(".pill").textContent = T.none;
@@ -179,36 +197,73 @@
     return e && e.message ? e.message : String(e);
   }
 
+  function verdictText(r) {
+    if (r.outcome === "positive") return T.posText(r);
+    if (r.outcome === "negative") return T.negText(r);
+    return (T.indText[r.reason] || T.indText.noise)(r);
+  }
+  const VERDICT_CLASS = { positive: "pos", negative: "neg", indeterminate: "ind" };
+  const VERDICT_PILL = { positive: "pos", negative: "neg", indeterminate: "ind" };
+
+  // The analysis runs in a Web Worker so that an hour-long file does not freeze the page.
+  // Where workers are unavailable (e.g. the page opened straight from disk) it runs inline.
+  let worker = null, jobSeq = 0, runSeq = 0;
+  const jobs = new Map();
+  try {
+    worker = new Worker("assets/js/twa-worker.js");
+    worker.onmessage = (e) => {
+      const job = jobs.get(e.data.id); if (!job) return;
+      jobs.delete(e.data.id);
+      e.data.ok ? job.resolve(e.data.r) : job.reject(Object.assign(new Error(e.data.err.message), e.data.err));
+    };
+    worker.onerror = (e) => { e.preventDefault(); worker = null; for (const job of jobs.values()) job.inline(); jobs.clear(); };
+  } catch (e) { worker = null; }
+  function analyse(x, fs) {
+    return new Promise((resolve, reject) => {
+      const inline = () => { try { resolve(D.analyzeTWA(x, fs)); } catch (err) { reject(err); } };
+      if (!worker) { inline(); return; }
+      const id = ++jobSeq;
+      jobs.set(id, { resolve, reject, inline });
+      worker.postMessage({ id, x, fs });
+    });
+  }
+
   function runLab() {
     if (lab.source === "none") { showEmpty(); return; }
     let x, fs;
     if (lab.source === "file" && lab.fileSig) { x = lab.fileSig; fs = lab.fileFs; }
     else { const s = D.synth(Object.assign(params(), { seed: lab.seed })); x = s.x; fs = s.fs; }
-    lab.sig = { x, fs };
-    const box = $("#verdict");
+    const box = $("#verdict"), run = ++runSeq;
     const prefix = lab.source === "file" ? lab.fileName + ". " : T.synthPrefix;
-    try {
-      const r = D.analyzeTWA(x, fs);
-      lab.res = r;
-      box.className = "verdict " + (r.positive ? "pos" : "neg");
-      box.querySelector(".pill").textContent = r.positive ? T.pos : T.neg;
-      let msg = prefix + (r.positive ? T.posText(r) : T.negText(r));
-      if (r.nBeats < D.STANDARD_BEATS) msg += " " + T.shortWarn(r.nBeats);
+    if (lab.source === "file") {
+      box.className = "verdict none"; box.querySelector(".pill").textContent = T.busy;
+      box.querySelector("p").textContent = prefix + T.busyText;
+    }
+    analyse(x, fs).then((r) => {
+      if (run !== runSeq) return;                 // a newer request has started
+      lab.sig = { x, fs }; lab.res = r;
+      box.className = "verdict " + VERDICT_CLASS[r.outcome];
+      box.querySelector(".pill").textContent = T[VERDICT_PILL[r.outcome]];
+      let msg = prefix + verdictText(r);
+      if (r.windowBeats < D.STANDARD_BEATS) msg += " " + T.shortWarn(r.windowBeats);
       box.querySelector("p").textContent = msg;
-      $("#m-hr").innerHTML = `${fmt(r.hr, 0)} <small>${T.bpm}</small>`; $("#d-hr").textContent = T.beats(r.nBeats);
+      $("#m-hr").innerHTML = `${fmt(r.hr, 0)} <small>${T.bpm}</small>`;
+      $("#d-hr").textContent = T.beats(r.nBeats) + (r.nWindows > 1 ? ", " + T.windows(r.nWindows) : "");
       $("#m-valt").innerHTML = `${fmt(r.vAlt, 2)} <small>${T.uv}</small>`;
       $("#m-peak").innerHTML = `${fmt(r.vPeak, 1)} <small>${T.uv}</small>`;
       $("#m-k").textContent = fmtK(r.k);
       $("#m-mma").innerHTML = `${fmt(r.mma, 1)} <small>${T.uv}</small>`;
       $("#b-fhir").disabled = false;
-    } catch (e) {
-      lab.res = null;
+      drawLab();
+    }, (e) => {
+      if (run !== runSeq) return;
+      lab.sig = { x, fs }; lab.res = null;
       box.className = "verdict err"; box.querySelector(".pill").textContent = T.err;
       box.querySelector("p").textContent = prefix + errorText(e);
       clearMetrics();
       $("#b-fhir").disabled = true;
-    }
-    drawLab();
+      drawLab();
+    });
   }
 
   function drawLab() {
@@ -404,6 +459,11 @@
       fhirObs("valt", "twa-valt", "T-wave alternans voltage (Spectral Method)", r.vAlt, "uV"),
       fhirObs("kscore", "twa-k", "T-wave alternans K-score", r.k, "1"),
       fhirObs("mma", "twa-mma", "T-wave alternans (Modified Moving Average)", r.mma, "uV"),
+      { resourceType: "Observation", id: "outcome", status: "preliminary",
+        code: { coding: [{ system: FHIR_CS, code: "twa-outcome", display: "T-wave alternans outcome (Spectral Method rules)" }],
+                text: "T-wave alternans outcome (Spectral Method rules)" },
+        device: { reference: "#software" },
+        valueCodeableConcept: { coding: [{ system: FHIR_CS, code: r.outcome, display: r.outcome }], text: r.reason } },
     ];
     const device = { resourceType: "Device", id: "software",
       deviceName: [{ name: "CardioOncoPredict TWA analysis (research software)", type: "model-name" }],
@@ -417,7 +477,7 @@
       code: { coding: [{ system: LOINC, code: "11524-6", display: "EKG study" }], text: "CardioOncoPredict TWA analysis (research prototype)" },
       issued: new Date().toISOString(),
       result: observations.map((o) => ({ reference: `#${o.id}` })),
-      conclusion: "RESEARCH USE ONLY — NOT FOR CLINICAL RECORDS. " + (r.positive ? T.posText(r) : T.negText(r)),
+      conclusion: "RESEARCH USE ONLY — NOT FOR CLINICAL RECORDS. " + verdictText(r),
     };
     if ($("#p-include").checked) {           // research metadata only on explicit opt-in
       const m = metadata(), ext = [];

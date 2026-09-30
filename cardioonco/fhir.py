@@ -38,6 +38,18 @@ def _obs(local_id: str, code: str, display: str, value: float, unit: str, ucum: 
     }
 
 
+def _coded_obs(local_id: str, code: str, display: str, value_code: str, text: str) -> dict:
+    return {
+        "resourceType": "Observation",
+        "id": local_id,
+        "status": "preliminary",
+        "code": {"coding": [{"system": LOCAL_CS, "code": code, "display": display}], "text": display},
+        "device": {"reference": "#software"},
+        "valueCodeableConcept": {"coding": [{"system": LOCAL_CS, "code": value_code, "display": value_code}],
+                                 "text": text},
+    }
+
+
 def software_device() -> dict:
     return {
         "resourceType": "Device",
@@ -64,6 +76,9 @@ def diagnostic_report(patient_ref: str | None = None, twa: dict | None = None, p
         add(_obs("valt", "twa-valt", "T-wave alternans voltage (Spectral Method)", twa["v_alt_uv"], "uV", "uV"))
         add(_obs("kscore", "twa-k", "T-wave alternans K-score", twa["k_score"], "1", "1"))
         add(_obs("mma", "twa-mma", "T-wave alternans (Modified Moving Average)", twa["mma_uv"], "uV", "uV"))
+        if "outcome" in twa:
+            add(_coded_obs("outcome", "twa-outcome", "T-wave alternans outcome (Spectral Method rules)",
+                           twa["outcome"], twa.get("reason", "")))
     for cls, p in (probs or {}).items():
         add(_obs(f"p-{cls.lower()}", f"prob-{cls.lower()}", f"Model probability: {cls}", p, "1", "1"))
 

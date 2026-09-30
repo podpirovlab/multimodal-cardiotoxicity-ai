@@ -2,7 +2,8 @@
 import numpy as np
 import pytest
 
-from cardioonco.preprocess import detect_r_peaks, heart_rate_bpm
+from cardioonco.preprocess import (bandpass, consensus_r_peaks, detect_r_peaks, heart_rate_bpm,
+                                   remove_extra_beats)
 from cardioonco.synth import SynthConfig, generate_ecg
 from cardioonco.twa import analyze, spectral_twa
 
@@ -52,6 +53,38 @@ def test_short_recording_is_refused_not_called_negative():
     _, x, _ = generate_ecg(SynthConfig(n_beats=40, alternans_uv=40, noise_uv=10, seed=6))
     with pytest.raises(ValueError, match="too short"):
         analyze(x, 500)
+
+
+def test_extra_detection_on_t_wave_is_removed():
+    r = np.arange(20) * 400                          # 0.8 s R-R at 500 Hz
+    with_t = np.sort(np.append(r, r[10] + 100))      # a "beat" 200 ms after an R: a T wave
+    assert np.array_equal(remove_extra_beats(with_t), r)
+
+
+def test_real_early_beat_is_not_removed():
+    # same timing as above, but the extra detection has the shape of a QRS
+    _, x, r_true = generate_ecg(SynthConfig(n_beats=20, noise_uv=5, seed=10))
+    xf = bandpass(x, 500)
+    fake = r_true[10] + 100
+    xf[fake - 25:fake + 25] = xf[r_true[5] - 25:r_true[5] + 25]
+    kept = remove_extra_beats(np.sort(np.append(r_true, fake)), xf, 500)
+    assert fake in kept
+
+
+def test_missed_beat_keeps_abab_parity():
+    _, x, r_true = generate_ecg(SynthConfig(n_beats=160, alternans_uv=20, noise_uv=5, seed=8))
+    full = analyze(x, 500, r_peaks=r_true)
+    missed = analyze(x, 500, r_peaks=np.delete(r_true, 70))
+    assert missed.positive
+    assert missed.estimate_uv == pytest.approx(full.estimate_uv, rel=0.15)
+
+
+def test_consensus_ignores_a_lead_with_misplaced_beats():
+    _, x, r_true = generate_ecg(SynthConfig(noise_uv=10, seed=9))
+    leads = np.vstack([x, x * 0.8, np.roll(x, 60)])  # third lead: every beat 120 ms late
+    r = consensus_r_peaks(leads, 500)
+    assert len(r) == len(r_true)
+    assert np.max(np.abs(r - r_true)) <= 10
 
 
 def test_mma_is_full_even_odd_difference():

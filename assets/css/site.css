@@ -157,6 +157,7 @@ select, input[type="number"] { font: 500 14px/1.2 var(--mono); padding: 8px 10px
 .verdict.pos .pill { background: var(--accent-soft); color: var(--accent); }
 .verdict.neg .pill { background: var(--ok-soft); color: var(--ok); }
 .verdict.err .pill { background: var(--warn-soft); color: var(--warn); }
+.verdict.ind .pill { background: var(--blue-soft); color: var(--blue); }
 .verdict.none .pill { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
 .result-note { margin-top: -8px; }
 .verdict p { font-size: 15px; line-height: 1.45; color: var(--muted); }
