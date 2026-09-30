@@ -32,12 +32,19 @@ Two standard estimators are implemented:
         A_n = A_{n-1} + clip( (beat_n - A_{n-1}) / 8 , +-32 uV )
 
    TWA_MMA = max over the ST-T window of |A - B|.  Robust to single noisy beats.
+   This is the full even-minus-odd difference, the scale the clinical MMA
+   cutpoints (e.g. 47 uV) refer to -- about twice V_alt for pure alternans.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 
 import numpy as np
+
+# Below 64 beats the 0.44-0.49 cycles/beat noise band holds too few spectral bins
+# for a usable noise estimate (at 16-32 beats it is 0-1 bins and K becomes NaN).
+MIN_BEATS = 64
+STANDARD_BEATS = 128
 
 
 @dataclass
@@ -99,11 +106,11 @@ def mma_twa(beats_mv: np.ndarray, step: float = 1 / 8, limit_uv: float = 32.0) -
             A += np.clip((b[i] - A) * step, -limit_uv, limit_uv)
         else:
             B += np.clip((b[i] - B) * step, -limit_uv, limit_uv)
-    return float(np.max(np.abs(A - B)) / 2.0)   # half-difference, comparable to V_alt
+    return float(np.max(np.abs(A - B)))
 
 
 def analyze(x_mv: np.ndarray, fs: float, r_peaks: np.ndarray | None = None,
-            n_beats: int = 128) -> TWAResult:
+            n_beats: int = STANDARD_BEATS) -> TWAResult:
     """Full pipeline on one ECG lead: filter -> R peaks -> beat matrix -> TWA."""
     from .preprocess import bandpass, detect_r_peaks, heart_rate_bpm
 
@@ -118,9 +125,11 @@ def analyze(x_mv: np.ndarray, fs: float, r_peaks: np.ndarray | None = None,
     m = m[: n_beats] if len(m) >= n_beats else m
     if len(m) % 2:                          # keep an even count so f = 0.5 is a bin
         m = m[:-1]
-    if len(m) < 16:
-        raise ValueError(f"need at least 16 beats for TWA, got {len(m)}")
+    if len(m) < MIN_BEATS:
+        raise ValueError(f"recording too short for TWA: {len(m)} usable beats, at least {MIN_BEATS} needed")
     f, P, v_alt, k, noise, v_peak = spectral_twa(m)
+    if not np.isfinite(k):
+        raise ValueError("noise band estimate unavailable; the result would be meaningless")
     return TWAResult(
         n_beats=len(m), heart_rate_bpm=float(hr), v_alt_uv=v_alt, v_alt_peak_uv=v_peak, k_score=k,
         noise_uv=noise, mma_uv=mma_twa(m), positive=bool(v_alt >= 1.9 and k >= 3.0),

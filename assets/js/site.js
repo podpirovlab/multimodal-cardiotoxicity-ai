@@ -7,10 +7,15 @@
   const LANG = (document.documentElement.lang || "en").slice(0, 2);
   const T = {
     ru: {
-      pos: "TWA обнаружена", neg: "TWA не обнаружена", err: "Не удалось проанализировать",
-      posText: (r) => `Альтернация ${fmt(r.vAlt, 1)} мкВ (RMS по окну ST-T) при K = ${fmt(r.k, 1)}: выполнен критерий V_alt ≥ 1,9 мкВ и K ≥ 3. На бумажной ЭКГ это ${fmt(r.vPeak / 100, 2)} мм — глазом не увидеть.`,
-      negText: (r) => r.vAlt >= 1.9 ? `Альтернация ${fmt(r.vAlt, 1)} мкВ, но K = ${fmt(r.k, 1)} < 3: пик на 0,5 цикла/удар не выделяется из шума. Уменьшите шум или добавьте ударов.`
-                                    : `V_alt = ${fmt(r.vAlt, 1)} мкВ < 1,9 мкВ, K = ${fmt(r.k, 1)}. Чередования зубца T не выявлено.`,
+      pos: "Критерий альтернации выполнен", neg: "Критерий не выполнен", err: "Анализ невозможен",
+      none: "Запись не загружена", noneText: "Загрузите запись или откройте пример ниже.",
+      synthPrefix: "Пример · синтетическая запись. ",
+      posText: (r) => `Альтернация ${fmt(r.vAlt, 1)} мкВ при ${kEq(r.k)}: выполнен критерий спектрального метода (не меньше 1,9 мкВ и K не меньше 3). На бумажной ЭКГ это ${fmt(r.vPeak / 100, 2)} мм — глазом не увидеть.`,
+      negText: (r) => r.vAlt >= 1.9 ? `Альтернация ${fmt(r.vAlt, 1)} мкВ, но ${kEq(r.k)} меньше 3: пик на 0,5 цикла на удар не выделяется из шума.`
+                                    : `Альтернация ${fmt(r.vAlt, 1)} мкВ — меньше порога 1,9 мкВ (${kEq(r.k)}).`,
+      tooShort: (n, min) => `Запись слишком короткая: ${n} пригодных ударов, а нужно не меньше ${min} (около минуты; стандарт метода — 128 ударов, около 2 минут). Результат «норма» здесь был бы неправдой.`,
+      noBeats: "В записи не удалось найти удары сердца. Проверьте частоту дискретизации, единицы и выбранный канал.",
+      noNoise: "Не удалось оценить уровень шума — результат был бы бессмысленным.",
       hr: "ЧСС", valt: "V_alt", vpeak: "Пик", k: "K-score", mma: "MMA", noise: "Шум",
       bpm: "уд/мин", uv: "мкВ", beats: (n) => `по ${n} ударам`,
       dValt: "RMS по окну ST-T", dPeak: "в самой «качающейся» точке", dK: "сигнал / шум", dMma: "метод скольз. среднего", dNoise: "полоса 0,44–0,49",
@@ -23,17 +28,18 @@
       fileOk: (n, fs) => `Загружено ${n} отсчётов, ${fs} Гц`,
       edfOk: (n, fs, label) => `EDF: канал «${label}», ${n} отсчётов, ${fs} Гц`,
       edfChannel: "Канал (отведение)", edfAnnotations: "(служебный канал, пропущен)",
-      shortWarn: (n) => `Найдено всего ${n} ударов. Спектральному методу нужно около 128 (~2 минуты записи) для надёжного результата — при меньшей длине запись всё равно анализируется, но осторожнее с выводами.`,
-      pAge: "Возраст, лет", pSex: "Пол", pSexU: "не указан", pSexM: "мужской", pSexF: "женский",
-      pDose: "Кумулятивная доза доксорубицина, мг/м²", pDoseHint: "необязательно — только для контекста в отчёте, не входит в расчёт TWA",
-      doseCtx: (pct, dose) => `При дозе ${fmt(dose, 0)} мг/м² в популяции сердечная недостаточность развивается примерно у ${fmt(pct, 0)} % пациентов (Swain et al., Cancer, 2003). Это статистика по группе, не прогноз для конкретного человека.`,
-      fhirBtn: "Экспортировать FHIR-отчёт", fhirNote: "Скачивает JSON (FHIR DiagnosticReport) с этими числами и указанным контекстом пациента — на устройство, никуда не отправляется.",
+      shortWarn: (n) => `Проанализировано ${n} ударов — меньше стандартных 128, поэтому к результату стоит относиться осторожнее.`,
     },
     en: {
-      pos: "TWA detected", neg: "No TWA", err: "Could not analyse",
-      posText: (r) => `Alternans ${fmt(r.vAlt, 1)} µV (RMS over ST-T) with K = ${fmt(r.k, 1)}: meets V_alt ≥ 1.9 µV and K ≥ 3. On paper ECG that is ${fmt(r.vPeak / 100, 2)} mm, invisible to the eye.`,
-      negText: (r) => r.vAlt >= 1.9 ? `Alternans ${fmt(r.vAlt, 1)} µV, but K = ${fmt(r.k, 1)} < 3: the 0.5 cycles/beat peak does not rise above noise. Lower the noise or add beats.`
-                                    : `V_alt = ${fmt(r.vAlt, 1)} µV < 1.9 µV, K = ${fmt(r.k, 1)}. No beat-to-beat T-wave alternation found.`,
+      pos: "Alternans criterion met", neg: "Criterion not met", err: "Cannot analyse",
+      none: "No recording loaded", noneText: "Upload a recording or open an example below.",
+      synthPrefix: "Example · synthetic recording. ",
+      posText: (r) => `Alternans ${fmt(r.vAlt, 1)} µV with ${kEq(r.k)}: meets the Spectral Method criterion (at least 1.9 µV and K at least 3). On paper ECG that is ${fmt(r.vPeak / 100, 2)} mm, invisible to the eye.`,
+      negText: (r) => r.vAlt >= 1.9 ? `Alternans ${fmt(r.vAlt, 1)} µV, but ${kEq(r.k)} is below 3: the peak at 0.5 cycles per beat does not rise above the noise.`
+                                    : `Alternans ${fmt(r.vAlt, 1)} µV — below the 1.9 µV threshold (${kEq(r.k)}).`,
+      tooShort: (n, min) => `Recording too short: ${n} usable beats, at least ${min} are needed (about a minute; the method's standard is 128 beats, about 2 minutes). Calling this "normal" would be untrue.`,
+      noBeats: "No heartbeats found in this recording. Check the sampling rate, units and selected channel.",
+      noNoise: "The noise level could not be estimated, so a result would be meaningless.",
       hr: "Heart rate", valt: "V_alt", vpeak: "Peak", k: "K-score", mma: "MMA", noise: "Noise",
       bpm: "bpm", uv: "µV", beats: (n) => `from ${n} beats`,
       dValt: "RMS over ST-T", dPeak: "at the most alternating point", dK: "signal / noise", dMma: "modified moving average", dNoise: "band 0.44–0.49",
@@ -46,11 +52,7 @@
       fileOk: (n, fs) => `Loaded ${n} samples at ${fs} Hz`,
       edfOk: (n, fs, label) => `EDF: channel "${label}", ${n} samples at ${fs} Hz`,
       edfChannel: "Channel (lead)", edfAnnotations: "(service channel, skipped)",
-      shortWarn: (n) => `Only ${n} beats found. The Spectral Method wants about 128 (~2 minutes) for a reliable read — it still runs on shorter recordings, but treat the result with more caution.`,
-      pAge: "Age, years", pSex: "Sex", pSexU: "unspecified", pSexM: "male", pSexF: "female",
-      pDose: "Cumulative doxorubicin dose, mg/m²", pDoseHint: "optional — for report context only, not used in the TWA math above",
-      doseCtx: (pct, dose) => `At ${fmt(dose, 0)} mg/m², population heart-failure incidence is about ${fmt(pct, 0)}% (Swain et al., Cancer, 2003) — a group statistic, not a prediction for this person.`,
-      fhirBtn: "Export FHIR report", fhirNote: "Downloads a JSON file (FHIR DiagnosticReport) with these numbers and the patient context above — saved to your device, sent nowhere.",
+      shortWarn: (n) => `Analysed ${n} beats — fewer than the standard 128, so treat the result with more caution.`,
     },
   }[LANG === "ru" ? "ru" : "en"];
 
@@ -59,6 +61,10 @@
     const s = v.toFixed(d);
     return LANG === "ru" ? s.replace(".", ",") : s;
   }
+  // Clinical K-scores are single or double digits; clean synthetic noise pushes K into the
+  // hundreds, which reads as a malfunction, so anything above 100 is shown as ">100".
+  const fmtK = (k) => (isFinite(k) && k > 100 ? ">100" : fmt(k, 1));
+  const kEq = (k) => (isFinite(k) && k > 100 ? "K > 100" : `K = ${fmt(k, 1)}`);
   const $ = (s) => document.querySelector(s);
 
   // ---------- theme-aware colours (read once from CSS custom properties) ----------
@@ -122,32 +128,20 @@
     for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
     return out;
   }
-  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
-
-  // ======================= PATIENT CONTEXT (age / sex / dose) =======================
-  // Reference points: heart-failure incidence by cumulative doxorubicin dose (Swain et al., Cancer 2003).
-  const DOSE_POINTS = [[0, 0], [400, 5], [550, 26], [700, 48], [1000, 48]];
-  function doseIncidence(dose) {
-    for (let i = 1; i < DOSE_POINTS.length; i++) {
-      const [d0, p0] = DOSE_POINTS[i - 1], [d1, p1] = DOSE_POINTS[i];
-      if (dose <= d1) return p0 + (p1 - p0) * (dose - d0) / (d1 - d0);
-    }
-    return DOSE_POINTS[DOSE_POINTS.length - 1][1];
-  }
-  function patient() {
+  // ======================= RESEARCH METADATA (age / sex / dose) =======================
+  // Never used by the analysis and never turned into a risk figure; it only goes into the
+  // downloaded JSON, and only when the user ticks "include".
+  function metadata() {
     const age = parseFloat($("#p-age").value);
     const sex = $("#p-sex").value;
     const dose = parseFloat($("#p-dose").value);
     return { age: isFinite(age) ? age : null, sex: sex || null, dose: isFinite(dose) && dose > 0 ? dose : null };
   }
-  function updatePatientContext() {
-    const p = patient(), out = $("#p-context");
-    if (!out) return;
-    out.textContent = p.dose ? T.doseCtx(clamp01(doseIncidence(p.dose) / 100) * 100, p.dose) : "";
-  }
 
   // ======================= TWA LAB =======================
-  const lab = { res: null, sig: null, seed: 7, source: "synth", fileSig: null, fileFs: 500, fileName: "", edf: null, csvRawText: null };
+  // source: "none" until the user uploads a file or opens a synthetic example — the page
+  // never opens on a result about a person who does not exist.
+  const lab = { res: null, sig: null, seed: 7, source: "none", fileSig: null, fileFs: 500, fileName: "", edf: null, csvRawText: null };
   const sliders = ["alt", "noise", "hr", "tamp", "mains"];
   function params() {
     const v = (id) => parseFloat($("#s-" + id).value);
@@ -164,36 +158,67 @@
   let pending = null;
   function schedule() { syncOutputs(); clearTimeout(pending); pending = setTimeout(runLab, 90); }
 
+  function clearMetrics() {
+    for (const id of ["#m-hr", "#m-valt", "#m-peak", "#m-k", "#m-mma"]) $(id).textContent = "—";
+    $("#d-hr").textContent = "";
+  }
+  function showEmpty() {
+    lab.res = null; lab.sig = null;
+    const box = $("#verdict");
+    box.className = "verdict none";
+    box.querySelector(".pill").textContent = T.none;
+    box.querySelector("p").textContent = T.noneText;
+    clearMetrics();
+    $("#b-fhir").disabled = true;
+    drawLab();
+  }
+  function errorText(e) {
+    if (e && e.code === "too_short") return T.tooShort(e.nBeats, e.minBeats);
+    if (e && e.code === "no_beats") return T.noBeats;
+    if (e && e.code === "no_noise_estimate") return T.noNoise;
+    return e && e.message ? e.message : String(e);
+  }
+
   function runLab() {
+    if (lab.source === "none") { showEmpty(); return; }
     let x, fs;
     if (lab.source === "file" && lab.fileSig) { x = lab.fileSig; fs = lab.fileFs; }
     else { const s = D.synth(Object.assign(params(), { seed: lab.seed })); x = s.x; fs = s.fs; }
     lab.sig = { x, fs };
     const box = $("#verdict");
+    const prefix = lab.source === "file" ? lab.fileName + ". " : T.synthPrefix;
     try {
       const r = D.analyzeTWA(x, fs);
       lab.res = r;
       box.className = "verdict " + (r.positive ? "pos" : "neg");
       box.querySelector(".pill").textContent = r.positive ? T.pos : T.neg;
-      let msg = (lab.source === "file" ? lab.fileName + ". " : "") + (r.positive ? T.posText(r) : T.negText(r));
-      if (r.nBeats < 100) msg += " " + T.shortWarn(r.nBeats);
+      let msg = prefix + (r.positive ? T.posText(r) : T.negText(r));
+      if (r.nBeats < D.STANDARD_BEATS) msg += " " + T.shortWarn(r.nBeats);
       box.querySelector("p").textContent = msg;
       $("#m-hr").innerHTML = `${fmt(r.hr, 0)} <small>${T.bpm}</small>`; $("#d-hr").textContent = T.beats(r.nBeats);
       $("#m-valt").innerHTML = `${fmt(r.vAlt, 2)} <small>${T.uv}</small>`;
       $("#m-peak").innerHTML = `${fmt(r.vPeak, 1)} <small>${T.uv}</small>`;
-      $("#m-k").innerHTML = fmt(r.k, 1);
+      $("#m-k").textContent = fmtK(r.k);
       $("#m-mma").innerHTML = `${fmt(r.mma, 1)} <small>${T.uv}</small>`;
       $("#b-fhir").disabled = false;
     } catch (e) {
       lab.res = null;
       box.className = "verdict err"; box.querySelector(".pill").textContent = T.err;
-      box.querySelector("p").textContent = e.message;
+      box.querySelector("p").textContent = prefix + errorText(e);
+      clearMetrics();
       $("#b-fhir").disabled = true;
     }
     drawLab();
   }
 
   function drawLab() {
+    if (!lab.sig) {                       // empty state: blank panels, no invented trace
+      for (const [id, h] of [["#c-strip", 200], ["#c-overlay", 230], ["#c-series", 200], ["#c-spec", 200]]) {
+        const { ctx, w, h: hh } = setupCanvas($(id), h);
+        ctx.fillStyle = C.surface; ctx.fillRect(0, 0, w, hh);
+      }
+      return;
+    }
     drawStrip(); drawOverlay(); drawSeries(); drawSpectrum();
   }
 
@@ -358,46 +383,57 @@
     rd.readAsText(file);
   }
 
-  // ---------- FHIR export (mirrors cardioonco/fhir.py: same codes, same "research only" tag) ----------
+  // ---------- research JSON in FHIR R4 format (mirrors cardioonco/fhir.py) ----------
+  // Every Observation points to a contained Device carrying the algorithm version, so a number
+  // can always be traced to the code that produced it. The recording time is unknown here, so
+  // effective[x] is left out rather than filled with the export time.
   const FHIR_CS = "https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/fhir/CodeSystem/cardioonco";
   const UCUM = "http://unitsofmeasure.org";
-  function fhirObs(id, code, display, value, unit) {
-    return { resourceType: "Observation", id, status: "final",
-      code: { coding: [{ system: FHIR_CS, code, display }], text: display },
+  const LOINC = "http://loinc.org";
+  function fhirObs(id, code, display, value, unit, loinc) {
+    const coding = [{ system: FHIR_CS, code, display }];
+    if (loinc) coding.unshift({ system: LOINC, code: loinc, display });
+    return { resourceType: "Observation", id, status: "preliminary",
+      code: { coding, text: display }, device: { reference: "#software" },
       valueQuantity: { value: +value.toFixed(4), unit, system: UCUM, code: unit } };
   }
   function exportFHIR() {
     const r = lab.res; if (!r) return;
-    const p = patient();
-    const now = new Date().toISOString();
-    const contained = [
-      fhirObs("hr", "heart-rate", "Heart rate (from R-R intervals)", r.hr, "/min"),
+    const observations = [
+      fhirObs("hr", "heart-rate", "Heart rate (from R-R intervals)", r.hr, "/min", "8867-4"),
       fhirObs("valt", "twa-valt", "T-wave alternans voltage (Spectral Method)", r.vAlt, "uV"),
       fhirObs("kscore", "twa-k", "T-wave alternans K-score", r.k, "1"),
       fhirObs("mma", "twa-mma", "T-wave alternans (Modified Moving Average)", r.mma, "uV"),
     ];
-    const patientResource = {
-      resourceType: "Patient", id: "patient",
-      gender: p.sex === "male" ? "male" : p.sex === "female" ? "female" : "unknown",
-    };
-    if (p.age) patientResource.extension = [{ url: "age-years", valueInteger: Math.round(p.age) }];
-    if (p.dose) patientResource.extension = (patientResource.extension || []).concat(
-      [{ url: `${FHIR_CS}/cumulative-doxorubicin-dose-mg-m2`, valueDecimal: p.dose }]);
+    const device = { resourceType: "Device", id: "software",
+      deviceName: [{ name: "CardioOncoPredict TWA analysis (research software)", type: "model-name" }],
+      version: [{ value: D.version }] };
     const report = {
       resourceType: "DiagnosticReport", id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2),
       meta: { tag: [{ system: FHIR_CS, code: "research-only", display: "Research prototype output - not for clinical use" }] },
-      contained: [patientResource, ...contained],
+      contained: [device, ...observations],
       status: "preliminary",
       category: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/v2-0074", code: "EC", display: "Electrocardiac (e.g., EKG, EEC, Holter)" }] }],
-      code: { coding: [{ system: "http://loinc.org", code: "11524-6", display: "EKG study" }], text: "CardioOncoPredict TWA analysis (research prototype)" },
-      subject: { reference: "#patient" },
-      effectiveDateTime: now, issued: now,
-      result: contained.map((o) => ({ reference: `#${o.id}` })),
-      conclusion: r.positive ? T.posText(r) : T.negText(r),
+      code: { coding: [{ system: LOINC, code: "11524-6", display: "EKG study" }], text: "CardioOncoPredict TWA analysis (research prototype)" },
+      issued: new Date().toISOString(),
+      result: observations.map((o) => ({ reference: `#${o.id}` })),
+      conclusion: "RESEARCH USE ONLY — NOT FOR CLINICAL RECORDS. " + (r.positive ? T.posText(r) : T.negText(r)),
     };
+    if ($("#p-include").checked) {           // research metadata only on explicit opt-in
+      const m = metadata(), ext = [];
+      if (m.age !== null) ext.push({ url: `${FHIR_CS}/age-at-recording`,
+        valueQuantity: { value: Math.round(m.age), unit: "a", system: UCUM, code: "a" } });
+      if (m.dose !== null) ext.push({ url: `${FHIR_CS}/cumulative-doxorubicin-dose`,
+        valueQuantity: { value: m.dose, unit: "mg/m2", system: UCUM, code: "mg/m2" } });
+      const patient = { resourceType: "Patient", id: "subject",
+        gender: m.sex === "male" ? "male" : m.sex === "female" ? "female" : "unknown" };
+      if (ext.length) patient.extension = ext;
+      report.contained.unshift(patient);
+      report.subject = { reference: "#subject" };
+    }
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = "cardioonco_twa_report.json";
+    a.href = URL.createObjectURL(blob); a.download = "cardioonco_research_twa.json";
     document.body.appendChild(a); a.click(); a.remove();
   }
 
@@ -412,9 +448,12 @@
     $("#f-file").addEventListener("change", onFile);
     ["#f-fs", "#f-col", "#f-unit"].forEach((sel) => $(sel).addEventListener("input", () => { if (lab.csvRawText) parseCsvText(lab.csvRawText); }));
     $("#f-edf-channel").addEventListener("change", (e) => selectEdfChannel(parseInt(e.target.value, 10)));
-    ["#p-age", "#p-sex", "#p-dose"].forEach((sel) => $(sel).addEventListener("input", updatePatientContext));
     $("#b-fhir").addEventListener("click", exportFHIR);
-    syncOutputs(); updatePatientContext(); runLab();
+    // opening the example panel is an explicit request to see a synthetic result
+    $(".demo").addEventListener("toggle", (e) => {
+      if (e.target.open && lab.source === "none") { lab.source = "synth"; schedule(); }
+    });
+    syncOutputs(); showEmpty();
   }
   function clearPresets() { document.querySelectorAll("[data-preset]").forEach((b) => b.setAttribute("aria-pressed", "false")); }
 

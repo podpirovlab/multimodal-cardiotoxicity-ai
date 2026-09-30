@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CardioOncoPredict</title>
-<meta name="description" content="Загрузите 12-канальную ЭКГ (EDF/EDF+ или CSV/TXT) и проверьте её на микровольтную альтернацию зубца T — ранний электрический признак кардиотоксичности антрациклинов. Всё считается в браузере.">
+<meta name="description" content="Открытая исследовательская программа: измеряет микровольтную альтернацию зубца T в одном отведении ЭКГ (EDF/EDF+ или CSV/TXT), чтобы проверить, предшествует ли она кардиотоксичности антрациклинов. Всё считается в браузере. Не медицинское изделие.">
 <meta property="og:title" content="CardioOncoPredict">
-<meta property="og:description" content="Загрузите ЭКГ и проверьте её на альтернацию зубца T — ранний электрический признак кардиотоксичности антрациклинов.">
+<meta property="og:description" content="Открытая исследовательская программа для измерения микровольтной альтернации зубца T — проверка недоказанной гипотезы о раннем повреждении сердца антрациклинами. Не медицинское изделие.">
 <link rel="alternate" hreflang="en" href="index.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,38 +35,39 @@
     <div class="hero-head">
       <div style="display:grid; gap:18px;">
         <span class="eyebrow">Кардиоонкология · обработка сигналов</span>
-        <h1>Услышать сердце <em>до</em>&nbsp;того, как оно ослабнет</h1>
+        <h1>Может ли ритм сердца заранее предупредить о повреждении химиотерапией?</h1>
       </div>
       <div style="display:grid; gap:18px;">
-        <p class="sub">Химиотерапия антрациклинами спасает от рака, но может повредить сердце — часто ещё до того, как это увидит ЭхоКГ. Инструмент ищет самый ранний электрический след этого повреждения в реальной ЭКГ, которую вы загружаете: чередование зубца T на несколько микровольт, от удара к удару.</p>
+        <p class="sub">Химиотерапия антрациклинами спасает от рака, но может повредить сердце. Эта открытая исследовательская программа измеряет в записи ЭКГ микровольтную альтернацию зубца T — чередование его формы через удар на несколько микровольт. Появляется ли она раньше повреждения сердца — гипотеза, которую ещё не проверило ни одно опубликованное исследование. Проект создан, чтобы её проверить.</p>
         <div class="hero-actions">
-          <a class="btn" href="#lab">Загрузить запись</a>
+          <a class="btn" href="#lab">Открыть инструмент</a>
           <a class="btn ghost" href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.ru.md">Как это работает, подробно</a>
         </div>
       </div>
     </div>
-    <p class="notice"><span><strong>Исследовательский прототип, не медицинское изделие.</strong> Нет клинической валидации и регистрации (Росздравнадзор, FDA, CE). Не используйте для диагностики и решений о лечении.</span></p>
+    <p class="notice"><span><strong>Исследовательская программа, не медицинское изделие.</strong> Не прошедший валидацию учебно-исследовательский прототип. Не зарегистрирован Росздравнадзором, не имеет разрешения FDA и маркировки CE. Не предназначен для диагностики, скрининга, мониторинга, прогноза или выбора лечения и не должен применяться при оказании медицинской помощи.</span></p>
   </div>
 
   <!-- ===================== UPLOAD & ANALYSE ===================== -->
   <section class="block" id="lab">
     <div class="wrap">
       <div class="block-head">
-        <span class="eyebrow">Загрузка и анализ</span>
-        <h2>Проверьте на реальной записи</h2>
-        <p class="lede">Загрузите одно отведение реальной ЭКГ — EDF/EDF+ или обычный CSV/TXT, не короче ~2 минут — и браузер проведёт тот же анализ, что и Python-код проекта. Ничего не покидает ваше устройство. Нет файла под рукой — попробуйте синтетический пример.</p>
+        <span class="eyebrow">Исследовательский инструмент</span>
+        <h2>Попробуйте на открытой исследовательской записи</h2>
+        <p class="lede">Назначение: обучение и исследования в области обработки сигналов. Загрузите одно отведение общедоступной или надлежащим образом обезличенной ЭКГ — например, с PhysioNet — в формате EDF/EDF+ или обычного CSV/TXT, не короче 1–2 минут. Браузер проведёт тот же анализ, что и Python-код проекта; ничего не покидает ваше устройство. Не загружайте записи, позволяющие установить личность. Нет файла под рукой — откройте синтетический пример ниже.</p>
       </div>
       <div class="lab">
-        <form class="controls" onsubmit="return false" aria-label="Контекст пациента и запись">
+        <form class="controls" onsubmit="return false" aria-label="Запись и исследовательские метаданные">
           <div class="patient">
-            <b style="font:600 13px var(--display); color:var(--ink)">Контекст пациента</b>
+            <b style="font:600 13px var(--display); color:var(--ink)">Исследовательские метаданные (необязательно)</b>
             <div class="row">
               <div class="ctl"><label for="p-age">Возраст, лет</label><input type="number" id="p-age" min="0" max="120" placeholder="—"></div>
               <div class="ctl"><label for="p-sex">Пол</label><select id="p-sex"><option value="">не указан</option><option value="male">мужской</option><option value="female">женский</option></select></div>
             </div>
             <div class="ctl"><label for="p-dose">Кумулятивная доза доксорубицина, <span style="white-space:nowrap">мг/м²</span></label><input type="number" id="p-dose" min="0" max="1200" placeholder="—"></div>
-            <span class="hint">Необязательно — используется только в отчёте ниже, не входит в сам анализ альтернации зубца T.</span>
-            <p class="hint" id="p-context"></p>
+            <span class="hint">Справка, а не прогноз: в объединённом анализе 630 пациентов сердечная недостаточность развилась примерно у 5% при 400 мг/м², у 26% при 550 и у 48% при 700 (Swain et al., Cancer 2003).</span>
+            <label class="check"><input type="checkbox" id="p-include"> Добавить эти поля в скачиваемый JSON</label>
+            <span class="hint">В анализе не используются.</span>
           </div>
 
           <div class="file">
@@ -82,7 +83,7 @@
               </div>
               <div class="ctl"><label for="f-unit">Единицы</label><select id="f-unit"><option value="mv">мВ</option><option value="uv">мкВ</option></select></div>
             </div>
-            <span class="hint" id="f-status">Нужно не меньше 2 минут записи. Файл остаётся в браузере и никуда не отправляется.</span>
+            <span class="hint" id="f-status">Нужно не меньше 1–2 минут записи. Файл остаётся в браузере и никуда не отправляется.</span>
           </div>
 
           <details class="demo">
@@ -121,7 +122,8 @@
         </form>
 
         <div class="panels">
-          <div class="verdict neg" id="verdict" aria-live="polite"><span class="pill">…</span><p></p></div>
+          <div class="verdict none" id="verdict" aria-live="polite"><span class="pill">Запись не загружена</span><p>Загрузите запись или откройте пример ниже.</p></div>
+          <p class="hint result-note">Только исследовательский показатель, не диагноз. Не валидирован для выявления кардиотоксичности.</p>
           <div class="metrics">
             <div class="metric"><span class="k">ЧСС</span><span class="v" id="m-hr">—</span><span class="d" id="d-hr"></span></div>
             <div class="metric"><span class="k">V<sub>alt</sub></span><span class="v" id="m-valt">—</span><span class="d">RMS по окну ST-T</span></div>
@@ -153,8 +155,8 @@
             <p class="explain">Чередование через удар — это колебание с частотой ровно 0,5 цикла на удар. Если точка справа поднимается над серой полосой шума, альтернация есть.</p>
           </div>
           <div class="fhir-row">
-            <button type="button" class="btn ghost" id="b-fhir" disabled>Экспортировать FHIR-отчёт</button>
-            <span class="hint">Скачивает JSON (FHIR DiagnosticReport) с этими числами и указанным контекстом пациента — на устройство, никуда не отправляется.</span>
+            <button type="button" class="btn ghost" id="b-fhir" disabled>Скачать исследовательский JSON (формат FHIR)</button>
+            <span class="hint">Только для исследований: демонстрация формата FHIR, а не медицинская запись. Сохраняется на устройство, никуда не отправляется.</span>
           </div>
         </div>
       </div>
@@ -164,7 +166,7 @@
 
 <footer>
   <div class="wrap">
-    <span>CardioOncoPredict · podpirovlab · лицензия MIT</span>
+    <span>CardioOncoPredict · исследовательская программа, не медицинское изделие · лицензия MIT</span>
     <span><a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.ru.md">Полное описание (физика, метод, модель, 3D-анатомия, план)</a> · <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">GitHub</a> · <a href="index.html" hreflang="en">English</a></span>
   </div>
 </footer>

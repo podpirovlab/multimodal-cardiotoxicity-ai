@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CardioOncoPredict</title>
-<meta name="description" content="Upload a 12-lead ECG (EDF/EDF+ or CSV/TXT) and check it for microvolt T-wave alternans, an early electrical sign of anthracycline cardiotoxicity. Runs entirely in your browser.">
+<meta name="description" content="Open research software that measures microvolt T-wave alternans in one ECG lead (EDF/EDF+ or CSV/TXT), built to test whether it precedes anthracycline cardiotoxicity. Runs entirely in your browser. Not a medical device.">
 <meta property="og:title" content="CardioOncoPredict">
-<meta property="og:description" content="Upload an ECG and test it for T-wave alternans — an early electrical sign of anthracycline cardiotoxicity.">
+<meta property="og:description" content="Open research software for measuring microvolt T-wave alternans — testing an unproven hypothesis about early anthracycline heart damage. Not a medical device.">
 <link rel="alternate" hreflang="ru" href="ru.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -35,38 +35,39 @@
     <div class="hero-head">
       <div style="display:grid; gap:18px;">
         <span class="eyebrow">Cardio-oncology · signal processing</span>
-        <h1>Hear the heart <em>before</em>&nbsp;it weakens</h1>
+        <h1>Can the heart's rhythm warn of chemotherapy damage early?</h1>
       </div>
       <div style="display:grid; gap:18px;">
-        <p class="sub">Anthracycline chemotherapy cures cancer but can injure the heart, often before an echo shows it. This tool looks for the earliest electrical trace of that injury in a real ECG you upload: a T wave that alternates by a few microvolts, beat after beat.</p>
+        <p class="sub">Anthracycline chemotherapy cures cancer but can injure the heart. This open research tool measures microvolt T-wave alternans — a T wave that changes every other beat by a few microvolts — in an ECG recording. Whether it appears before the heart is damaged is a hypothesis no published study has tested yet. This project is built to test it.</p>
         <div class="hero-actions">
-          <a class="btn" href="#lab">Upload a recording</a>
+          <a class="btn" href="#lab">Open the tool</a>
           <a class="btn ghost" href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.md">How it works, in full</a>
         </div>
       </div>
     </div>
-    <p class="notice"><span><strong>Research prototype, not a medical device.</strong> No clinical validation, no regulatory clearance (FDA, CE). Do not use this for diagnosis or treatment decisions.</span></p>
+    <p class="notice"><span><strong>Research software, not a medical device.</strong> An unvalidated student research prototype. Not registered with Roszdravnadzor; no FDA clearance or CE marking. Not intended for diagnosis, screening, monitoring, prognosis or treatment decisions, and must not be used in patient care.</span></p>
   </div>
 
   <!-- ===================== UPLOAD & ANALYSE ===================== -->
   <section class="block" id="lab">
     <div class="wrap">
       <div class="block-head">
-        <span class="eyebrow">Upload &amp; analyse</span>
-        <h2>Test it on a real recording</h2>
-        <p class="lede">Upload one lead of a real ECG — EDF/EDF+ or plain CSV/TXT, at least ~2 minutes long — and the browser runs the same analysis as the project's Python code. Nothing leaves your device. No file at hand? Try a synthetic example first.</p>
+        <span class="eyebrow">Research tool</span>
+        <h2>Try it on a public research recording</h2>
+        <p class="lede">Intended use: education and signal-processing research. Upload one lead of a public or properly de-identified ECG — for example from PhysioNet — as EDF/EDF+ or plain CSV/TXT, at least 1–2 minutes long. The browser runs the same analysis as the project's Python code; nothing leaves your device. Do not upload recordings that identify a person. No file at hand? Open a synthetic example below.</p>
       </div>
       <div class="lab">
-        <form class="controls" onsubmit="return false" aria-label="Patient context and recording">
+        <form class="controls" onsubmit="return false" aria-label="Recording and research metadata">
           <div class="patient">
-            <b style="font:600 13px var(--display); color:var(--ink)">Patient context</b>
+            <b style="font:600 13px var(--display); color:var(--ink)">Research metadata (optional)</b>
             <div class="row">
               <div class="ctl"><label for="p-age">Age, years</label><input type="number" id="p-age" min="0" max="120" placeholder="—"></div>
               <div class="ctl"><label for="p-sex">Sex</label><select id="p-sex"><option value="">unspecified</option><option value="male">male</option><option value="female">female</option></select></div>
             </div>
             <div class="ctl"><label for="p-dose">Cumulative doxorubicin dose, mg/m²</label><input type="number" id="p-dose" min="0" max="1200" placeholder="—"></div>
-            <span class="hint">Optional — used only for report context below, not in the T-wave alternans analysis itself.</span>
-            <p class="hint" id="p-context"></p>
+            <span class="hint">Reference, not a prediction: in one pooled analysis of 630 patients, heart failure developed in about 5% at 400 mg/m², 26% at 550 and 48% at 700 (Swain et al., Cancer 2003).</span>
+            <label class="check"><input type="checkbox" id="p-include"> Include these fields in the downloaded JSON</label>
+            <span class="hint">Never used in the analysis.</span>
           </div>
 
           <div class="file">
@@ -82,7 +83,7 @@
               </div>
               <div class="ctl"><label for="f-unit">Units</label><select id="f-unit"><option value="mv">mV</option><option value="uv">µV</option></select></div>
             </div>
-            <span class="hint" id="f-status">At least 2 minutes of recording. The file stays in your browser and is never uploaded.</span>
+            <span class="hint" id="f-status">At least 1–2 minutes of recording. The file stays in your browser and is never uploaded.</span>
           </div>
 
           <details class="demo">
@@ -121,7 +122,8 @@
         </form>
 
         <div class="panels">
-          <div class="verdict neg" id="verdict" aria-live="polite"><span class="pill">…</span><p></p></div>
+          <div class="verdict none" id="verdict" aria-live="polite"><span class="pill">No recording loaded</span><p>Upload a recording or open an example below.</p></div>
+          <p class="hint result-note">Research metric only — not a diagnosis. Not validated for detecting cardiotoxicity.</p>
           <div class="metrics">
             <div class="metric"><span class="k">Heart rate</span><span class="v" id="m-hr">—</span><span class="d" id="d-hr"></span></div>
             <div class="metric"><span class="k">V<sub>alt</sub></span><span class="v" id="m-valt">—</span><span class="d">RMS over ST-T</span></div>
@@ -153,8 +155,8 @@
             <p class="explain">Alternating every other beat is an oscillation at exactly 0.5 cycles per beat. If the right-most point rises above the grey noise band, alternans is present.</p>
           </div>
           <div class="fhir-row">
-            <button type="button" class="btn ghost" id="b-fhir" disabled>Export FHIR report</button>
-            <span class="hint">Downloads a JSON file (FHIR DiagnosticReport) with these numbers and the patient context above — saved to your device, sent nowhere.</span>
+            <button type="button" class="btn ghost" id="b-fhir" disabled>Download research JSON (FHIR format)</button>
+            <span class="hint">Research use only: a demo of the FHIR format, not a clinical record. Saved to your device, sent nowhere.</span>
           </div>
         </div>
       </div>
@@ -164,7 +166,7 @@
 
 <footer>
   <div class="wrap">
-    <span>CardioOncoPredict · podpirovlab · MIT licence</span>
+    <span>CardioOncoPredict · research software, not a medical device · MIT licence</span>
     <span><a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.md">Full write-up (physics, method, model, 3D anatomy, roadmap)</a> · <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">GitHub</a> · <a href="ru.html" hreflang="ru">Русская версия</a></span>
   </div>
 </footer>

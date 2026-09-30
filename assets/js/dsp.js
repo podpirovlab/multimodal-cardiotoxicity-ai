@@ -211,24 +211,34 @@
     }
     let m = 0;
     for (let k = 0; k < L; k++) m = Math.max(m, Math.abs(A[k] - B[k]));
-    return m / 2;
+    return m;   // full even-minus-odd difference: the scale clinical MMA cutpoints use
   }
 
-  function analyzeTWA(x, fs, nBeats = 128) {
+  // Below 64 beats the 0.44–0.49 noise band holds too few spectral bins for a usable estimate.
+  const MIN_BEATS = 64, STANDARD_BEATS = 128;
+  function analysisError(code, message, extra) {
+    return Object.assign(new Error(message), { code }, extra || {});
+  }
+
+  function analyzeTWA(x, fs, nBeats = STANDARD_BEATS) {
     const { r, xf } = detectRPeaks(x, fs);
-    if (r.length < 3) throw new Error("too few R peaks");
+    if (r.length < 3) throw analysisError("no_beats", "too few R peaks");
     const rrMed = median(r.slice(1).map((v, i) => v - r[i])) / fs;
     const hr = 60 / rrMed, scale = Math.sqrt(rrMed / 0.8);
     let beats = beatMatrix(xf, r, fs, 0.10 * scale, 0.42 * scale).slice(0, nBeats);
     if (beats.length % 2) beats = beats.slice(0, -1);
-    if (beats.length < 16) throw new Error(`need at least 16 beats, got ${beats.length}`);
+    if (beats.length < MIN_BEATS)
+      throw analysisError("too_short", `recording too short: ${beats.length} usable beats, at least ${MIN_BEATS} needed`,
+        { nBeats: beats.length, minBeats: MIN_BEATS });
     const s = spectral(beats);
+    if (!isFinite(s.k)) throw analysisError("no_noise_estimate", "noise band estimate unavailable");
     const full = beatMatrix(xf, r, fs, -0.25, 0.55).slice(0, beats.length);
     return { r, xf, hr, nBeats: beats.length, vAlt: s.vAlt, vPeak: s.vPeak, k: s.k, noise: s.noise,
              mma: mma(beats), freqs: s.freqs, P: s.P, positive: s.vAlt >= 1.9 && s.k >= 3,
              fullBeats: full, window: [0.10 * scale, 0.42 * scale] };
   }
 
-  root.CardioDSP = { rng, synth, bandpass, detectRPeaks, beatMatrix, spectral, mma, analyzeTWA, percentile };
+  root.CardioDSP = { version: "0.4.0", MIN_BEATS, STANDARD_BEATS,
+    rng, synth, bandpass, detectRPeaks, beatMatrix, spectral, mma, analyzeTWA, percentile };
   if (typeof module !== "undefined") module.exports = root.CardioDSP;
 })(typeof window !== "undefined" ? window : globalThis);
