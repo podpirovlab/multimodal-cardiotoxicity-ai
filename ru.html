@@ -8,6 +8,11 @@
 <meta property="og:title" content="CardioOncoPredict">
 <meta property="og:description" content="Открытая исследовательская программа для измерения микровольтной альтернации зубца T — проверка недоказанной гипотезы о раннем повреждении сердца антрациклинами. Не медицинское изделие.">
 <link rel="alternate" hreflang="en" href="index.html">
+<meta name="theme-color" content="#1f262e">
+<link rel="manifest" href="manifest-ru.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/fraunces-var-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/fonts.css">
 <link rel="stylesheet" href="assets/css/site.css">
 </head>
@@ -55,9 +60,10 @@
       <div class="lab">
         <form class="controls" onsubmit="return false" aria-label="Запись и исследовательские метаданные">
           <div class="file">
-            <label for="f-file"><b class="group">Загрузите ЭКГ (EDF/EDF+ или CSV/TXT, одно отведение)</b></label>
-            <input type="file" id="f-file" class="sr-only" accept=".edf,.csv,.txt,text/csv,text/plain">
-            <label for="f-file" class="btn ghost pick">Выбрать файл</label>
+            <b class="group" id="f-file-title">Загрузите ЭКГ (EDF, BDF или CSV/TXT)</b>
+            <input type="file" id="f-file" class="sr-only" accept=".edf,.bdf,.csv,.txt,text/csv,text/plain" aria-describedby="f-file-title">
+            <div class="pick-row"><label for="f-file" class="btn ghost pick">Выбрать файл</label><button type="button" class="btn ghost" id="b-sample">Открыть настоящую ЭКГ</button></div>
+            <span class="hint drop-hint">или перетащите файл сюда</span>
             <div id="f-edf-wrap" hidden>
               <div class="ctl"><label for="f-edf-channel">Канал (отведение)</label><select id="f-edf-channel"></select></div>
             </div>
@@ -164,6 +170,7 @@
             <p class="explain">Чередование через удар — это колебание с частотой ровно 0,5 цикла на удар. Если точка справа поднимается над серой полосой шума, альтернация есть.</p>
           </div>
           <div class="fhir-row">
+            <button type="button" class="btn ghost" id="b-print" disabled>Печать или PDF</button>
             <button type="button" class="btn ghost" id="b-fhir" disabled>Скачать исследовательский JSON (формат FHIR)</button>
             <span class="hint">Только для исследований: демонстрация формата FHIR, а не медицинская запись. Сохраняется на устройство, никуда не отправляется.</span>
           </div>

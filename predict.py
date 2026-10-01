@@ -4,7 +4,7 @@ Examples
 --------
     python predict.py --demo --alternans 25                   # two-minute synthetic recording
     python predict.py --wfdb data/ptb-xl/records100/00000/00001_lr --age 56 --sex female \
-                      --checkpoint runs/ptbxl/model.pt
+                      --checkpoint models/ptbxl-1.0/model.pt
     python predict.py --csv my_ecg.csv --fs 500 --lead 0      # comma-separated, one column per lead, mV
 
 TWA needs a long recording (>= 64 beats, ideally 128, i.e. about 2 minutes); a 10-second
@@ -74,6 +74,8 @@ def main(argv=None):
     ap.add_argument("--checkpoint", default=None)
     ap.add_argument("--fhir-out", default=None)
     args = ap.parse_args(argv)
+    if args.checkpoint and not Path(args.checkpoint).exists():
+        raise SystemExit(f"checkpoint not found: {args.checkpoint}")
 
     sig, fs = load_input(args)
     lead = args.lead if args.lead is not None else (10 if sig.shape[1] == 12 else 0)
@@ -89,7 +91,7 @@ def main(argv=None):
         report["twa"] = f"not computed: {exc}"
 
     probs = None
-    if args.checkpoint and Path(args.checkpoint).exists():
+    if args.checkpoint:
         probs, status = run_model(sig, fs, args.age, args.sex, args.checkpoint)
         report["model"] = probs if probs else status
 

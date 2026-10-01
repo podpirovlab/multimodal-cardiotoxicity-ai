@@ -46,3 +46,27 @@ def test_training_pipeline_runs(tmp_path):
     assert (tmp_path / "run" / "model.pt").exists()
     saved = json.loads((tmp_path / "run" / "metrics.json").read_text())
     assert 0.0 <= saved["test_macro_auc"] <= 1.0
+
+
+def test_onnx_export_matches_pytorch(tmp_path):
+    """--export-onnx writes a model that ONNX Runtime evaluates to the same logits as PyTorch."""
+    pytest.importorskip("onnx")
+    pytest.importorskip("onnxscript")
+    ort = pytest.importorskip("onnxruntime")
+    import train_ptbxl
+    from cardioonco.model import CardioOncoNet
+    make_fake_ptbxl(tmp_path / "ptb")
+    train_ptbxl.main(["--data", str(tmp_path / "ptb"), "--out", str(tmp_path / "run"), "--epochs", "1",
+                      "--batch", "16", "--width", "8", "--device", "cpu", "--export-onnx"])
+    ck = torch.load(tmp_path / "run" / "model.pt", map_location="cpu", weights_only=False)
+    net = CardioOncoNet(n_classes=len(ck["classes"]), width=ck["width"])
+    net.load_state_dict(ck["state_dict"])
+    net.eval()
+    rng = np.random.default_rng(1)
+    ecg = rng.standard_normal((3, 12, 1000)).astype(np.float32)
+    meta = rng.standard_normal((3, 3)).astype(np.float32)
+    with torch.no_grad():
+        ref = net(torch.from_numpy(ecg), torch.from_numpy(meta)).numpy()
+    sess = ort.InferenceSession(str(tmp_path / "run" / "model.onnx"))
+    out = sess.run(["logits"], {"ecg": ecg, "meta": meta})[0]
+    np.testing.assert_allclose(out, ref, rtol=1e-4, atol=1e-4)

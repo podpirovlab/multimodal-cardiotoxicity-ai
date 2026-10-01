@@ -272,10 +272,15 @@ def main(argv=None):
     if args.export_onnx:
         import inspect
         model_cpu = model.to("cpu").eval()
-        extra = {"external_data": False} if "external_data" in inspect.signature(torch.onnx.export).parameters else {}
-        torch.onnx.export(model_cpu, (torch.zeros(1, 12, 1000), torch.zeros(1, 3)), str(out / "model.onnx"),
-                          input_names=["ecg", "meta"], output_names=["logits"], opset_version=18,
-                          dynamic_axes={"ecg": {0: "batch"}, "meta": {0: "batch"}, "logits": {0: "batch"}}, **extra)
+        params = inspect.signature(torch.onnx.export).parameters
+        extra = {"external_data": False} if "external_data" in params else {}
+        if "dynamic_shapes" in params:          # torch >= 2.5 exporter: a symbolic batch dimension
+            batch = torch.export.Dim("batch")
+            extra["dynamic_shapes"] = {"ecg": {0: batch}, "meta": {0: batch}}
+        else:
+            extra["dynamic_axes"] = {"ecg": {0: "batch"}, "meta": {0: "batch"}, "logits": {0: "batch"}}
+        torch.onnx.export(model_cpu, (torch.zeros(2, 12, 1000), torch.zeros(2, 3)), str(out / "model.onnx"),
+                          input_names=["ecg", "meta"], output_names=["logits"], opset_version=18, **extra)
         np.savez(out / "norm_stats.npz", mu=mu, sd=sd)
         print(f"ONNX model -> {out / 'model.onnx'}")
     return metrics

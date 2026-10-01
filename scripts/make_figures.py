@@ -4,11 +4,15 @@ All panels are *computed* from the project's own code (cardioonco/*) or from
 standard textbook models; nothing is drawn by hand.
 
     python scripts/make_figures.py                 # both languages -> docs/figures/{en,ru}/
-    python scripts/make_figures.py --checkpoint runs/ptbxl/model.pt   # use trained weights in fig. 08
+    python scripts/make_figures.py --checkpoint runs/ptbxl/model.pt   # your own weights in figs 08-09
+
+Figures 08, 09 and 11 use the released model in models/ptbxl-1.0/ (weights and metrics files),
+so no PTB-XL download is needed to rebuild them.
 """
 from __future__ import annotations
 
 import argparse
+import locale
 import sys
 from pathlib import Path
 
@@ -21,6 +25,7 @@ from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm  # noqa: E40
 from matplotlib.patches import FancyArrowPatch, Polygon  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
+RELEASED = ROOT / "models" / "ptbxl-1.0"
 sys.path.insert(0, str(ROOT))
 from cardioonco.preprocess import bandpass, detect_r_peaks  # noqa: E402
 from cardioonco.synth import LEADS_12, SynthConfig, generate_12lead, generate_ecg, heart_vector  # noqa: E402
@@ -53,9 +58,11 @@ L = {
         qrs="QRS", a_title="a  Ventricular action potential", b_title="b  Two layers of the wall", c_title="c  What the electrode sees",
         # 02
         f2_title="Why the T wave alternates: restitution and period doubling",
-        di="diastolic interval DI, ms", apd="APD, ms", apdn="APD_n, ms", apdn1="APD_{n+1}, ms", bcl="pacing cycle length (BCL), ms",
-        rest="restitution curve APD = f(DI)", slope1="slope = 1", stable="slow pacing: converges", alt="fast pacing: 2-cycle (alternans)",
-        a2="a  Restitution curve", b2="b  Cobweb of the map APD_{n+1} = f(BCL − APD_n)", c2="c  Bifurcation diagram",
+        di="diastolic interval DI, ms", apd="APD, ms", apdn=r"$\mathrm{APD}_n$, ms", apdn1=r"$\mathrm{APD}_{n+1}$, ms",
+        bcl="pacing cycle length (BCL), ms",
+        rest="restitution curve APD = f(DI)", slope1="slope = 1", stable="slow pacing, converges", alt="fast pacing, 2-cycle (alternans)",
+        a2="a  Restitution curve", b2=r"b  Cobweb of the map $\mathrm{APD}_{n+1} = f(\mathrm{BCL} - \mathrm{APD}_n)$",
+        c2="c  Bifurcation diagram",
         d2="d  Beat-to-beat APD", danger2="alternans zone", healthy="healthy", steep="steeper restitution (injured)",
         # 03
         f3_title="The heart as a dipole: Einthoven's triangle and the 12 leads",
@@ -63,81 +70,110 @@ L = {
         loopq="QRS loop", loopt="T loop", xl3="x (patient's left), mV", yl3="y (inferior), mV", resid="II − (I + III)",
         # 04
         f4_title="Signal pipeline: raw electrode voltage → clean beats → R peaks",
-        a4="a  Raw signal: wander + 50 Hz mains + muscle noise", b4="b  Power spectrum before and after the filter",
-        c4="c  Zero-phase band-pass 0.5–40 Hz", d4="d  Pan–Tompkins: derivative² and 150 ms integration", e4="e  Detected R peaks",
+        a4="a  Raw signal: wander + 50 Hz mains + white noise", b4="b  Power spectrum before and after the filter",
+        c4="c  Zero-phase band-pass 0.5–40 Hz", d4="d  Pan–Tompkins: derivative² and 150 ms integration",
+        e4="e  {n} R peaks found, beats overlaid",
         raw="raw", filt="filtered", freq="frequency, Hz", psd="power, mV²/Hz", mwi="integrated energy", thr="adaptive threshold",
-        qrsband="QRS energy", wander="breathing drift", mains="mains 50 Hz",
+        qrsband="QRS energy", wander="breathing drift", mains="mains 50 Hz", passband="pass band\n0.5–40 Hz",
         # 05
         f5_title="T-wave alternans: the Spectral Method step by step",
         a5="a  128 aligned beats minus the mean beat", b5="b  Even (A) vs odd (B) average beats", c5="c  One ST-T point across beats",
         d5="d  Aggregate spectrum", stt="ST-T window", even="even beats A", odd="odd beats B", diffx="(A − B) × 10",
-        cpb="cycles / beat", pow="power, µV²", noiseband="noise band", altpk="alternans\n0.5 cycles/beat",
+        cpb="cycles / beat", pow="power, µV²", noiseband="noise band", altpk="alternans\n0.5 cycles/beat", bpm="bpm",
         # 06
-        f6_title="Detection map: when can alternans be measured?", alt_ax="true alternans amplitude, µV", noise_ax="muscle noise, µV (RMS)",
+        f6_title="Detection map: when can alternans be measured?", alt_ax="true alternans amplitude, µV",
+        noise_ax="white noise (a stand-in for muscle noise), µV RMS",
         kmap="K-score (log colour)", detected="TWA detected\nV_alt ≥ 1.9 µV and K ≥ 3", hidden="indeterminate:\nburied in noise",
+        grid6="dots: simulated points, median of 4 recordings each",
         # 07
         f7_title="Continuous wavelet transform (complex Morlet): where the energy sits",
         a7="a  Normal beat", b7="b  Flattened T wave (repolarisation stress)", c7="c  Difference b − a: signal and |W|", fhz="frequency, Hz",
+        wabs="|W|, arbitrary units", dwabs="|W_b| − |W_a|, arbitrary units",
         # 08
         f8_title="What happens to one ECG inside CardioOncoNet", f8_sub_untrained="(random initial weights: tensor shapes are real, values are illustrative)",
-        f8_sub_trained="(trained weights)", i8="a  Input: 12 leads × 1000 samples", s8="b  Stem conv: 32 channels × 500",
-        k8="c  Block 3: 64 × 250", l8="d  Block 5: 128 × 63", ve8="e  v_e ∈ ℝ⁶⁴ (pooled ECG embedding)",
-        vm8="f  v_m ∈ ℝ¹⁶ (age 58, female)", op8="g  v_e ⊗ v_m (64 × 16 block of 65 × 17)", out8="h  Output probabilities",
+        f8_sub_trained="(trained weights, models/ptbxl-1.0)", i8="a  Input: a synthetic 12-lead ECG, 12 × 1000 samples",
+        s8="b  Stem conv: 32 channels × 500",
+        k8="c  Block 3: 64 × 250", l8="d  Block 5: 128 × 63", ve8="e  v_e ∈ ℝ⁶⁴ (ECG embedding)",
+        vm8="f  v_m ∈ ℝ¹⁶ (age 58, female)", op8="g  v_e ⊗ v_m, 64 × 16", out8="h  Output probabilities",
         chan="channel", samp="time step",
         # 09
-        f9_title="INT8 quantisation for wearables: 4× smaller, almost the same numbers",
-        a9="a  Weights of one conv layer: float32 vs INT8", b9="b  Quantisation error", c9="c  Model size",
+        f9_title="INT8 quantisation for wearables: 4× smaller, each weight off by at most half a step",
+        a9_trained="a  Weights of one trained conv layer: float32 vs INT8", a9_init="a  Weights of one conv layer (untrained): float32 vs INT8",
+        zoom9="zoom: x → x'", b9="b  Quantisation error", c9="c  Model size",
         w="weight value", count="count", err="error, % of the step s", size="MB",
+        # 11
+        f11_title="The network on the PTB-XL test fold (2,158 ECGs)",
+        a11="a  AUC per diagnosis, with 95% CI", b11="b  With age and sex minus without (paired)",
+        auc="AUC", dauc="difference in AUC", macro="macro", published="published\nmodels [20]",
+        nometa="without age/sex", withmeta="with age/sex",
         # 10
         f10_title="Why early detection matters", a10="a  Heart failure vs cumulative doxorubicin dose (Swain et al., 2003)",
         b10="b  When is injury visible? (project hypothesis)", dose="cumulative dose, mg/m²", hf="patients with heart failure, %",
         mol="molecular\n(ROS, iron, TOP2B)", ele="electrical\n(QT, T-wave alternans)", mec="mechanical\n(LVEF ↓ on echo)",
         tgt="CardioOncoPredict\ntarget", std="standard\nmonitoring", time="time since start of chemotherapy (schematic)",
-        visible="signal\nstrength",
+        visible="signal strength",
     ),
     "ru": dict(
         t_s="время, с", mv="мВ", uv="мкВ", ms="мс", beat="номер удара", fromR="время от R-пика, с",
-        f1_title="От ионных каналов к зубцу T", ap="мембранный потенциал, мВ", ph0="0: вход Na⁺ (деполяризация)",
+        f1_title="От ионных каналов к зубцу T", ap="мембранный потенциал, мВ", ph0="0: вход Na⁺\n(деполяризация)",
         ph1="1: выход K⁺ (I_to)", ph2="2: вход Ca²⁺ ≈ выход K⁺ (плато)", ph3="3: выход K⁺ (I_Kr, I_Ks) = реполяризация",
-        ph4="4: покой (I_K1)", normal="норма", ikr="I_Kr снижен (препарат / повреждение)", endo="эндокард (ПД длиннее)",
+        ph4="4: покой (I_K1)", normal="норма", ikr="I_Kr ↓ (препарат, повреждение)", endo="эндокард (ПД длиннее)",
         epi="эпикард (ПД короче)", pseudo="псевдо-ЭКГ  ∝  V_эндо − V_эпи", twave="зубец T = трансмуральный\nградиент реполяризации",
         qrs="QRS", a_title="a  Потенциал действия желудочка", b_title="b  Два слоя стенки", c_title="c  Что видит электрод",
         f2_title="Почему зубец T чередуется: реституция и удвоение периода",
-        di="диастолический интервал DI, мс", apd="ДПД, мс", apdn="ДПД_n, мс", apdn1="ДПД_{n+1}, мс", bcl="период стимуляции (BCL), мс",
-        rest="кривая реституции ДПД = f(DI)", slope1="наклон = 1", stable="редкий ритм: сходится", alt="частый ритм: 2-цикл (альтернация)",
-        a2="a  Кривая реституции", b2="b  Лестница Ламерея для ДПД_{n+1} = f(BCL − ДПД_n)", c2="c  Бифуркационная диаграмма",
+        di="диастолический интервал DI, мс", apd="ДПД, мс", apdn=r"$\mathrm{ДПД}_n$, мс", apdn1=r"$\mathrm{ДПД}_{n+1}$, мс",
+        bcl="период стимуляции (BCL), мс",
+        rest="кривая реституции ДПД = f(DI)", slope1="наклон = 1", stable="редкий ритм, сходится", alt="частый ритм, 2-цикл (альтернация)",
+        a2="a  Кривая реституции", b2=r"b  Лестница Ламерея для $\mathrm{ДПД}_{n+1} = f(\mathrm{BCL} - \mathrm{ДПД}_n)$",
+        c2="c  Бифуркационная диаграмма",
         d2="d  ДПД от удара к удару", danger2="зона альтернации", healthy="здоровая ткань", steep="более крутая реституция (повреждение)",
         f3_title="Сердце как диполь: треугольник Эйнтховена и 12 отведений",
         a3="a  Векторная петля во фронтальной плоскости", b3="b  Отведения — проекции одного вектора", c3="c  Закон Эйнтховена выполняется точно",
         loopq="петля QRS", loopt="петля T", xl3="x (влево от пациента), мВ", yl3="y (вниз), мВ", resid="II − (I + III)",
         f4_title="Обработка сигнала: напряжение электрода → чистые удары → R-пики",
-        a4="a  Сырой сигнал: дрейф + сеть 50 Гц + мышечный шум", b4="b  Спектр мощности до и после фильтра",
-        c4="c  Фильтр 0,5–40 Гц без сдвига фазы", d4="d  Пан–Томпкинс: производная² и интегрирование 150 мс", e4="e  Найденные R-пики",
+        a4="a  Сырой сигнал: дрейф + сеть 50 Гц + белый шум", b4="b  Спектр мощности до и после фильтра",
+        c4="c  Фильтр 0,5–40 Гц без сдвига фазы", d4="d  Пан–Томпкинс: производная² и интегрирование 150 мс",
+        e4="e  Найдено R-пиков: {n}, удары наложены",
         raw="сырой", filt="после фильтра", freq="частота, Гц", psd="мощность, мВ²/Гц", mwi="интегр. энергия", thr="адаптивный порог",
-        qrsband="энергия QRS", wander="дыхательный дрейф", mains="сеть 50 Гц",
+        qrsband="энергия QRS", wander="дыхательный дрейф", mains="сеть 50 Гц", passband="полоса\n0,5–40 Гц",
         f5_title="Альтернация зубца T: спектральный метод шаг за шагом",
         a5="a  128 выровненных ударов минус средний удар", b5="b  Средние чётные (A) и нечётные (B) удары", c5="c  Одна точка ST-T по ударам",
         d5="d  Суммарный спектр", stt="окно ST-T", even="чётные удары A", odd="нечётные удары B", diffx="(A − B) × 10",
-        cpb="циклы / удар", pow="мощность, мкВ²", noiseband="полоса шума", altpk="альтернация\n0,5 цикла/удар",
-        f6_title="Карта обнаружения: когда альтернацию можно измерить?", alt_ax="истинная амплитуда альтернации, мкВ", noise_ax="мышечный шум, мкВ (RMS)",
+        cpb="циклы / удар", pow="мощность, мкВ²", noiseband="полоса шума", altpk="альтернация\n0,5 цикла/удар", bpm="уд/мин",
+        f6_title="Карта обнаружения: когда альтернацию можно измерить?", alt_ax="истинная амплитуда альтернации, мкВ",
+        noise_ax="белый шум (вместо мышечного), мкВ RMS",
         kmap="K-score (лог. шкала)", detected="TWA обнаружена\nV_alt ≥ 1,9 мкВ и K ≥ 3", hidden="неопределённо:\nтонет в шуме",
+        grid6="точки — смоделированные условия, медиана по 4 записям",
         f7_title="Непрерывное вейвлет-преобразование (комплексный Морле): где сосредоточена энергия",
         a7="a  Нормальный удар", b7="b  Уплощённый зубец T (стресс реполяризации)", c7="c  Разность b − a: сигнал и |W|", fhz="частота, Гц",
+        wabs="|W|, усл. ед.", dwabs="|W_b| − |W_a|, усл. ед.",
         f8_title="Что происходит с одной ЭКГ внутри CardioOncoNet", f8_sub_untrained="(случайные начальные веса: размерности настоящие, значения иллюстративные)",
-        f8_sub_trained="(обученные веса)", i8="a  Вход: 12 отведений × 1000 отсчётов", s8="b  Первая свёртка: 32 канала × 500",
-        k8="c  Блок 3: 64 × 250", l8="d  Блок 5: 128 × 63", ve8="e  v_e ∈ ℝ⁶⁴ (вектор ЭКГ после пулинга)",
-        vm8="f  v_m ∈ ℝ¹⁶ (58 лет, женщина)", op8="g  v_e ⊗ v_m (блок 64 × 16 из 65 × 17)", out8="h  Выходные вероятности",
+        f8_sub_trained="(обученные веса, models/ptbxl-1.0)", i8="a  Вход: синтетическая 12-канальная ЭКГ, 12 × 1000 отсчётов",
+        s8="b  Первая свёртка: 32 канала × 500",
+        k8="c  Блок 3: 64 × 250", l8="d  Блок 5: 128 × 63", ve8="e  v_e ∈ ℝ⁶⁴ (вектор ЭКГ)",
+        vm8="f  v_m ∈ ℝ¹⁶ (58 лет, женщина)", op8="g  v_e ⊗ v_m, 64 × 16", out8="h  Выходные вероятности",
         chan="канал", samp="шаг времени",
-        f9_title="INT8-квантование для носимых устройств: в 4 раза меньше, числа почти те же",
-        a9="a  Веса одного свёрточного слоя: float32 и INT8", b9="b  Ошибка квантования", c9="c  Размер модели",
+        f9_title="INT8-квантование для носимых устройств: в 4 раза меньше, каждый вес сдвигается не больше чем на полшага",
+        a9_trained="a  Веса одного обученного свёрточного слоя: float32 и INT8",
+        a9_init="a  Веса одного свёрточного слоя (без обучения): float32 и INT8",
+        zoom9="увеличено: x → x'", b9="b  Ошибка квантования", c9="c  Размер модели",
         w="значение веса", count="количество", err="ошибка, % от шага s", size="МБ",
+        f11_title="Сеть на тестовом фолде PTB-XL (2158 ЭКГ)",
+        a11="a  AUC по диагнозам, с 95 % ДИ", b11="b  С возрастом и полом минус без них (парно)",
+        auc="AUC", dauc="разница AUC", macro="среднее", published="опубликованные\nмодели [20]",
+        nometa="без возраста и пола", withmeta="с возрастом и полом",
         f10_title="Почему важно раннее выявление", a10="a  Сердечная недостаточность и кумулятивная доза доксорубицина (Swain et al., 2003)",
         b10="b  Когда повреждение становится видно? (гипотеза проекта)", dose="кумулятивная доза, мг/м²", hf="пациентов с СН, %",
         mol="молекулярный\n(АФК, железо, TOP2B)", ele="электрический\n(QT, альтернация T)", mec="механический\n(ФВ ЛЖ ↓ на ЭхоКГ)",
         tgt="цель\nCardioOncoPredict", std="стандартный\nконтроль", time="время от начала химиотерапии (схема)",
-        visible="сила\nсигнала",
+        visible="сила сигнала",
     ),
 }
+
+
+def dec(lang: str, s: str) -> str:
+    """Decimal comma in Russian figures (0,5 rather than 0.5)."""
+    return s.replace(".", ",") if lang == "ru" else s
 
 
 def save(fig, out: Path, name: str):
@@ -187,7 +223,7 @@ def fig01(lang, out):
     ax[0].annotate("", xy=(310, -60), xytext=(250, -60), arrowprops=dict(arrowstyle="->", color=RED, lw=1.5))
     ax[0].text(262, -56, "ΔAPD", color=RED, fontsize=9)
     ax[0].set(title=T["a_title"], xlabel=T["ms"], ylabel=T["ap"], ylim=(-95, 45))
-    ax[0].legend(loc="lower left")
+    ax[0].legend(loc="lower left", bbox_to_anchor=(0.12, 0.0))   # clear of the resting line at -85 mV
 
     v_endo = action_potential(t, 280, t0=10)
     v_epi = action_potential(t, 240, t0=18)
@@ -195,7 +231,7 @@ def fig01(lang, out):
     ax[1].plot(t, v_epi, color=RED, lw=2, label=T["epi"])
     ax[1].fill_between(t, v_endo, v_epi, where=(t > 150), color=DANGER, lw=0)
     ax[1].set(title=T["b_title"], xlabel=T["ms"], ylim=(-95, 45))
-    ax[1].legend(loc="lower left")
+    ax[1].legend(loc="upper right")
 
     pseudo = v_endo - v_epi
     ecg_paper(ax[2], (-50, 500), (-60, 140), major_x=100, major_y=50)
@@ -233,7 +269,7 @@ def fig02(lang, out):
     slope = 200 / 55 * np.exp(-di / 55)
     d1 = di[np.argmin(np.abs(slope - 1))]
     ax[0, 0].axvspan(0, d1, color=DANGER, lw=0)
-    ax[0, 0].text(d1 * 0.5, 80, T["danger2"], ha="center", color=RED, fontsize=9)
+    ax[0, 0].text(d1 * 0.5, 262, T["danger2"], ha="center", color=RED, fontsize=9)
     x = np.linspace(d1 - 40, d1 + 40, 10)
     ax[0, 0].plot(x, restitution(d1) + (x - d1), color=MUTED, lw=1, ls=":", label=T["slope1"])
     ax[0, 0].set(title=T["a2"], xlabel=T["di"], ylabel=T["apd"], xlim=(0, 400), ylim=(40, 280))
@@ -242,7 +278,7 @@ def fig02(lang, out):
     a = np.linspace(60, 300, 400)
     ax[0, 1].plot(a, a, color=LINE, lw=1)
     for bcl, col, lab in [(420, BLUE, T["stable"]), (270, RED, T["alt"])]:
-        ax[0, 1].plot(a, restitution(np.clip(bcl - a, 1, None)), color=col, lw=2, label=f"BCL {bcl} {T['ms']}: {lab}")
+        ax[0, 1].plot(a, restitution(np.clip(bcl - a, 1, None)), color=col, lw=2, label=f"BCL {bcl} {T['ms']}, {lab}")
         seq = iterate(bcl, n=40, apd0=150)
         xs, ys = [seq[0]], [seq[0]]
         for k in range(len(seq) - 1):
@@ -253,11 +289,9 @@ def fig02(lang, out):
     ax[0, 1].legend(loc="upper left")
 
     bcls = np.linspace(258, 480, 500)
-    for b in bcls:
-        seq = iterate(b, n=400)[-40:]
-        ax[1, 0].plot(np.full(len(seq), b), seq, ",", color=INK, alpha=0.6, ms=1)
-        ax[1, 0].plot([b, b], [seq.min(), seq.max()], color=INK, lw=0.4, alpha=0.4)
-    alt_b = [b for b in bcls if np.ptp(iterate(b, n=400)[-20:]) > 1]
+    tails = {b: iterate(b, n=400)[-40:] for b in bcls}   # the attractor: 1 value, or 2 under alternans
+    ax[1, 0].scatter(np.repeat(bcls, 40), np.concatenate([tails[b] for b in bcls]), s=1.5, color=INK, lw=0)
+    alt_b = [b for b in bcls if np.ptp(tails[b][-20:]) > 1]
     if alt_b:
         ax[1, 0].axvspan(min(alt_b), max(alt_b), color=DANGER, lw=0)
         ax[1, 0].text(np.mean(alt_b), 262, T["danger2"], ha="center", color=RED, fontsize=9)
@@ -267,8 +301,8 @@ def fig02(lang, out):
     for bcl, col in [(420, BLUE), (270, RED)]:
         seq = iterate(bcl, n=30, apd0=150)
         ax[1, 1].plot(np.arange(len(seq)), seq, "o-", color=col, ms=4, lw=1.2, label=f"BCL {bcl} {T['ms']}")
-    ax[1, 1].set(title=T["d2"], xlabel=T["beat"], ylabel=T["apd"])
-    ax[1, 1].legend()
+    ax[1, 1].set(title=T["d2"], xlabel=T["beat"], ylabel=T["apd"], ylim=(135, 285))
+    ax[1, 1].legend(loc="upper right", ncol=2)
     fig.suptitle(T["f2_title"], x=0.01, ha="left", fontsize=14, fontweight="bold", y=1.0)
     fig.tight_layout()
     save(fig, out, "02_restitution_alternans.png")
@@ -293,7 +327,8 @@ def fig03(lang, out):
         v = np.array([np.cos(np.radians(ang)), np.sin(np.radians(ang))]) * 1.45
         ax0.add_patch(FancyArrowPatch((0, 0), tuple(v), arrowstyle="-|>", mutation_scale=10, color=BLUE, lw=1))
         ax0.text(*(v * 1.1), name, color=BLUE, ha="center", va="center", fontsize=9, fontweight="bold")
-    ax0.set(title=T["a3"], xlim=(-1.9, 1.9), ylim=(1.9, -1.2), aspect="equal", xlabel=T["xl3"], ylabel=T["yl3"])
+    ax0.set(title=T["a3"], xlim=(-1.9, 1.9), ylim=(1.9, -1.2), xlabel=T["xl3"], ylabel=T["yl3"])
+    ax0.set_aspect("equal", adjustable="datalim")   # keeps the panel as tall as its neighbours
     ax0.legend(loc="lower left")
 
     from cardioonco.synth import dipole_to_12lead
@@ -340,6 +375,7 @@ def fig04(lang, out):
     b.axvspan(0.5, 40, color=(29 / 255, 122 / 255, 79 / 255, 0.08), lw=0)
     b.axvspan(5, 25, color=DANGER, lw=0)
     b.text(12, p.max() * 0.3, T["qrsband"], color=RED, fontsize=9)
+    b.text(0.55, p2.max() * 3e-8, T["passband"], color=GREEN, fontsize=8.5)
     b.annotate(T["wander"], (0.25, p[np.argmin(np.abs(f - 0.25))]), xytext=(3, p.max() * 3), fontsize=8.5,
                arrowprops=dict(arrowstyle="->", color=MUTED))
     b.annotate(T["mains"], (50, p[np.argmin(np.abs(f - 50))]), xytext=(60, p.max() * 0.5), fontsize=8.5,
@@ -363,7 +399,7 @@ def fig04(lang, out):
     dd.plot(t[win], e[win] / e.max(), color=MUTED, lw=0.8, label="d[n]²")
     dd.plot(t[win], mwi[win] / mwi.max(), color=BLUE, lw=1.8, label=T["mwi"])
     dd.axhline(thr / mwi.max(), color=RED, ls="--", lw=1.2, label=T["thr"])
-    dd.set(title=T["d4"], xlabel=T["t_s"], xlim=(2, 7))
+    dd.set(title=T["d4"], xlabel=T["t_s"], xlim=(2, 7), ylim=(0, 1.22))
     dd.legend(loc="upper right", ncol=3)
     ee = fig.add_subplot(gs[2, 1])
     beats = beat_matrix(xf, r, fs, -0.25, 0.55)
@@ -372,7 +408,7 @@ def fig04(lang, out):
         ee.plot(tb, row, color=INK, lw=0.5, alpha=0.25)
     ee.plot(tb, beats.mean(0), color=RED, lw=2)
     ee.axvline(0, color=RED, lw=0.8, ls=":")
-    ee.set(title=f"{T['e4']}: {len(r)}", xlabel=T["fromR"], ylabel=T["mv"])
+    ee.set(title=T["e4"].format(n=len(r)), xlabel=T["fromR"], ylabel=T["mv"])
     fig.suptitle(T["f4_title"], x=0.01, ha="left", fontsize=14, fontweight="bold", y=0.96)
     save(fig, out, "04_signal_pipeline.png")
 
@@ -381,11 +417,13 @@ def fig04(lang, out):
 def fig05(lang, out):
     T = L[lang]
     fs = 500
-    _, x, _ = generate_ecg(SynthConfig(fs=fs, alternans_uv=15, noise_uv=8, heart_rate=90, hrv_std=0.004, t_amp=0.28, seed=11))
+    _, x, _ = generate_ecg(SynthConfig(fs=fs, n_beats=130, alternans_uv=15, noise_uv=8, heart_rate=90, hrv_std=0.004,
+                                       t_amp=0.28, seed=11))
     res = analyze(x, fs)
     xf = bandpass(x, fs)
     r = align_beats(xf, detect_r_peaks(x, fs), fs)     # as in the analysis: beats superimposed on the QRS
-    B = beat_matrix(xf, r, fs, -0.25, 0.55)[:128]
+    # the first and last beats of the recording touch its edges, where the filter has not settled
+    B = beat_matrix(xf, r, fs, -0.25, 0.55)[1:-1][:128]
     tb = np.arange(B.shape[1]) / fs - 0.25
     rr = 60 / res.heart_rate_bpm
     sc = np.sqrt(rr / 0.8)
@@ -421,7 +459,7 @@ def fig05(lang, out):
     s = (B[:, kbest] - B[:, kbest].mean()) * 1000
     c.bar(np.arange(len(s)), s, color=[BLUE if i % 2 == 0 else RED for i in range(len(s))], width=0.8)
     c.axhline(0, color=INK, lw=0.6)
-    c.set(title=f"{T['c5']} (t = {tb[kbest]:.3f} {T['t_s'].split(', ')[-1]})", xlabel=T["beat"], ylabel=T["uv"], xlim=(-1, len(s)))
+    c.set(title=f"{T['c5']} (t = {dec(lang, f'{tb[kbest]:.3f}')} {T['t_s'].split(', ')[-1]})", xlabel=T["beat"], ylabel=T["uv"], xlim=(-1, len(s)))
     d = fig.add_subplot(gs[1, 1])
     f, P = np.array(res.spectrum_f), np.array(res.spectrum_p_uv2)
     d.axvspan(0.44, 0.49, color=(31 / 255, 90 / 255, 166 / 255, 0.12), lw=0, label=T["noiseband"])
@@ -429,7 +467,8 @@ def fig05(lang, out):
     d.plot(0.5, P[-1], "o", color=RED, ms=9)
     d.annotate(T["altpk"], (0.5, P[-1]), xytext=(0.33, P[-1] * 0.6), color=RED, fontsize=9,
                arrowprops=dict(arrowstyle="->", color=RED))
-    d.text(0.02, 0.95, f"V_alt = {res.v_alt_uv:.1f} µV   K = {res.k_score:.0f}\nMMA = {res.mma_uv:.1f} µV   HR = {res.heart_rate_bpm:.0f}",
+    d.text(0.02, 0.95, dec(lang, f"V_alt = {res.v_alt_uv:.1f} {T['uv']}   K = {res.k_score:.0f}\n"
+                                 f"MMA   = {res.mma_uv:.1f} {T['uv']}  HR = {res.heart_rate_bpm:.0f} {T['bpm']}"),
            transform=d.transAxes, va="top", family="DejaVu Sans Mono", fontsize=9.5,
            bbox=dict(boxstyle="round,pad=0.4", fc="white", ec=LINE))
     d.set(title=T["d5"], xlabel=T["cpb"], ylabel=T["pow"], xlim=(0, 0.51))
@@ -476,14 +515,18 @@ def fig06(lang, out):
     cs = ax.contour(alts, noises, Ks, levels=[3], colors=[INK], linewidths=2.2)
     ax.clabel(cs, fmt={3: "K = 3"}, fontsize=9)
     cv = ax.contour(alts, noises, Vs, levels=[1.9], colors=[BLUE], linewidths=1.6, linestyles="--")
-    ax.clabel(cv, fmt={1.9: "V_alt = 1.9"}, fontsize=9)
+    ax.clabel(cv, fmt={1.9: dec(lang, "V_alt = 1.9")}, fontsize=9)
+    gx, gy = np.meshgrid(alts, noises)
+    ax.scatter(gx, gy, s=6, color=INK, alpha=0.35, lw=0)
+    ax.text(29.6, 97, T["grid6"], color=INK, fontsize=8, ha="right", va="top",
+            bbox=dict(boxstyle="round,pad=0.25", fc="white", ec=LINE, alpha=0.9))
     ax.text(21, 18, T["detected"], color="white", fontsize=11, fontweight="bold", ha="center")
     ax.text(2.2, 88, T["hidden"], color=INK, fontsize=10, ha="center",
             bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=LINE))
     cb = fig.colorbar(im, ax=ax, pad=0.01)
     cb.set_label(T["kmap"])
     cb.set_ticks([-1, 0, 1, 2, 3])
-    cb.set_ticklabels(["0.1", "1", "10", "100", "1000"])
+    cb.set_ticklabels([dec(lang, "0.1"), "1", "10", "100", "1000"])
     ax.set(xlabel=T["alt_ax"], ylabel=T["noise_ax"], title=T["f6_title"])
     ax.grid(False)
     save(fig, out, "06_detection_map.png")
@@ -499,31 +542,38 @@ def fig07(lang, out):
     seg = slice(ra[1] - int(0.35 * fs), ra[1] + int(0.6 * fs))
     xa, xb = xa[seg], xb[seg]
     t = np.arange(len(xa)) / fs - 0.35
+    # one beat on a flat baseline: the segment starts and ends at the isoelectric line, so it is padded
+    # with zeros; otherwise the slow wavelets would see the cut edges, or the neighbouring beats
+    # (the heart rate and its harmonics would then show up as horizontal bands)
+    pad = 2 * fs
     freqs = np.geomspace(0.8, 60, 80)
     wav = "cmor1.5-1.0"
     scales = pywt.central_frequency(wav) * fs / freqs
-    Wa = np.abs(pywt.cwt(xa, scales, wav, sampling_period=1 / fs)[0])
-    Wb = np.abs(pywt.cwt(xb, scales, wav, sampling_period=1 / fs)[0])
-    fig, ax = plt.subplots(2, 3, figsize=(15, 6.5), gridspec_kw={"height_ratios": [1, 2.2]}, sharex=True)
+    Wa = np.abs(pywt.cwt(np.pad(xa, pad), scales, wav, sampling_period=1 / fs)[0])[:, pad:-pad]
+    Wb = np.abs(pywt.cwt(np.pad(xb, pad), scales, wav, sampling_period=1 / fs)[0])[:, pad:-pad]
+    fig, ax = plt.subplots(2, 3, figsize=(15, 6.5), gridspec_kw={"height_ratios": [1, 2.2]}, sharex=True,
+                           layout="constrained")
     vmax = max(Wa.max(), Wb.max())
     for j, (x, W, ttl) in enumerate([(xa, Wa, T["a7"]), (xb, Wb, T["b7"])]):
         ecg_paper(ax[0, j], (t[0], t[-1]), (-0.4, 1.4), major_y=0.5)
         ax[0, j].plot(t, x, color=INK, lw=1.4)
         ax[0, j].set_title(ttl)
-        ax[1, j].pcolormesh(t, freqs, W, cmap=CMAP_SEQ, vmin=0, vmax=vmax, shading="auto")
+        im = ax[1, j].pcolormesh(t, freqs, W, cmap=CMAP_SEQ, vmin=0, vmax=vmax, shading="auto")
         ax[1, j].set(yscale="log", ylabel=T["fhz"] if j == 0 else None, xlabel=T["fromR"])
         ax[1, j].grid(False)
+    fig.colorbar(im, ax=ax[1, :2].tolist(), pad=0.01, aspect=30, label=T["wabs"])   # one scale for a and b
     ax[0, 2].plot(t, xb - xa, color=RED, lw=1.4)
     ax[0, 2].set_title(T["c7"])
     dW = Wb - Wa
     lim = np.abs(dW).max()
-    ax[1, 2].pcolormesh(t, freqs, dW, cmap=CMAP_DIV, norm=TwoSlopeNorm(0, -lim, lim), shading="auto")
+    imd = ax[1, 2].pcolormesh(t, freqs, dW, cmap=CMAP_DIV, norm=TwoSlopeNorm(0, -lim, lim), shading="auto")
+    fig.colorbar(imd, ax=ax[1, 2], pad=0.01, aspect=30, label=T["dwabs"])
     ax[1, 2].set(yscale="log", xlabel=T["fromR"])
     ax[1, 2].grid(False)
     for a in ax[1]:
         a.axvspan(0.1, 0.42, color=(1, 1, 1, 0), ec=INK, ls="--", lw=1)
-    fig.suptitle(T["f7_title"], x=0.01, ha="left", fontsize=14, fontweight="bold", y=1.02)
-    fig.tight_layout()
+        a.text(0.26, 50, L[lang]["stt"], ha="center", va="top", fontsize=8.5, color=INK)
+    fig.suptitle(T["f7_title"], x=0.01, ha="left", fontsize=14, fontweight="bold")
     save(fig, out, "07_cwt_scalogram.png")
 
 
@@ -563,7 +613,7 @@ def fig08(lang, out, checkpoint=None):
     for h in hooks:
         h.remove()
     fig = plt.figure(figsize=(16, 11))
-    gs = fig.add_gridspec(3, 4, height_ratios=[1.25, 1, 1], hspace=0.5, wspace=0.42)
+    gs = fig.add_gridspec(3, 4, height_ratios=[1.25, 1, 1], hspace=0.5, wspace=0.5)
     a = fig.add_subplot(gs[0, :2])
     tt = np.arange(1000) / 100
     for i in range(12):
@@ -590,41 +640,59 @@ def fig08(lang, out, checkpoint=None):
     d.grid(False)
     e = fig.add_subplot(gs[2, 3])
     cls = ["NORM", "MI", "STTC", "CD", "HYP"]
-    e.barh(cls[::-1], probs[::-1], color=[RED if c == "STTC" else MUTED for c in cls[::-1]])
+    e.barh(cls[::-1], probs[::-1], color=MUTED)   # red is kept for findings; this is a synthetic input
     e.set(title=T["out8"], xlim=(0, 1))
     for i, p in enumerate(probs[::-1]):
-        e.text(p + 0.02, i, f"{p:.2f}", va="center", fontsize=9)
-    fig.suptitle(f"{T['f8_title']}  {sub}", x=0.01, ha="left", fontsize=14, fontweight="bold", y=0.95)
+        e.text(p + 0.02, i, dec(lang, f"{p:.2f}"), va="center", fontsize=9)
+    fig.suptitle(f"{T['f8_title']} {sub}", x=0.01, ha="left", fontsize=14, fontweight="bold", y=0.95)
     save(fig, out, "08_network_dataflow.png")
 
 
 # ============================================================================ 09
-def fig09(lang, out):
+def fig09(lang, out, checkpoint=None):
     import torch
     from cardioonco.model import CardioOncoNet, count_parameters
     T = L[lang]
     torch.manual_seed(0)
     net = CardioOncoNet()
-    w = net.ecg_encoder.blocks[3].body[0].weight.detach().numpy().ravel()
+    title_a = T["a9_init"]
+    if checkpoint and Path(checkpoint).exists():
+        ck = torch.load(checkpoint, map_location="cpu", weights_only=False)
+        net = CardioOncoNet(n_classes=len(ck["classes"]), width=ck["width"])
+        net.load_state_dict(ck["state_dict"])
+        title_a = T["a9_trained"]
+    w = net.ecg_encoder.blocks[3].body[0].weight.detach().numpy().ravel().astype(np.float64)
     lo, hi = w.min(), w.max()
     s = (hi - lo) / 255
     z = np.round(-lo / s)
     q = np.clip(np.round(w / s) + z, 0, 255)
     wq = (q - z) * s
     fig, ax = plt.subplots(1, 3, figsize=(15, 4.2), gridspec_kw={"width_ratios": [1.5, 1, 0.8]})
-    ax[0].hist(w, bins=120, color=MUTED, alpha=0.6, label="float32")
-    ax[0].hist(wq, bins=120, color=RED, histtype="step", lw=1.3, label="INT8 → float")
-    ax[0].set(title=T["a9"], xlabel=T["w"], ylabel=T["count"])
-    ax[0].legend()
+    # bins two quantisation steps wide, with edges halfway between levels: each bin holds exactly
+    # two INT8 levels, so the histograms can be compared without aliasing between bins and levels
+    edges = (np.arange(-1, 257, 2) + 0.5 - z) * s
+    ax[0].hist(w, bins=edges, color=MUTED, alpha=0.6, label="float32")
+    ax[0].hist(wq, bins=edges, color=RED, histtype="step", lw=1.3, label="INT8 → float")
+    ax[0].set(title=title_a, xlabel=T["w"], ylabel=T["count"])
+    ax[0].legend(loc="upper right")
     ax[0].text(0.02, 0.95, "q  = round(x / s) + z\nx' = (q − z)·s\ns  = (max − min) / 255", transform=ax[0].transAxes,
                va="top", family="DejaVu Sans Mono", fontsize=9, bbox=dict(boxstyle="round", fc="white", ec=LINE))
+    zoom = ax[0].inset_axes([0.66, 0.36, 0.31, 0.42])   # the staircase x -> x' over a few steps
+    xs = np.linspace(-3 * s, 3 * s, 400)
+    zoom.plot(xs / s, xs / s, color=MUTED, lw=1, ls=":")
+    zoom.plot(xs / s, (np.round(xs / s + z) - z), color=RED, lw=1.5)
+    zoom.set(xticks=[-2, 0, 2], yticks=[-2, 0, 2], title=T["zoom9"])
+    zoom.set_xlabel("x / s", fontsize=7, labelpad=1)
+    zoom.set_ylabel("x' / s", fontsize=7, labelpad=1)
+    zoom.title.set_fontsize(8)
+    zoom.tick_params(labelsize=7)
     ax[1].hist((w - wq) / s * 100, bins=60, color=BLUE, alpha=0.8)
     ax[1].set(title=T["b9"], xlabel=T["err"])
     n = count_parameters(net)
     sizes = [n * 4 / 1e6, n / 1e6]
     ax[2].bar(["float32", "INT8"], sizes, color=[MUTED, RED], width=0.6)
     for i, v in enumerate(sizes):
-        ax[2].text(i, v + 0.05, f"{v:.2f} {T['size']}", ha="center", fontsize=10, fontweight="bold")
+        ax[2].text(i, v + 0.05, dec(lang, f"{v:.2f}") + f" {T['size']}", ha="center", fontsize=10, fontweight="bold")
     ax[2].set(title=T["c9"], ylabel=T["size"], ylim=(0, sizes[0] * 1.25))
     fig.suptitle(T["f9_title"], x=0.01, ha="left", fontsize=14, fontweight="bold", y=1.04)
     fig.tight_layout()
@@ -656,21 +724,72 @@ def fig10(lang, out):
     save(fig, out, "10_clinical_motivation.png")
 
 
+# ============================================================================ 11
+def fig11(lang, out, run=RELEASED):
+    """Test-fold AUCs of the released model and the paired age/sex ablation, from its JSON files."""
+    import json
+    T = L[lang]
+    m = json.loads((run / "metrics.json").read_text())
+    mn = json.loads((run / "metrics_nometa.json").read_text())
+    cmp_ = json.loads((run / "comparison_meta_vs_nometa.json").read_text())
+    cls = ["NORM", "MI", "STTC", "CD", "HYP"]
+    y = np.arange(len(cls))[::-1] + 1.0
+    num = lambda v: dec(lang, f"{v:.3f}")  # noqa: E731
+    fig, ax = plt.subplots(1, 2, figsize=(14, 4.6), gridspec_kw={"width_ratios": [1.15, 1]})
+    a = ax[0]
+    for k, (yi, c) in enumerate(zip(y, cls)):
+        v = m["per_class"][c]
+        a.plot(v["auc_ci95"], [yi, yi], color=INK, lw=2)
+        a.plot(v["auc"], yi, "o", color=INK, ms=7, label=T["withmeta"] if k == 0 else None)
+        a.plot(mn["per_class"][c]["auc"], yi - 0.22, "o", mfc="white", mec=MUTED, ms=6, label=T["nometa"] if k == 0 else None)
+        a.text(0.968, yi, num(v["auc"]), va="center", fontsize=9)
+    a.axhspan(-0.45, 0.45, xmin=0, xmax=1, color="#f4f2f0", lw=0)
+    a.fill_betweenx([-0.45, 0.45], 0.92, 0.93, color=(31 / 255, 90 / 255, 166 / 255, 0.18), lw=0)   # macro row only
+    a.plot(m["test_macro_auc"], 0, "D", color=INK, ms=7)
+    a.plot(mn["test_macro_auc"], -0.22, "D", mfc="white", mec=MUTED, ms=6)
+    a.text(0.968, 0, num(m["test_macro_auc"]), va="center", fontsize=9, fontweight="bold")
+    a.text(0.9315, 0.05, T["published"], color=BLUE, fontsize=7.5, va="center")
+    a.set(yticks=list(y) + [0], yticklabels=cls + [T["macro"]], xlim=(0.86, 0.985), ylim=(-0.7, 5.6),
+          xlabel=T["auc"], title=T["a11"])
+    a.legend(loc="upper left", fontsize=8)
+    b = ax[1]
+    rows = [(c, cmp_["per_class"][c]["diff"], cmp_["per_class"][c]["ci95"]) for c in cls]
+    rows.append((T["macro"], cmp_["macro_auc_diff"], cmp_["macro_ci95"]))
+    yb = np.arange(len(rows))[::-1].astype(float)
+    b.axvline(0, color=INK, lw=1)
+    for yi, (c, d, ci) in zip(yb, rows):
+        b.plot(ci, [yi, yi], color=MUTED, lw=2)
+        b.plot(d, yi, "D" if c == T["macro"] else "o", color=INK, ms=7)
+    b.axhspan(-0.45, 0.45, color="#f4f2f0", lw=0)
+    lim = max(abs(v) for _, _, ci in rows for v in ci) * 1.25
+    b.set(yticks=yb, yticklabels=[r[0] for r in rows], xlim=(-lim, lim), ylim=(-0.7, 5.6), xlabel=T["dauc"], title=T["b11"])
+    fig.suptitle(T["f11_title"], x=0.01, ha="left", fontsize=14, fontweight="bold", y=1.03)
+    fig.tight_layout()
+    save(fig, out, "11_ptbxl_results.png")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lang", nargs="+", default=["en", "ru"])
     ap.add_argument("--only", nargs="*", default=None, help="e.g. 05 06")
-    ap.add_argument("--checkpoint", default=None)
+    ap.add_argument("--checkpoint", default=str(RELEASED / "model.pt"),
+                    help="weights for figures 08 and 09 (default: the released model)")
     args = ap.parse_args()
     figs = {"01": fig01, "02": fig02, "03": fig03, "04": fig04, "05": fig05, "06": fig06,
-            "07": fig07, "08": fig08, "09": fig09, "10": fig10}
+            "07": fig07, "08": fig08, "09": fig09, "10": fig10, "11": fig11}
     for lang in args.lang:
         out = ROOT / "docs" / "figures" / lang
         print(f"[{lang}]")
+        # tick labels with a decimal comma in Russian; if the system lacks the locale, points stay
+        try:
+            locale.setlocale(locale.LC_NUMERIC, "ru_RU.UTF-8" if lang == "ru" else "C")
+            plt.rcParams["axes.formatter.use_locale"] = lang == "ru"
+        except locale.Error:
+            plt.rcParams["axes.formatter.use_locale"] = False
         for k, fn in figs.items():
             if args.only and k not in args.only:
                 continue
-            fn(lang, out, args.checkpoint) if k == "08" else fn(lang, out)
+            fn(lang, out, args.checkpoint) if k in ("08", "09") else fn(lang, out)
 
 
 if __name__ == "__main__":

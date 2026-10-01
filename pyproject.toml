@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
-authors = [{ name = "podpirovlab" }]
+authors = [{ name = "Petr Podpirov" }]
 keywords = ["ECG", "T-wave alternans", "cardio-oncology", "signal processing", "FHIR"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -23,11 +23,11 @@ dependencies = ["numpy>=1.24", "scipy>=1.10"]
 
 [project.optional-dependencies]
 model = ["torch>=2.1"]                                            # cardioonco/model.py
-train = ["torch>=2.1", "pandas", "scikit-learn", "wfdb", "matplotlib"]   # train_ptbxl.py
+train = ["torch>=2.1", "pandas", "scikit-learn", "wfdb", "matplotlib", "onnx", "onnxscript"]   # train_ptbxl.py
 data = ["wfdb"]                                                   # predict.py --wfdb, scripts/validate_twadb.py
 app = ["gradio>=4.36", "matplotlib"]                              # app.py
 figures = ["matplotlib", "PyWavelets", "torch>=2.1"]              # scripts/make_figures.py
-dev = ["pytest", "pyedflib"]
+dev = ["pytest", "pyedflib", "onnxruntime"]
 
 [project.urls]
 Homepage = "https://podpirovlab.github.io/multimodal-cardiotoxicity-ai/"

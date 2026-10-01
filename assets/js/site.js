@@ -10,9 +10,11 @@
       pos: "Критерий альтернации выполнен", neg: "Значимой альтернации нет", ind: "Не определено", err: "Анализ невозможен",
       busy: "Анализ…", busyText: "Считаю окна по всей записи.",
       none: "Запись не загружена", noneText: "Загрузите запись или откройте пример ниже.",
-      synthName: "синтетический пример", leadNone: "не указано", version: (v) => `версия ${v}`,
+      synthName: "синтетический пример", leadNone: "не указано",
+      sampleName: "twa36, PhysioNet TWADB", sampleFail: "Не удалось загрузить пример: нет связи с сайтом.",
+      sampleNote: "Настоящая запись из базы PhysioNet T-Wave Alternans Challenge (из PTB), лицензия ODC-By.", version: (v) => `версия ${v}`,
       beatsWindows: (n, w) => `${n} ${plural(n, "удар", "удара", "ударов")}, ${w} ${plural(w, "окно", "окна", "окон")}`,
-      posText: (r) => `Альтернация ${fmt(r.vAlt, 1)} мкВ при ${kEq(r.k)} в окне с ЧСС ${fmt(r.windowHr, 0)} уд/мин: выполнен критерий спектрального метода (не меньше 1,9 мкВ, K не меньше 3, ЧСС не выше 110, шум не выше 1,8 мкВ). На бумажной ЭКГ это ${fmt(r.vPeak / 100, 2)} мм — глазом не увидеть.`,
+      posText: (r) => `Альтернация ${fmt(r.vAlt, 1)} мкВ при ${kEq(r.k)} в окне с ЧСС ${fmt(r.windowHr, 0)} уд/мин: выполнен критерий спектрального метода (не меньше 1,9 мкВ, K не меньше 3, ЧСС не выше 110, шум не выше 1,8 мкВ). В точке ST-T, где альтернация наибольшая, она достигает ${fmt(r.vPeak, 1)} мкВ — на бумажной ЭКГ это ${fmt(r.vPeak / 100, 2)} мм, глазом не увидеть.`,
       negText: (r) => `Значимой альтернации нет ни в одном окне (наибольшая ${fmt(r.vAlt, 1)} мкВ, ${kEq(r.k)}), в том числе в чистых окнах с ЧСС до ${fmt(r.hrMaxClean, 0)} уд/мин. Это отрицательный результат по правилам метода: для него ЧСС должна дойти до 105.`,
       indText: {
         hr_too_low: (r) => `Значимой альтернации нет, но ЧСС в чистых окнах не поднималась до 105 уд/мин (максимум ${fmt(r.hrMaxClean, 0)}). По правилам спектрального метода отрицательный результат без этого не выдаётся: альтернация часто появляется только при нагрузке.`,
@@ -34,7 +36,7 @@
       fileErr: "В файле не найдено чисел. Нужен CSV/TXT: один столбец значений в мВ (или мкВ).",
       fileErrEdf: (msg) => `Не удалось прочитать EDF: ${msg}`,
       fileOk: (n, fs) => `Загружено ${n} отсчётов, ${fs} Гц`,
-      edfOk: (n, fs, label) => `EDF: канал «${label}», ${n} отсчётов, ${fs} Гц`,
+      edfOk: (n, fs, label, fmt) => `${fmt}: канал «${label}», ${n} отсчётов, ${fs} Гц`,
       unitUnknown: (u) => ` Единицы канала «${u || "не указаны"}» не распознаны как напряжение: считаю, что значения в мВ.`,
       edfChannel: "Канал (отведение)", edfAnnotations: "(служебный канал, пропущен)",
       shortWarn: (n) => `Проанализировано ${n} ударов — меньше стандартных 128, поэтому к результату стоит относиться осторожнее.`,
@@ -43,9 +45,11 @@
       pos: "Alternans criterion met", neg: "No significant alternans", ind: "Indeterminate", err: "Cannot analyse",
       busy: "Analysing…", busyText: "Scanning windows across the whole recording.",
       none: "No recording loaded", noneText: "Upload a recording or open an example below.",
-      synthName: "synthetic example", leadNone: "not given", version: (v) => `version ${v}`,
+      synthName: "synthetic example", leadNone: "not given",
+      sampleName: "twa36, PhysioNet TWADB", sampleFail: "Could not load the example: no connection to the site.",
+      sampleNote: "A real recording from the PhysioNet T-Wave Alternans Challenge database (from PTB), ODC-By licence.", version: (v) => `version ${v}`,
       beatsWindows: (n, w) => `${n} beats, ${w} window${w === 1 ? "" : "s"}`,
-      posText: (r) => `Alternans ${fmt(r.vAlt, 1)} µV with ${kEq(r.k)} in a window at ${fmt(r.windowHr, 0)} bpm: meets the Spectral Method criterion (at least 1.9 µV, K at least 3, heart rate at most 110, noise at most 1.8 µV). On paper ECG that is ${fmt(r.vPeak / 100, 2)} mm, invisible to the eye.`,
+      posText: (r) => `Alternans ${fmt(r.vAlt, 1)} µV with ${kEq(r.k)} in a window at ${fmt(r.windowHr, 0)} bpm: meets the Spectral Method criterion (at least 1.9 µV, K at least 3, heart rate at most 110, noise at most 1.8 µV). At the point of ST-T where it is largest, the alternans reaches ${fmt(r.vPeak, 1)} µV: ${fmt(r.vPeak / 100, 2)} mm on paper ECG, invisible to the eye.`,
       negText: (r) => `No significant alternans in any window (largest ${fmt(r.vAlt, 1)} µV, ${kEq(r.k)}), including clean windows at up to ${fmt(r.hrMaxClean, 0)} bpm. That is a negative result under the method's rules, which require the heart rate to reach 105.`,
       indText: {
         hr_too_low: (r) => `No significant alternans, but the heart rate in clean windows never reached 105 bpm (highest ${fmt(r.hrMaxClean, 0)}). The Spectral Method does not call a test negative without it: alternans often appears only on exertion.`,
@@ -67,7 +71,7 @@
       fileErr: "No numbers found. Use CSV/TXT with one column of values in mV (or µV).",
       fileErrEdf: (msg) => `Could not read the EDF file: ${msg}`,
       fileOk: (n, fs) => `Loaded ${n} samples at ${fs} Hz`,
-      edfOk: (n, fs, label) => `EDF: channel "${label}", ${n} samples at ${fs} Hz`,
+      edfOk: (n, fs, label, fmt) => `${fmt}: channel "${label}", ${n} samples at ${fs} Hz`,
       unitUnknown: (u) => ` The channel's unit "${u || "none"}" is not a voltage I recognise, so the values are read as mV.`,
       edfChannel: "Channel (lead)", edfAnnotations: "(service channel, skipped)",
       shortWarn: (n) => `Analysed ${n} beats — fewer than the standard 128, so treat the result with more caution.`,
@@ -192,7 +196,7 @@
     box.querySelector(".pill").textContent = T.none;
     box.querySelector("p").textContent = T.noneText;
     clearMetrics();
-    $("#b-fhir").disabled = true;
+    $("#b-fhir").disabled = true; $("#b-print").disabled = true;
     drawLab();
   }
   function errorText(e) {
@@ -277,7 +281,7 @@
       $("#m-valt").classList.toggle("met", r.positive);
       $("#m-k").classList.toggle("met", r.positive);
       $("#m-noise").classList.toggle("warn", r.outcome === "indeterminate" && r.reason === "noise");
-      $("#b-fhir").disabled = false;
+      $("#b-fhir").disabled = false; $("#b-print").disabled = false;
       drawLab();
       if (lab.animate) { lab.animate = false; animateResult(); }
     }, (e) => {
@@ -287,7 +291,7 @@
       clearMetrics();
       box.querySelector("p").textContent = errorText(e);
       $("#f-rec").textContent = record;
-      $("#b-fhir").disabled = true;
+      $("#b-fhir").disabled = true; $("#b-print").disabled = true;
       drawLab();
     });
   }
@@ -395,8 +399,10 @@
   }
 
   // ---------- file upload: plain CSV/TXT, or binary EDF/EDF+ with a channel picker ----------
-  function isEdf(file) {
-    return /\.edf$/i.test(file.name);
+  // EDF starts with "0       ", BDF with 0xFF "BIOSEMI": decide by content, not by the file name
+  function isEdfBytes(head) {
+    const ascii = String.fromCharCode(...head.slice(0, 8));
+    return ascii === "0       " || (head[0] === 0xff && ascii.slice(1) === "BIOSEMI");
   }
   function loadFromChannel(sig, fs, name) {
     lab.fileSig = sig; lab.fileFs = fs; lab.fileName = name; lab.source = "file"; lab.animate = true;
@@ -421,7 +427,7 @@
     const edf = lab.edf; if (!edf) return;
     const s = edf.signals[idx];
     const sig = edf.getChannel(idx);
-    $("#f-status").textContent = T.edfOk(sig.length, Math.round(s.fs), s.label) + (s.unitToMv === null ? T.unitUnknown(s.unit) : "");
+    $("#f-status").textContent = T.edfOk(sig.length, Math.round(s.fs), s.label, edf.format) + (s.unitToMv === null ? T.unitUnknown(s.unit) : "");
     lab.lead = EDF.leadFromLabel(s.label); $("#f-lead").value = lab.lead;
     loadFromChannel(sig, s.fs, lab.fileName);
   }
@@ -436,30 +442,46 @@
     status.textContent = T.fileOk(vals.length, fs);
     loadFromChannel(vals, fs, lab.fileName);
   }
-  function onFile(ev) {
-    const file = ev.target.files && ev.target.files[0]; if (!file) return;
-    lab.fileName = file.name;
-    const csvWrap = $("#f-csv-wrap"), edfWrap = $("#f-edf-wrap");
-    if (isEdf(file)) {
-      lab.csvRawText = null;
-      const rd = new FileReader();
-      rd.onload = () => {
-        try {
-          const edf = EDF.parseEDF(rd.result);
-          lab.edf = edf;
-          csvWrap.hidden = true; edfWrap.hidden = false;
-          populateEdfChannels(edf);
-        } catch (e) {
-          $("#f-status").textContent = T.fileErrEdf(e.message);
-        }
-      };
-      rd.readAsArrayBuffer(file);
-      return;
+  function openEdf(buf, name) {
+    lab.fileName = name; lab.csvRawText = null;
+    try {
+      const edf = EDF.parseEDF(buf);
+      lab.edf = edf;
+      $("#f-csv-wrap").hidden = true; $("#f-edf-wrap").hidden = false;
+      populateEdfChannels(edf);
+    } catch (e) {
+      $("#f-status").textContent = T.fileErrEdf(e.message);
     }
-    csvWrap.hidden = false; edfWrap.hidden = true; lab.edf = null;
-    const rd = new FileReader();
-    rd.onload = () => { lab.csvRawText = String(rd.result); parseCsvText(lab.csvRawText); };
-    rd.readAsText(file);
+  }
+  function openFile(file) {
+    if (!file) return;
+    file.arrayBuffer().then((buf) => {
+      if (isEdfBytes(new Uint8Array(buf, 0, Math.min(8, buf.byteLength)))) { openEdf(buf, file.name); return; }
+      lab.fileName = file.name;
+      $("#f-csv-wrap").hidden = false; $("#f-edf-wrap").hidden = true; lab.edf = null;
+      lab.csvRawText = new TextDecoder().decode(buf);
+      parseCsvText(lab.csvRawText);
+    });
+  }
+  function onFile(ev) { openFile(ev.target.files && ev.target.files[0]); }
+  // a real 12-lead recording from PhysioNet, one click away (assets/samples/README.md)
+  function openSample() {
+    const b = $("#b-sample"); b.disabled = true;
+    fetch("assets/samples/twadb-twa36.edf").then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then((buf) => { openEdf(buf, T.sampleName); $("#f-status").textContent += " " + T.sampleNote; })
+      .catch(() => { $("#f-status").textContent = T.sampleFail; })
+      .finally(() => { b.disabled = false; });
+  }
+  // dropping a file anywhere on the upload block opens it
+  function initDrop() {
+    const zone = $(".file"); let depth = 0;
+    zone.addEventListener("dragenter", (e) => { e.preventDefault(); depth++; zone.classList.add("dragover"); });
+    zone.addEventListener("dragover", (e) => e.preventDefault());
+    zone.addEventListener("dragleave", () => { if (--depth <= 0) { depth = 0; zone.classList.remove("dragover"); } });
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault(); depth = 0; zone.classList.remove("dragover");
+      openFile(e.dataTransfer.files && e.dataTransfer.files[0]);
+    });
   }
 
   // ---------- research JSON in FHIR R4 format (mirrors cardioonco/fhir.py) ----------
@@ -537,6 +559,9 @@
       if (lab.res && lab.source === "file") { leadField(lab.lead); linkHeart(lab.lead); }
     });
     $("#b-fhir").addEventListener("click", exportFHIR);
+    $("#b-print").addEventListener("click", () => window.print());
+    $("#b-sample").addEventListener("click", openSample);
+    initDrop();
     // opening the example panel is an explicit request to see a synthetic result
     $(".demo").addEventListener("toggle", (e) => {
       if (e.target.open && lab.source === "none") { lab.source = "synth"; lab.animate = true; schedule(); }
@@ -840,7 +865,14 @@
   window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(redrawAll, 120); });
   new MutationObserver(redrawAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+  // installable and usable offline after the first visit (sw.js); http on localhost is allowed for testing
+  function registerOffline() {
+    if (!("serviceWorker" in navigator)) return;
+    if (location.protocol !== "https:" && location.hostname !== "localhost") return;
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
   function boot() {
+    registerOffline();
     initLab();
     coverDots();
     initHeart();

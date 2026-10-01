@@ -14,7 +14,7 @@ wfdb          # PhysioNet WFDB reader (PTB-XL, TWA challenge database)
 # versions without wheels for newer Python.
 gradio>=4.36
 
-# Optional, only for legacy/export_edge_onnx.py (ONNX export and INT8 quantisation):
-# onnx
-# onnxruntime
-# onnxscript
+# ONNX export (train_ptbxl.py --export-onnx) and the test that checks it against PyTorch
+onnx
+onnxscript
+onnxruntime

@@ -6,33 +6,27 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 
 ---
 
-## Where we are (version 0.6, October 2026)
+## Where we are (version 1.1, October 2026)
 
 | Done | Not done |
 |---|---|
 | TWA over the whole recording (Spectral Method + MMA), three outcomes, tests | A TWA result that agrees with a reference on real ECGs |
-| The same maths in the browser, parity with Python tested in CI | Training the network on real ECGs |
+| The same maths in the browser, parity with Python tested in CI | Validation of the network on a second, independent dataset |
 | Checked on the PhysioNet 2008 challenge with a held-out protocol: τ = 0.43 overall, 0.08 on held-out real records (README §7.1) | Data from patients receiving chemotherapy |
-| Tensor-fusion network and a complete PTB-XL training script | Clinical partner, ethics approval |
-| Valid research FHIR export, installable package, CI, citation file | |
+| Network trained on PTB-XL: test macro-AUC 0.921, the published level; age/sex fusion gives no measurable gain (README §5.4) | Clinical partner, ethics approval |
+| Valid research FHIR export, installable package, CI, DOI, offline web tool with a real sample recording | |
 
 ---
 
 ## Next steps (autumn 2026)
 
-1. **Train on PTB-XL** and run the ablation without age and sex:
-   ```bash
-   bash scripts/download_ptbxl.sh
-   python train_ptbxl.py --data data/ptb-xl --epochs 30 --export-onnx
-   python train_ptbxl.py --data data/ptb-xl --epochs 30 --no-meta --out runs/ptbxl_nometa
-   ```
-   Comparing the two AUCs answers whether bilinear fusion helps. An honest negative answer is also a result.
-2. **Put the real numbers** into README section 5.4 and regenerate figure 08 with trained weights.
+1. ~~Train on PTB-XL and run the ablation without age and sex~~ — done (README §5.4): 0.921 against 0.920, difference +0.0007 [−0.003, +0.004]. Each model was trained once.
+2. **Repeat both runs with five random seeds** (about 5 minutes each on a laptop) and report the mean and spread. One run cannot show how much of a 0.001 difference is luck.
 3. **Find recordings with a known answer** for TWA (paced or exercise tests with clinical TWA results), because the 2008 reference is a consensus of other algorithms, not measured truth.
 4. **Find a cardio-oncology mentor** with one concrete question, for example: "Is it realistic to obtain de-identified ECGs from patients before and after anthracyclines?"
 5. ~~Release v1.0 with a DOI~~ — done: [10.5281/zenodo.23090356](https://doi.org/10.5281/zenodo.23090356) (1.0.0).
 
-**Done when:** real AUCs with confidence intervals are in the README and all tests pass.
+**Done when:** the seed spread is in the README and a TWA data source with a known answer is identified.
 
 ---
 
@@ -91,8 +85,9 @@ Without clinicians and real patients the project cannot answer its main question
 
 ## Technical backlog
 
-- [ ] Run `train_ptbxl.py` and publish the metrics
-- [ ] Ablation without metadata (`--no-meta`)
+- [x] Run `train_ptbxl.py` and publish the metrics (macro-AUC 0.921, `models/ptbxl-1.0/`)
+- [x] Ablation without metadata (`--no-meta`): no measurable gain
+- [ ] Five seeds per configuration
 - [x] Validate TWA on the T-Wave Alternans Challenge Database (τ = 0.43; real records not yet in agreement)
 - [ ] TWA recordings with a known answer (paced or exercise tests)
 - [ ] The clinical "sustained for a minute" rule instead of a single window

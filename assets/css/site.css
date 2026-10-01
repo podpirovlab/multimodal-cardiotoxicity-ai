@@ -117,7 +117,10 @@ select, input[type="number"] { font: 15px/1.2 var(--mono); padding: 8px 10px; bo
 .file input[type="file"]::file-selector-button { font: 700 14px var(--sans); color: var(--ink); background: var(--paper);
   border: 1.5px solid var(--ink); border-radius: 3px; padding: 8px 14px; margin-right: 10px; cursor: pointer; }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.pick { justify-self: start; }
+.pick-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.file { border-radius: 6px; transition: outline-color 0.15s ease; outline: 2px dashed transparent; outline-offset: 6px; }
+.file.dragover { outline-color: var(--accent); }
+.drop-hint { margin-top: -4px; }
 input[type="file"]:focus-visible + .pick { outline: 2px solid var(--accent); outline-offset: 2px; }
 .check { display: flex; gap: 8px; align-items: center; font-size: 14px; cursor: pointer; }
 .check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
@@ -166,7 +169,7 @@ input[type="file"]:focus-visible + .pick { outline: 2px solid var(--accent); out
 .panel.paper canvas { border-color: var(--grid-major); }
 .panel .explain { font-size: 14px; color: var(--muted); line-height: 1.45; margin-top: 8px; max-width: 80ch; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-.fhir-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-top: 16px; border-top: 1px solid var(--line); }
+.fhir-row { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; padding-top: 16px; border-top: 1px solid var(--line); }
 
 /* ---------- ECG anatomy (3D ventricles) ---------- */
 .heart { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 36px; align-items: start; }

@@ -8,6 +8,11 @@
 <meta property="og:title" content="CardioOncoPredict">
 <meta property="og:description" content="Open research software for measuring microvolt T-wave alternans — testing an unproven hypothesis about early anthracycline heart damage. Not a medical device.">
 <link rel="alternate" hreflang="ru" href="ru.html">
+<meta name="theme-color" content="#1f262e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="preload" href="assets/fonts/fraunces-var-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/fonts.css">
 <link rel="stylesheet" href="assets/css/site.css">
 </head>
@@ -55,9 +60,10 @@
       <div class="lab">
         <form class="controls" onsubmit="return false" aria-label="Recording and research metadata">
           <div class="file">
-            <label for="f-file"><b class="group">Upload an ECG (EDF/EDF+ or CSV/TXT, one lead)</b></label>
-            <input type="file" id="f-file" class="sr-only" accept=".edf,.csv,.txt,text/csv,text/plain">
-            <label for="f-file" class="btn ghost pick">Choose a file</label>
+            <b class="group" id="f-file-title">Upload an ECG (EDF, BDF or CSV/TXT)</b>
+            <input type="file" id="f-file" class="sr-only" accept=".edf,.bdf,.csv,.txt,text/csv,text/plain" aria-describedby="f-file-title">
+            <div class="pick-row"><label for="f-file" class="btn ghost pick">Choose a file</label><button type="button" class="btn ghost" id="b-sample">Open a real ECG</button></div>
+            <span class="hint drop-hint">or drop a file here</span>
             <div id="f-edf-wrap" hidden>
               <div class="ctl"><label for="f-edf-channel">Channel (lead)</label><select id="f-edf-channel"></select></div>
             </div>
@@ -164,6 +170,7 @@
             <p class="explain">Alternating every other beat is an oscillation at exactly 0.5 cycles per beat. If the right-most point rises above the grey noise band, alternans is present.</p>
           </div>
           <div class="fhir-row">
+            <button type="button" class="btn ghost" id="b-print" disabled>Print or save as PDF</button>
             <button type="button" class="btn ghost" id="b-fhir" disabled>Download research JSON (FHIR format)</button>
             <span class="hint">Research use only: a demo of the FHIR format, not a clinical record. Saved to your device, sent nowhere.</span>
           </div>
