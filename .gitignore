@@ -12,6 +12,9 @@ venv/
 *.pt
 *.pth
 demo_forward_pass.png
+# ...except released models, which are documented and tested (models/*/README.md)
+!models/*/model.pt
+!models/*/model.onnx
 
 # OS / editor
 .DS_Store

@@ -1,16 +1,32 @@
 #!/usr/bin/env bash
 # Git pre-push hook: run what CI runs (compile + all tests) before anything leaves this computer.
+# It tests the commit being pushed in a clean copy, not the working folder, so a file that exists
+# here but was never committed (or is git-ignored) fails here instead of on GitHub.
 # Enable once, from the repository root:   ln -s ../../scripts/pre-push .git/hooks/pre-push
 # Skip in an emergency:                    git push --no-verify
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
 PY=python3
-[ -x .venv/bin/python ] && PY=.venv/bin/python
+[ -x .venv/bin/python ] && PY="$ROOT/.venv/bin/python"
 # the JS tests need Node; fall back to the copy bundled with Playwright if Node is not installed
 if ! command -v node >/dev/null 2>&1; then
-  for d in .venv/lib/python3*/site-packages/playwright/driver; do [ -x "$d/node" ] && PATH="$PWD/$d:$PATH"; done
+  for d in .venv/lib/python3*/site-packages/playwright/driver; do [ -x "$d/node" ] && PATH="$ROOT/$d:$PATH"; done
 fi
 if command -v node >/dev/null 2>&1; then export CI=1; else echo "pre-push: Node not found, JS tests will be skipped" >&2; fi
-echo "pre-push: compiling and running the tests..."
+
+# git passes "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin; test the first pushed commit
+SHA=""
+if [ ! -t 0 ]; then
+  while read -r _ local_sha _ _; do
+    if [ -z "$SHA" ] && [ "$local_sha" != "0000000000000000000000000000000000000000" ]; then SHA="$local_sha"; fi
+  done
+fi
+SHA="${SHA:-HEAD}"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+git archive "$SHA" | tar -x -C "$TMP"
+cd "$TMP"
+echo "pre-push: compiling and running the tests on commit $(git -C "$ROOT" rev-parse --short "$SHA") in a clean copy..."
 "$PY" -m compileall -q cardioonco legacy scripts app.py train_ptbxl.py predict.py
-MPLBACKEND=Agg "$PY" -m pytest -q tests
+MPLBACKEND=Agg "$PY" -m pytest -q -p no:cacheprovider tests
