@@ -21,6 +21,7 @@
     </a>
     <nav class="nav" aria-label="Разделы">
       <a href="#lab">Загрузка и анализ</a>
+      <a href="#anatomy">Анатомия отведений</a>
       <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/blob/main/README.ru.md">Полное описание</a>
       <a href="https://github.com/podpirovlab/multimodal-cardiotoxicity-ai">GitHub</a>
       <a class="lang" href="index.html" hreflang="en">EN</a>
@@ -164,6 +165,28 @@
             <button type="button" class="btn ghost" id="b-fhir" disabled>Скачать исследовательский JSON (формат FHIR)</button>
             <span class="hint">Только для исследований: демонстрация формата FHIR, а не медицинская запись. Сохраняется на устройство, никуда не отправляется.</span>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ECG ANATOMY ===================== -->
+  <section class="wrap" id="anatomy">
+    <div class="sheet">
+      <div class="block-head">
+        <h2>Какую стенку сердца видит каждое отведение</h2>
+        <p class="lede">Двенадцать отведений ЭКГ смотрят на сердце с разных сторон: шесть от конечностей во фронтальной плоскости и шесть грудных в горизонтальной. Модель показывает желудочки в их настоящем положении в груди: верхушка смотрит вниз, влево и вперёд. Поверните её мышью или пальцем.</p>
+      </div>
+      <div class="heart">
+        <div class="heart-stage" id="heart-stage">
+          <canvas id="c-heart" role="img" aria-label="Вращаемая модель желудочков сердца"></canvas>
+          <span class="heart-hint">Потяните, чтобы повернуть</span>
+        </div>
+        <div class="heart-side">
+          <div class="lead-group" role="group" aria-label="Отведения от конечностей"><span class="group-label">От конечностей</span><div class="leads"><button type="button" class="chip lead" data-lead="I" aria-pressed="false">I</button><button type="button" class="chip lead" data-lead="II" aria-pressed="false">II</button><button type="button" class="chip lead" data-lead="III" aria-pressed="false">III</button><button type="button" class="chip lead" data-lead="aVR" aria-pressed="false">aVR</button><button type="button" class="chip lead" data-lead="aVL" aria-pressed="false">aVL</button><button type="button" class="chip lead" data-lead="aVF" aria-pressed="false">aVF</button></div></div>
+          <div class="lead-group" role="group" aria-label="Грудные отведения"><span class="group-label">Грудные</span><div class="leads"><button type="button" class="chip lead" data-lead="V1" aria-pressed="false">V1</button><button type="button" class="chip lead" data-lead="V2" aria-pressed="false">V2</button><button type="button" class="chip lead" data-lead="V3" aria-pressed="false">V3</button><button type="button" class="chip lead" data-lead="V4" aria-pressed="false">V4</button><button type="button" class="chip lead" data-lead="V5" aria-pressed="false">V5</button><button type="button" class="chip lead" data-lead="V6" aria-pressed="false">V6</button></div></div>
+          <button type="button" class="chip lv" id="b-lv" aria-pressed="false">Где действуют антрациклины</button>
+          <p class="heart-note" id="heart-note" aria-live="polite"></p>
         </div>
       </div>
     </div>

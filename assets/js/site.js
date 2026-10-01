@@ -536,6 +536,226 @@
   }
   function clearPresets() { document.querySelectorAll("[data-preset]").forEach((b) => b.setAttribute("aria-pressed", "false")); }
 
+  // ======================= 3D anatomy: which wall each lead sees =======================
+  // Body frame: x = patient's left, y = up, z = anterior. The ventricles are drawn as shaded
+  // half-ellipsoids along the anatomical long axis (apex down, left and forward). Selecting a
+  // lead lights the left-ventricular wall it faces and draws its axis; "whole LV" lights the
+  // entire left-ventricular myocardium, because anthracycline injury is diffuse. Nothing here
+  // comes from a recording: it is ECG anatomy, not a map of damage.
+  const HEART_TEXT = {
+    ru: {
+      idle: "Нажмите на отведение: подсветится стенка левого желудочка, на которую оно смотрит, и его ось.",
+      lv: "Левый желудочек — главная мишень антрациклинов. Они повреждают его миокард диффузно, по всей стенке, а не в одном месте, поэтому подсвечен весь желудочек. По ЭКГ из одного отведения место повреждения определить нельзя, и этот инструмент ничего не локализует.",
+      wall: { septal: "межжелудочковую перегородку", anterior: "переднюю стенку", lateral: "боковую стенку", inferior: "нижнюю стенку" },
+      sees: (lead, wall, axis) => `${lead} смотрит на ${wall} левого желудочка (ось ${axis}). Это анатомия ЭКГ, а не карта повреждения.`,
+      aVR: "aVR смотрит в полость сердца справа и сверху и ни одной стенки не локализует, поэтому подсветки нет.",
+      LV: "ЛЖ", RV: "ПЖ", apex: "верхушка", base: "основание",
+    },
+    en: {
+      idle: "Choose a lead to light the left-ventricular wall it faces and draw its axis.",
+      lv: "The left ventricle is the main target of anthracyclines. They injure its muscle diffusely, across the whole wall rather than in one place, so the whole ventricle is lit. A single-lead ECG cannot tell where the injury is, and this tool does not try to localise anything.",
+      wall: { septal: "septum", anterior: "anterior wall", lateral: "lateral wall", inferior: "inferior wall" },
+      sees: (lead, wall, axis) => `${lead} faces the ${wall} of the left ventricle (axis ${axis}). This is ECG anatomy, not a map of damage.`,
+      aVR: "aVR looks into the cavity from the upper right and does not localise any wall, so nothing is lit.",
+      LV: "LV", RV: "RV", apex: "apex", base: "base",
+    },
+  }[LANG === "ru" ? "ru" : "en"];
+  // lead axes: frontal plane (hexaxial, 0° = patient's left, +90° = down) and horizontal plane (0° = left, 90° = anterior)
+  const LEAD_AXES = {
+    I: ["f", 0], II: ["f", 60], III: ["f", 120], aVR: ["f", -150], aVL: ["f", -30], aVF: ["f", 90],
+    V1: ["h", 120], V2: ["h", 90], V3: ["h", 75], V4: ["h", 60], V5: ["h", 30], V6: ["h", 0],
+  };
+  const LEAD_WALL = { I: "lateral", aVL: "lateral", V5: "lateral", V6: "lateral", II: "inferior", III: "inferior", aVF: "inferior",
+    V1: "septal", V2: "septal", V3: "anterior", V4: "anterior", aVR: null };
+  const vadd = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], vsc = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+  const vdot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const vcross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const vnorm = (a) => vsc(a, 1 / Math.hypot(a[0], a[1], a[2]));
+  function leadDir(name) {
+    const [plane, deg] = LEAD_AXES[name], t = (deg * Math.PI) / 180;
+    return plane === "f" ? [Math.cos(t), -Math.sin(t), 0] : [Math.cos(t), 0, Math.sin(t)];
+  }
+  // Primitives are built once in the body frame as polygons with outward normals; each frame
+  // they are rotated to the view, back faces are culled and the rest painted far to near.
+  function heartModel() {
+    const axis = vnorm([0.55, -0.62, 0.5]);                       // base -> apex
+    const perp = (d) => vnorm(vadd(d, vsc(axis, -vdot(d, axis))));
+    const ant = perp([0, 0, 1]), side = vcross(axis, ant);
+    const dirs = { anterior: ant, lateral: perp([1, 0, 0]), septal: perp([-1, 0, 0]), inferior: perp([0, -1, 0]) };
+    const polys = [];
+    // half-ellipsoid with its equator (base) at c and its tip at c + ra*e1
+    function halfEllipsoid(c, e1, e2, e3, ra, rb, rc, tag, beats) {
+      const NP = 16, NT = 36, V = [];
+      for (let i = 0; i <= NP; i++) {
+        const ph = (i / NP) * (Math.PI / 2), row = [];
+        for (let k = 0; k <= NT; k++) {
+          const th = (k / NT) * 2 * Math.PI, sp = Math.sin(ph), cp = Math.cos(ph);
+          const radial = vadd(vsc(e2, Math.cos(th)), vsc(e3, Math.sin(th)));
+          const pt = vadd(vadd(c, vsc(e1, ra * cp)), vadd(vsc(e2, rb * sp * Math.cos(th)), vsc(e3, rc * sp * Math.sin(th))));
+          const n = vnorm(vadd(vsc(e1, cp / ra), vadd(vsc(e2, sp * Math.cos(th) / rb), vsc(e3, sp * Math.sin(th) / rc))));
+          let wall = null;
+          if (tag === "lv") {
+            if (ph < 0.42) wall = "apex";
+            else { let best = -2; for (const [w, d] of Object.entries(dirs)) { const q = vdot(radial, d); if (q > best) { best = q; wall = w; } } }
+          }
+          row.push({ p: pt, n, wall });
+        }
+        V.push(row);
+      }
+      for (let i = 0; i < NP; i++) for (let k = 0; k < NT; k++) {
+        const q = [V[i][k], V[i][k + 1], V[i + 1][k + 1], V[i + 1][k]];
+        polys.push({ pts: q.map((v) => v.p), n: vnorm(q.reduce((acc, v) => vadd(acc, v.n), [0, 0, 0])), tag, wall: V[i + 1][k].wall, beats });
+      }
+      // valve plane: a lid over the base so the shell reads as solid from every side
+      const ring = V[NP], lid = vsc(e1, -1);
+      for (let k = 0; k < NT; k++) polys.push({ pts: [c, ring[k].p, ring[k + 1].p], n: lid, tag: "lid", beats });
+    }
+    function ellipsoid(c, e1, e2, e3, ra, rb, rc, tag) {
+      halfEllipsoid(c, e1, e2, e3, ra, rb, rc, tag, false);
+      halfEllipsoid(c, vsc(e1, -1), e3, e2, ra, rc, rb, tag, false);
+    }
+    function tube(p0, p1, r, tag) {
+      const d = vnorm(vadd(p1, vsc(p0, -1))), u = vnorm(vcross(d, Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), v = vcross(d, u), N = 20;
+      for (let k = 0; k < N; k++) {
+        const t0 = (k / N) * 2 * Math.PI, t1 = ((k + 1) / N) * 2 * Math.PI;
+        const r0 = vadd(vsc(u, Math.cos(t0)), vsc(v, Math.sin(t0))), r1 = vadd(vsc(u, Math.cos(t1)), vsc(v, Math.sin(t1)));
+        polys.push({ pts: [vadd(p0, vsc(r0, r)), vadd(p0, vsc(r1, r)), vadd(p1, vsc(r1, r)), vadd(p1, vsc(r0, r))], n: vnorm(vadd(r0, r1)), tag, beats: false });
+      }
+      const cap = [];
+      for (let k = 0; k < N; k++) cap.push(vadd(p1, vsc(vadd(vsc(u, Math.cos((k / N) * 2 * Math.PI)), vsc(v, Math.sin((k / N) * 2 * Math.PI))), r)));
+      for (let k = 0; k < N; k++) polys.push({ pts: [p1, cap[k], cap[(k + 1) % N]], n: d, tag, beats: false });
+    }
+    const base = [-0.2, 0.5, -0.15];
+    halfEllipsoid(base, axis, ant, side, 1.7, 0.62, 0.62, "lv", true);
+    // right ventricle: wraps the septal-anterior side, flatter and shorter than the left
+    const rvBase = vadd(vadd(base, vsc(dirs.septal, 0.66)), vsc(ant, 0.16));
+    halfEllipsoid(rvBase, axis, ant, side, 1.2, 0.55, 0.42, "rv", true);
+    // atria behind and above the base, then the great arteries
+    const up = [0, 1, 0], back = [0, 0, -1], right = [-1, 0, 0];
+    ellipsoid(vadd(base, [0.18, 0.42, -0.42]), up, [1, 0, 0], back, 0.42, 0.5, 0.36, "atrium");
+    ellipsoid(vadd(base, [-0.62, 0.35, -0.12]), up, right, [0, 0, 1], 0.45, 0.4, 0.38, "atrium");
+    tube(vadd(base, [-0.12, 0.3, 0.12]), vadd(base, [-0.05, 1.25, 0.08]), 0.2, "aorta");
+    tube(vadd(base, [-0.35, 0.25, 0.42]), vadd(base, [0.15, 1.05, 0.2]), 0.18, "pulm");
+    return { axis, base, polys, centre: vadd(base, vsc(axis, 0.75)) };
+  }
+  const heart3d = { yaw: -0.35, pitch: 0.12, target: null, sel: null, lv: false, drag: false, model: null, still: false };
+  // view from just beside the electrode, so the wall it faces is in front and its axis stays visible
+  function leadView(name) {
+    const d = leadDir(name), yaw = Math.atan2(-d[0], d[2]) + 0.55;
+    const z1 = -d[0] * Math.sin(yaw) + d[2] * Math.cos(yaw);
+    return { yaw, pitch: 0.55 * Math.atan2(d[1], Math.max(0.2, z1)) };
+  }
+  function drawHeart(nowMs) {
+    const cv = $("#c-heart"); if (!cv || !heart3d.model) return;
+    const { ctx, w, h } = setupCanvas(cv);
+    ctx.fillStyle = C.surface; ctx.fillRect(0, 0, w, h);
+    const m = heart3d.model, phase = ((nowMs || 0) / 1000) % 1;
+    const beat = heart3d.still ? 0 : Math.exp(-(((phase - 0.18) / 0.09) ** 2)), squeeze = 1 - 0.035 * beat;
+    const cy = Math.cos(heart3d.yaw), sy = Math.sin(heart3d.yaw), cp = Math.cos(heart3d.pitch), sp = Math.sin(heart3d.pitch);
+    const rot = (v) => { const x1 = v[0] * cy + v[2] * sy, z1 = -v[0] * sy + v[2] * cy; return [x1, v[1] * cp - z1 * sp, v[1] * sp + z1 * cp]; };
+    const scale = Math.min(w, h) * 0.27, cx0 = w / 2, cy0 = h / 2;
+    const proj = (p0, beats) => {
+      const p = beats ? vadd(m.centre, vsc(vadd(p0, vsc(m.centre, -1)), squeeze)) : p0;
+      const r = rot(vadd(p, vsc(m.centre, -1))), f = 1 / (1 - r[2] * 0.1);
+      return { X: cx0 + r[0] * scale * f, Y: cy0 - r[1] * scale * f, Z: r[2] };
+    };
+    const light = vnorm([-0.45, 0.55, 0.7]);
+    const wall = heart3d.sel ? LEAD_WALL[heart3d.sel] : null;
+    const COL = { lv: [207, 154, 166], rv: [143, 152, 182], lid: [120, 96, 108], atrium: [150, 128, 140], aorta: [196, 140, 152], pulm: [128, 138, 170] };
+    const SEL = [169, 205, 191], LVON = [230, 211, 167];
+    const draw = [];
+    for (const poly of m.polys) {
+      const nv = rot(poly.n);
+      if (nv[2] < -0.02) continue;                                  // back face
+      const pts = poly.pts.map((q) => proj(q, poly.beats));
+      let col = COL[poly.tag], alpha = 1;
+      if (poly.tag === "lv" && heart3d.lv) col = LVON;
+      if (poly.tag === "lv" && wall && (poly.wall === wall || (poly.wall === "apex" && (heart3d.sel === "V4" || heart3d.sel === "V5")))) col = SEL;
+      if (wall && poly.tag !== "lv") alpha = poly.tag === "rv" ? 0.28 : 0.5;
+      if (heart3d.lv && poly.tag !== "lv") alpha = 0.55;
+      const k = 0.34 + 0.66 * Math.max(0, vdot(nv, light));
+      draw.push({ pts, z: pts.reduce((acc, q) => acc + q.Z, 0) / pts.length, fill: `rgba(${Math.round(col[0] * k)},${Math.round(col[1] * k)},${Math.round(col[2] * k)},${alpha})`, alpha });
+    }
+    draw.sort((a, b) => a.z - b.z);
+    for (const d of draw) {
+      ctx.fillStyle = d.fill; ctx.beginPath(); ctx.moveTo(d.pts[0].X, d.pts[0].Y);
+      for (let i = 1; i < d.pts.length; i++) ctx.lineTo(d.pts[i].X, d.pts[i].Y);
+      ctx.closePath(); ctx.fill();
+      if (d.alpha === 1) { ctx.strokeStyle = d.fill; ctx.lineWidth = 0.7; ctx.stroke(); }   // hide seams
+    }
+    if (heart3d.sel) {
+      const d = leadDir(heart3d.sel), A = proj(vadd(m.centre, vsc(d, -1.9))), B = proj(vadd(m.centre, vsc(d, 1.9)));
+      ctx.save(); ctx.strokeStyle = C.ink; ctx.globalAlpha = 0.9; ctx.lineWidth = 1.4; ctx.setLineDash([5, 5]);
+      ctx.beginPath(); ctx.moveTo(A.X, A.Y); ctx.lineTo(B.X, B.Y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(B.X, B.Y, 6, 0, 6.2832); ctx.fill();
+      ctx.font = "700 14px 'PT Sans', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      ctx.fillText(heart3d.sel, B.X, B.Y - 10); ctx.restore();
+    }
+    ctx.font = "13px 'PT Sans', sans-serif"; ctx.fillStyle = C.muted; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const apex = proj(vadd(m.base, vsc(m.axis, 1.95)), true);
+    ctx.fillText(HEART_TEXT.apex, apex.X, apex.Y + 4);
+  }
+  function aimHeart() {
+    heart3d.target = heart3d.sel ? leadView(heart3d.sel) : null;
+    if (heart3d.still && heart3d.target) { heart3d.yaw = heart3d.target.yaw; heart3d.pitch = heart3d.target.pitch; }
+  }
+  function setHeartNote() {
+    const note = $("#heart-note"); if (!note) return;
+    if (heart3d.lv) note.textContent = HEART_TEXT.lv;
+    else if (!heart3d.sel) note.textContent = HEART_TEXT.idle;
+    else if (heart3d.sel === "aVR") note.textContent = HEART_TEXT.aVR;
+    else {
+      const [plane, deg] = LEAD_AXES[heart3d.sel];
+      const axis = `${deg}° ${plane === "f" ? (LANG === "ru" ? "во фронтальной плоскости" : "in the frontal plane") : (LANG === "ru" ? "в горизонтальной плоскости" : "in the horizontal plane")}`;
+      note.textContent = HEART_TEXT.sees(heart3d.sel, HEART_TEXT.wall[LEAD_WALL[heart3d.sel]], axis);
+    }
+  }
+  function initHeart() {
+    const cv = $("#c-heart"); if (!cv) return;
+    heart3d.model = heartModel();
+    heart3d.still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const stage = $("#heart-stage");
+    let px = 0, py = 0, visible = true, raf = 0, last = performance.now();
+    stage.addEventListener("pointerdown", (e) => { heart3d.drag = true; px = e.clientX; py = e.clientY; stage.setPointerCapture(e.pointerId); });
+    stage.addEventListener("pointermove", (e) => {
+      if (!heart3d.drag) return;
+      heart3d.yaw += (e.clientX - px) * 0.01; heart3d.pitch = Math.max(-1.2, Math.min(1.2, heart3d.pitch + (e.clientY - py) * 0.01));
+      px = e.clientX; py = e.clientY; if (heart3d.still) drawHeart(0);
+    });
+    const end = () => (heart3d.drag = false);
+    stage.addEventListener("pointerup", end); stage.addEventListener("pointercancel", end);
+    document.querySelectorAll("[data-lead]").forEach((b) => b.addEventListener("click", () => {
+      const on = b.getAttribute("aria-pressed") === "true";
+      document.querySelectorAll("[data-lead]").forEach((x) => x.setAttribute("aria-pressed", "false"));
+      heart3d.sel = on ? null : b.dataset.lead; heart3d.lv = false; $("#b-lv").setAttribute("aria-pressed", "false");
+      if (!on) b.setAttribute("aria-pressed", "true");
+      aimHeart(); setHeartNote(); drawHeart(performance.now());
+    }));
+    $("#b-lv").addEventListener("click", (e) => {
+      heart3d.lv = e.currentTarget.getAttribute("aria-pressed") !== "true";
+      e.currentTarget.setAttribute("aria-pressed", String(heart3d.lv));
+      if (heart3d.lv) { heart3d.sel = null; document.querySelectorAll("[data-lead]").forEach((x) => x.setAttribute("aria-pressed", "false")); }
+      aimHeart(); setHeartNote(); drawHeart(performance.now());
+    });
+    setHeartNote(); drawHeart(0);
+    if (heart3d.still) return;
+    const tick = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      if (heart3d.drag) heart3d.target = null;
+      else if (heart3d.target) {                                     // ease toward the lead's view, shortest way round
+        const dy = ((heart3d.target.yaw - heart3d.yaw + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+        heart3d.yaw += dy * Math.min(1, dt * 4); heart3d.pitch += (heart3d.target.pitch - heart3d.pitch) * Math.min(1, dt * 4);
+      } else if (!heart3d.sel) heart3d.yaw += dt * 0.18;
+      last = now; drawHeart(now);
+      if (visible && !document.hidden) raf = requestAnimationFrame(tick);
+    };
+    const start = () => { cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(tick); };
+    if ("IntersectionObserver" in window)
+      new IntersectionObserver((es) => { visible = es[0].isIntersecting; if (visible) start(); }).observe(stage);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && visible) start(); });
+    start();
+  }
+
   // ======================= cover: a quiet field of dots =======================
   // Ripples spread from the centre about once a second, like a pulse; every other ripple is a
   // little weaker, which is alternans drawn in dots. Purely decorative: it stops when the cover
@@ -578,7 +798,10 @@
   }
 
   // ======================= boot / resize / theme =======================
-  function redrawAll() { readColors(); if (lab.sig) drawLab(); }
+  function redrawAll() { readColors(); if (lab.sig) drawLab(); drawHeart(performance.now()); }
+  // Printing uses the light colour set: switch, redraw the charts, and switch back afterwards.
+  window.addEventListener("beforeprint", () => { document.documentElement.classList.add("print-light"); redrawAll(); });
+  window.addEventListener("afterprint", () => { document.documentElement.classList.remove("print-light"); redrawAll(); });
   let rz = null;
   window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(redrawAll, 120); });
   new MutationObserver(redrawAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -586,6 +809,7 @@
   function boot() {
     initLab();
     coverDots();
+    initHeart();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
