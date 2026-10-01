@@ -1,5 +1,6 @@
 """The browser (assets/js/dsp.js) and Python (cardioonco/) implementations must agree."""
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -24,7 +25,7 @@ def run_js(tmp_path: Path, x: np.ndarray, fs: float) -> dict:
     return json.loads(subprocess.check_output([NODE, "-e", script], text=True))
 
 
-@pytest.mark.skipif(NODE is None, reason="node.js not installed")
+@pytest.mark.skipif(NODE is None and not os.environ.get("CI"), reason="node.js not installed")
 @pytest.mark.parametrize("alt,noise,hr,beats", [(5, 10, 75, 128), (20, 15, 108, 200), (20, 60, 80, 128),
                                                 (0, 10, 108, 200)])
 def test_js_matches_python(tmp_path, alt, noise, hr, beats):

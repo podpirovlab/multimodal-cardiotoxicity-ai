@@ -367,7 +367,7 @@ $$q = \operatorname{round}(x/s) + z,\qquad \hat x = (q - z)\,s,\qquad s = \frac{
 
 $$W_{global} = \sum_{k=1}^{K}\frac{n_k}{n}\,W_k,\qquad n = \sum_k n_k$$
 
-и рассылает $W_{global}$ обратно. `federated_fhir_core.py` демонстрирует шаг агрегации. В реальной системе нужны защищённая агрегация и дифференциальная приватность: даже веса могут раскрыть информацию.
+и рассылает $W_{global}$ обратно. `legacy/federated_fhir_core.py` демонстрирует шаг агрегации. В реальной системе нужны защищённая агрегация и дифференциальная приватность: даже веса могут раскрыть информацию.
 
 ### 6.3 HL7 FHIR R4
 
@@ -454,10 +454,7 @@ scripts/
   validate_twadb.py    проверка на конкурсе PhysioNet по TWA (§7.1)
 tests/                 pytest: математика, детектор, совпадение JS и Python, обучение
 index.html, ru.html    веб-лаборатория (GitHub Pages); assets/js/dsp.js — математика на JS
-main_model.py          пошаговый разбор билинейного слияния на NumPy (учебный)
-advanced_model.py      ранняя учебная модель на PyTorch, чтение EDF, 3D-сетка
-export_edge_onnx.py    ранний пример экспорта ONNX / INT8
-federated_fhir_core.py демонстрация FedAvg + пример FHIR
+legacy/                ранние учебные прототипы, сохранены для истории (см. legacy/README.md)
 ```
 
 ---

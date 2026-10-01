@@ -367,7 +367,7 @@ ECGs are sensitive personal data and usually cannot leave a hospital. In **feder
 
 $$W_{global} = \sum_{k=1}^{K}\frac{n_k}{n}\,W_k,\qquad n = \sum_k n_k$$
 
-and sends $W_{global}$ back. `federated_fhir_core.py` demonstrates the aggregation step. A real deployment would add secure aggregation and differential privacy, since weights alone can leak information.
+and sends $W_{global}$ back. `legacy/federated_fhir_core.py` demonstrates the aggregation step. A real deployment would add secure aggregation and differential privacy, since weights alone can leak information.
 
 ### 6.3 HL7 FHIR R4
 
@@ -454,10 +454,7 @@ scripts/
   validate_twadb.py    score the pipeline on the PhysioNet TWA challenge (§7.1)
 tests/                 pytest: maths, detector, JS parity, training smoke test
 index.html, ru.html    the web lab (GitHub Pages), assets/js/dsp.js = JS port of the maths
-main_model.py          step-by-step NumPy walkthrough of bilinear fusion (teaching)
-advanced_model.py      earlier PyTorch teaching model, EDF reader, 3D mesh
-export_edge_onnx.py    earlier ONNX / INT8 export example
-federated_fhir_core.py FedAvg demonstration + FHIR example
+legacy/                early teaching prototypes kept for history (see legacy/README.md)
 ```
 
 ---

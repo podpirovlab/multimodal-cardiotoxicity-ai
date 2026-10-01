@@ -35,6 +35,7 @@
       fileErrEdf: (msg) => `Не удалось прочитать EDF: ${msg}`,
       fileOk: (n, fs) => `Загружено ${n} отсчётов, ${fs} Гц`,
       edfOk: (n, fs, label) => `EDF: канал «${label}», ${n} отсчётов, ${fs} Гц`,
+      unitUnknown: (u) => ` Единицы канала «${u || "не указаны"}» не распознаны как напряжение: считаю, что значения в мВ.`,
       edfChannel: "Канал (отведение)", edfAnnotations: "(служебный канал, пропущен)",
       shortWarn: (n) => `Проанализировано ${n} ударов — меньше стандартных 128, поэтому к результату стоит относиться осторожнее.`,
     },
@@ -67,6 +68,7 @@
       fileErrEdf: (msg) => `Could not read the EDF file: ${msg}`,
       fileOk: (n, fs) => `Loaded ${n} samples at ${fs} Hz`,
       edfOk: (n, fs, label) => `EDF: channel "${label}", ${n} samples at ${fs} Hz`,
+      unitUnknown: (u) => ` The channel's unit "${u || "none"}" is not a voltage I recognise, so the values are read as mV.`,
       edfChannel: "Channel (lead)", edfAnnotations: "(service channel, skipped)",
       shortWarn: (n) => `Analysed ${n} beats — fewer than the standard 128, so treat the result with more caution.`,
     },
@@ -200,6 +202,14 @@
     return e && e.message ? e.message : String(e);
   }
 
+  // A new result (a file, an example, a new seed) settles in; slider drags redraw without motion.
+  function animateResult() {
+    for (const el of [$("#verdict"), $(".criteria"), $(".panels")]) {
+      el.classList.remove("fresh"); void el.offsetWidth; el.classList.add("fresh");
+    }
+    clearTimeout(animateResult.t);
+    animateResult.t = setTimeout(() => document.querySelectorAll(".fresh").forEach((el) => el.classList.remove("fresh")), 1200);
+  }
   function verdictText(r) {
     if (r.outcome === "positive") return T.posText(r);
     if (r.outcome === "negative") return T.negText(r);
@@ -266,9 +276,10 @@
       $("#m-noise").classList.toggle("warn", r.outcome === "indeterminate" && r.reason === "noise");
       $("#b-fhir").disabled = false;
       drawLab();
+      if (lab.animate) { lab.animate = false; animateResult(); }
     }, (e) => {
       if (run !== runSeq) return;
-      lab.sig = { x, fs }; lab.res = null;
+      lab.sig = { x, fs }; lab.res = null; lab.animate = false;
       box.className = "verdict err"; box.querySelector(".pill").textContent = T.err;
       clearMetrics();
       box.querySelector("p").textContent = errorText(e);
@@ -385,7 +396,7 @@
     return /\.edf$/i.test(file.name);
   }
   function loadFromChannel(sig, fs, name) {
-    lab.fileSig = sig; lab.fileFs = fs; lab.fileName = name; lab.source = "file";
+    lab.fileSig = sig; lab.fileFs = fs; lab.fileName = name; lab.source = "file"; lab.animate = true;
     runLab();
   }
   function populateEdfChannels(edf) {
@@ -407,22 +418,18 @@
     const edf = lab.edf; if (!edf) return;
     const s = edf.signals[idx];
     const sig = edf.getChannel(idx);
-    $("#f-status").textContent = T.edfOk(sig.length, Math.round(s.fs), s.label);
+    $("#f-status").textContent = T.edfOk(sig.length, Math.round(s.fs), s.label) + (s.unitToMv === null ? T.unitUnknown(s.unit) : "");
     loadFromChannel(sig, s.fs, lab.fileName);
   }
   function parseCsvText(text) {
     const col = Math.max(0, parseInt($("#f-col").value || "0", 10));
     const unit = $("#f-unit").value, fs = Math.max(50, parseFloat($("#f-fs").value) || 500);
-    const vals = [];
-    for (const line of text.split(/\r?\n/)) {
-      const parts = line.split(/[,;\t ]+/).filter(Boolean);
-      const v = parseFloat(parts[col]);
-      if (isFinite(v)) vals.push(unit === "uv" ? v / 1000 : v);
-    }
+    const vals = EDF.parseCSV(text, col);
+    if (unit === "uv") for (let i = 0; i < vals.length; i++) vals[i] /= 1000;
     const status = $("#f-status");
     if (vals.length < fs * 10) { status.textContent = T.fileErr; return; }
     status.textContent = T.fileOk(vals.length, fs);
-    loadFromChannel(Float64Array.from(vals), fs, lab.fileName);
+    loadFromChannel(vals, fs, lab.fileName);
   }
   function onFile(ev) {
     const file = ev.target.files && ev.target.files[0]; if (!file) return;
@@ -514,20 +521,61 @@
     document.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => {
       const p = JSON.parse(b.dataset.preset);
       for (const k in p) $("#s-" + k).value = p[k];
-      clearPresets(); b.setAttribute("aria-pressed", "true"); lab.source = "synth"; schedule();
+      clearPresets(); b.setAttribute("aria-pressed", "true"); lab.source = "synth"; lab.animate = true; schedule();
     }));
-    $("#b-reseed").addEventListener("click", () => { lab.seed = (lab.seed * 48271) % 2147483647; lab.source = "synth"; schedule(); });
+    $("#b-reseed").addEventListener("click", () => { lab.seed = (lab.seed * 48271) % 2147483647; lab.source = "synth"; lab.animate = true; schedule(); });
     $("#f-file").addEventListener("change", onFile);
     ["#f-fs", "#f-col", "#f-unit"].forEach((sel) => $(sel).addEventListener("input", () => { if (lab.csvRawText) parseCsvText(lab.csvRawText); }));
     $("#f-edf-channel").addEventListener("change", (e) => selectEdfChannel(parseInt(e.target.value, 10)));
     $("#b-fhir").addEventListener("click", exportFHIR);
     // opening the example panel is an explicit request to see a synthetic result
     $(".demo").addEventListener("toggle", (e) => {
-      if (e.target.open && lab.source === "none") { lab.source = "synth"; schedule(); }
+      if (e.target.open && lab.source === "none") { lab.source = "synth"; lab.animate = true; schedule(); }
     });
     syncOutputs(); showEmpty();
   }
   function clearPresets() { document.querySelectorAll("[data-preset]").forEach((b) => b.setAttribute("aria-pressed", "false")); }
+
+  // ======================= cover: a quiet field of dots =======================
+  // Ripples spread from the centre about once a second, like a pulse; every other ripple is a
+  // little weaker, which is alternans drawn in dots. Purely decorative: it stops when the cover
+  // is off screen or the tab is hidden, and stays still for people who prefer reduced motion.
+  function coverDots() {
+    const cv = document.querySelector(".cover-dots");
+    if (!cv || !cv.getContext) return;
+    const still = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ctx = cv.getContext("2d"), BEAT = 1.05, STEP = 20;
+    let w = 0, h = 0, raf = 0, visible = true;
+    function size() {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      w = cv.clientWidth; h = cv.clientHeight;
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    function frame(ms) {
+      const s = ms / 1000, k = Math.floor(s / BEAT), phase = (s % BEAT) / BEAT;
+      const strength = k % 2 ? 0.62 : 1, cx = w * 0.55, cy = h * 0.5, maxR = Math.hypot(w, h) * 0.55;
+      const r = phase * maxR, fade = 1 - phase;
+      ctx.clearRect(0, 0, w, h);
+      for (let y = STEP / 2; y < h; y += STEP) {
+        for (let x = STEP / 2; x < w; x += STEP) {
+          const d = Math.hypot(x - cx, y - cy);
+          const edge = Math.max(0, 1 - d / maxR);                       // soft vignette
+          const ring = still ? 0 : Math.exp(-(((d - r) / 34) ** 2)) * strength * fade;
+          const a = (0.2 + 0.7 * ring) * (0.45 + 0.55 * edge);
+          ctx.fillStyle = ring > 0.15 ? `rgba(169, 205, 191, ${a})` : `rgba(239, 233, 223, ${a})`;
+          ctx.beginPath(); ctx.arc(x, y, 1.3 + 1.9 * ring, 0, 6.2832); ctx.fill();
+        }
+      }
+      if (!still && visible && !document.hidden && w > 0) raf = requestAnimationFrame(frame);
+    }
+    function start() { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
+    size(); start();
+    window.addEventListener("resize", () => { size(); start(); });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) start(); });
+    if ("IntersectionObserver" in window)
+      new IntersectionObserver((es) => { visible = es[0].isIntersecting; if (visible) start(); }).observe(cv);
+  }
 
   // ======================= boot / resize / theme =======================
   function redrawAll() { readColors(); if (lab.sig) drawLab(); }
@@ -537,6 +585,7 @@
 
   function boot() {
     initLab();
+    coverDots();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();

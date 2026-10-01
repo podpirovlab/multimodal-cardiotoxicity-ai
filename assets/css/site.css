@@ -80,6 +80,9 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .notice strong { color: var(--c-ink); }
 .cover-ecg { position: absolute; left: 0; right: 0; bottom: 18px; width: 100%; height: 90px; }
 .cover-ecg polyline { fill: none; stroke: var(--c-rose); stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: 0.85; }
+.cover-ecg .glow { stroke: #f7dbe1; stroke-width: 2.6; stroke-dasharray: 0.03 2; stroke-dashoffset: 0.03; opacity: 0; }
+.cover-dots { position: absolute; top: 72px; right: max(24px, calc((100% - 1120px) / 2 + 24px)); width: min(400px, 34vw); height: 380px; pointer-events: none; }
+@media (max-width: 900px) { .cover-dots { display: none; } }
 
 /* ---------- lab ---------- */
 .block-head { display: grid; gap: 10px; margin-bottom: 28px; }
@@ -157,6 +160,29 @@ input[type="file"]:focus-visible + .pick { outline: 2px solid var(--odd); outlin
 footer { padding-block: 8px 48px; color: var(--muted); font-size: 14px; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
 footer a { color: var(--muted); }
+
+/* ---------- motion: one entrance on the cover, and feedback when a result arrives.
+   Nothing moves on its own after that, and nothing moves at all with reduced motion. ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .cover .hero > * { animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  .cover .hero > :nth-child(2) { animation-delay: 0.12s; }
+  .cover .hero > :nth-child(3) { animation-delay: 0.22s; }
+  .cover .hero > :nth-child(4) { animation-delay: 0.32s; }
+  .cover .hero > :nth-child(5) { animation-delay: 0.42s; }
+  .cover-ecg polyline:not(.glow) { stroke-dasharray: 1; stroke-dashoffset: 1; animation: trace 2.6s cubic-bezier(0.45, 0.05, 0.25, 1) 0.35s forwards; }
+  .cover-ecg .glow { animation: write 7s linear 3.2s infinite; }
+  .cover-dots { animation: rise 1.6s ease-out 0.6s both; }
+  .verdict.fresh .pill, .verdict.fresh p { animation: settle 0.45s ease-out both; }
+  .verdict.fresh p { animation-delay: 0.08s; }
+  .criteria.fresh td.num:not(.cond) { animation: settle 0.45s ease-out 0.12s both; }
+  .panels.fresh canvas { animation: wipe 0.9s cubic-bezier(0.3, 0.6, 0.2, 1) 0.1s both; }
+  .btn, .chip, .nav a, footer a { transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes trace { to { stroke-dashoffset: 0; } }
+@keyframes settle { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes write { 0% { stroke-dashoffset: 0.03; opacity: 0; } 4% { opacity: 1; } 70% { stroke-dashoffset: -1; opacity: 1; } 71%, 100% { stroke-dashoffset: -1; opacity: 0; } }
+@keyframes wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 
 /* ---------- responsive ---------- */
 @media (max-width: 980px) {
