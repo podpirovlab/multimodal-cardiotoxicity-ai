@@ -10,7 +10,8 @@
       pos: "Критерий альтернации выполнен", neg: "Значимой альтернации нет", ind: "Не определено", err: "Анализ невозможен",
       busy: "Анализ…", busyText: "Считаю окна по всей записи.",
       none: "Запись не загружена", noneText: "Загрузите запись или откройте пример ниже.",
-      synthPrefix: "Пример · синтетическая запись. ",
+      synthName: "синтетический пример", version: (v) => `версия ${v}`,
+      beatsWindows: (n, w) => `${n} ${plural(n, "удар", "удара", "ударов")}, ${w} ${plural(w, "окно", "окна", "окон")}`,
       posText: (r) => `Альтернация ${fmt(r.vAlt, 1)} мкВ при ${kEq(r.k)} в окне с ЧСС ${fmt(r.windowHr, 0)} уд/мин: выполнен критерий спектрального метода (не меньше 1,9 мкВ, K не меньше 3, ЧСС не выше 110, шум не выше 1,8 мкВ). На бумажной ЭКГ это ${fmt(r.vPeak / 100, 2)} мм — глазом не увидеть.`,
       negText: (r) => `Значимой альтернации нет ни в одном окне (наибольшая ${fmt(r.vAlt, 1)} мкВ, ${kEq(r.k)}), в том числе в чистых окнах с ЧСС до ${fmt(r.hrMaxClean, 0)} уд/мин. Это отрицательный результат по правилам метода: для него ЧСС должна дойти до 105.`,
       indText: {
@@ -41,7 +42,8 @@
       pos: "Alternans criterion met", neg: "No significant alternans", ind: "Indeterminate", err: "Cannot analyse",
       busy: "Analysing…", busyText: "Scanning windows across the whole recording.",
       none: "No recording loaded", noneText: "Upload a recording or open an example below.",
-      synthPrefix: "Example · synthetic recording. ",
+      synthName: "synthetic example", version: (v) => `version ${v}`,
+      beatsWindows: (n, w) => `${n} beats, ${w} window${w === 1 ? "" : "s"}`,
       posText: (r) => `Alternans ${fmt(r.vAlt, 1)} µV with ${kEq(r.k)} in a window at ${fmt(r.windowHr, 0)} bpm: meets the Spectral Method criterion (at least 1.9 µV, K at least 3, heart rate at most 110, noise at most 1.8 µV). On paper ECG that is ${fmt(r.vPeak / 100, 2)} mm, invisible to the eye.`,
       negText: (r) => `No significant alternans in any window (largest ${fmt(r.vAlt, 1)} µV, ${kEq(r.k)}), including clean windows at up to ${fmt(r.hrMaxClean, 0)} bpm. That is a negative result under the method's rules, which require the heart rate to reach 105.`,
       indText: {
@@ -89,7 +91,7 @@
   let C = {};
   function readColors() {
     const cs = getComputedStyle(document.documentElement);
-    for (const k of ["paper", "surface", "ink", "muted", "line", "grid-minor", "grid-major", "trace", "accent", "blue", "accent-soft", "blue-soft"])
+    for (const k of ["paper", "surface", "ink", "muted", "line", "grid-minor", "grid-major", "trace", "rpeak", "window", "band", "even", "odd", "finding"])
       C[k] = cs.getPropertyValue("--" + k).trim();
   }
   readColors();
@@ -104,7 +106,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return { ctx, w, h };
   }
-  const MONO = "500 11px 'JetBrains Mono', ui-monospace, monospace";
+  const MONO = "400 12px 'PT Mono', ui-monospace, monospace";
 
   // ECG-paper grid: minor every 1 mm, major every 5 mm
   function paperGrid(ctx, w, h, pxmm, x0 = 0) {
@@ -177,8 +179,9 @@
   function schedule() { syncOutputs(); clearTimeout(pending); pending = setTimeout(runLab, 90); }
 
   function clearMetrics() {
-    for (const id of ["#m-hr", "#m-valt", "#m-peak", "#m-k", "#m-mma"]) $(id).textContent = "—";
-    $("#d-hr").textContent = "";
+    for (const id of ["#f-rec", "#f-beats", "#m-hr", "#f-ver", "#m-valt", "#m-k", "#m-whr", "#m-noise", "#m-peak", "#m-mma"]) {
+      $(id).textContent = "—"; $(id).classList.remove("met", "warn");
+    }
   }
   function showEmpty() {
     runSeq++; lab.res = null; lab.sig = null;
@@ -234,33 +237,42 @@
     if (lab.source === "file" && lab.fileSig) { x = lab.fileSig; fs = lab.fileFs; }
     else { const s = D.synth(Object.assign(params(), { seed: lab.seed })); x = s.x; fs = s.fs; }
     const box = $("#verdict"), run = ++runSeq;
-    const prefix = lab.source === "file" ? lab.fileName + ". " : T.synthPrefix;
+    const record = lab.source === "file" ? lab.fileName : T.synthName;
     if (lab.source === "file") {
       box.className = "verdict none"; box.querySelector(".pill").textContent = T.busy;
-      box.querySelector("p").textContent = prefix + T.busyText;
+      box.querySelector("p").textContent = T.busyText;
     }
     analyse(x, fs).then((r) => {
       if (run !== runSeq) return;                 // a newer request has started
       lab.sig = { x, fs }; lab.res = r;
       box.className = "verdict " + VERDICT_CLASS[r.outcome];
       box.querySelector(".pill").textContent = T[VERDICT_PILL[r.outcome]];
-      let msg = prefix + verdictText(r);
+      let msg = verdictText(r);
       if (r.windowBeats < D.STANDARD_BEATS) msg += " " + T.shortWarn(r.windowBeats);
       box.querySelector("p").textContent = msg;
-      $("#m-hr").innerHTML = `${fmt(r.hr, 0)} <small>${T.bpm}</small>`;
-      $("#d-hr").textContent = T.beats(r.nBeats) + (r.nWindows > 1 ? ", " + T.windows(r.nWindows) : "");
-      $("#m-valt").innerHTML = `${fmt(r.vAlt, 2)} <small>${T.uv}</small>`;
-      $("#m-peak").innerHTML = `${fmt(r.vPeak, 1)} <small>${T.uv}</small>`;
+      $("#f-rec").textContent = record;
+      $("#f-beats").textContent = T.beatsWindows(r.nBeats, r.nWindows);
+      $("#m-hr").textContent = `${fmt(r.hr, 0)} ${T.bpm}`;
+      $("#f-ver").textContent = T.version(D.version);
+      $("#m-valt").innerHTML = `${fmt(r.vAlt, 1)} <small>${T.uv}</small>`;
       $("#m-k").textContent = fmtK(r.k);
+      $("#m-whr").innerHTML = `${fmt(r.windowHr, 0)} <small>${T.bpm}</small>`;
+      $("#m-noise").innerHTML = `${fmt(r.noise, 1)} <small>${T.uv}</small>`;
+      $("#m-peak").innerHTML = `${fmt(r.vPeak, 1)} <small>${T.uv}</small>`;
       $("#m-mma").innerHTML = `${fmt(r.mma, 1)} <small>${T.uv}</small>`;
+      // red marks the finding only: the conditions that made this result positive
+      $("#m-valt").classList.toggle("met", r.positive);
+      $("#m-k").classList.toggle("met", r.positive);
+      $("#m-noise").classList.toggle("warn", r.outcome === "indeterminate" && r.reason === "noise");
       $("#b-fhir").disabled = false;
       drawLab();
     }, (e) => {
       if (run !== runSeq) return;
       lab.sig = { x, fs }; lab.res = null;
       box.className = "verdict err"; box.querySelector(".pill").textContent = T.err;
-      box.querySelector("p").textContent = prefix + errorText(e);
       clearMetrics();
+      box.querySelector("p").textContent = errorText(e);
+      $("#f-rec").textContent = record;
       $("#b-fhir").disabled = true;
       drawLab();
     });
@@ -290,14 +302,14 @@
     const med = D.percentile(sl, 50), base = h * 0.62;
     if (r) {
       const [a, b] = r.window;
-      ctx.fillStyle = C["accent-soft"];
+      ctx.fillStyle = C.window;
       for (const ri of r.r) { const t = ri / fs; if (t > win) break; ctx.fillRect((t + a) * pps, 0, (b - a) * pps, h); }
     }
     ctx.beginPath(); ctx.strokeStyle = C.trace; ctx.lineWidth = 1.3;
     for (let i = 0; i < n; i++) { const X = i / fs * pps, Y = base - (sl[i] - med) * pxmv; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
     ctx.stroke();
     if (r) {
-      ctx.fillStyle = C.accent;
+      ctx.fillStyle = C.rpeak;
       for (const ri of r.r) { const t = ri / fs; if (t > win) break; ctx.beginPath(); ctx.arc(t * pps, base - (xs[ri] - med) * pxmv, 3.2, 0, 7); ctx.fill(); }
     }
     ctx.font = MONO; ctx.fillStyle = C.muted; ctx.textAlign = "right"; ctx.textBaseline = "bottom";
@@ -318,12 +330,12 @@
     const { X, Y } = axes(ctx, w, h, pad, [-0.25, 0.55], [Math.min(lo, yt[0]), Math.max(hi, yt[yt.length - 1])],
       { xt: [-0.2, 0, 0.2, 0.4], yt, xf: (v) => fmt(v, 1), yf: (v) => fmt(v, 1), xl: T.fromR, yl: T.mv });
     const [a, b] = r.window;
-    ctx.fillStyle = C["accent-soft"]; ctx.fillRect(X(a), pad.t, X(b) - X(a), h - pad.t - pad.b);
+    ctx.fillStyle = C.window; ctx.fillRect(X(a), pad.t, X(b) - X(a), h - pad.t - pad.b);
     const line = (arr, col, lw, f = 1) => { ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = lw;
       for (let k = 0; k < L; k++) { const px = X(k / fs - 0.25), py = Y(arr[k] * f); k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); } ctx.stroke(); };
     const diff = A.map((v, k) => v - Bo[k]);
     ctx.setLineDash([4, 3]); line(diff, C.muted, 1.2, 10); ctx.setLineDash([]);
-    line(A, C.blue, 2); line(Bo, C.accent, 2);
+    line(A, C.even, 2); line(Bo, C.odd, 2);
   }
 
   function drawSeries() {
@@ -346,7 +358,7 @@
     const N = uv.length;
     const { X, Y } = axes(ctx, w, h, pad, [0, N], [-lim, lim], { xt: niceTicks(0, N, 6), yt, yf: (v) => fmt(v, 0), xl: T.beat, yl: T.uv });
     const bw = Math.max(1, (X(1) - X(0)) * 0.7);
-    uv.forEach((v, n) => { ctx.fillStyle = n % 2 ? C.accent : C.blue; const y0 = Y(0), y1 = Y(v);
+    uv.forEach((v, n) => { ctx.fillStyle = n % 2 ? C.odd : C.even; const y0 = Y(0), y1 = Y(v);
       ctx.fillRect(X(n + 0.5) - bw / 2, Math.min(y0, y1), bw, Math.max(1, Math.abs(y1 - y0))); });
   }
 
@@ -360,12 +372,12 @@
     const pad = { l: 52, r: 12, t: 20, b: 28 };
     const { X, Y } = axes(ctx, w, h, pad, [0, 0.5], [lo, hi], { xt: [0, 0.1, 0.2, 0.3, 0.4, 0.5], yt,
       xf: (v) => fmt(v, 1), yf: (e) => (e >= 0 ? "1e" + e : "1e" + e), xl: T.cpb, yl: T.uv + "²" });
-    ctx.fillStyle = C["blue-soft"]; ctx.fillRect(X(0.44), pad.t, X(0.49) - X(0.44), h - pad.t - pad.b);
+    ctx.fillStyle = C.band; ctx.fillRect(X(0.44), pad.t, X(0.49) - X(0.44), h - pad.t - pad.b);
     ctx.beginPath(); ctx.strokeStyle = C.trace; ctx.lineWidth = 1.4;
     for (let i = 1; i < f.length; i++) { const px = X(f[i]), py = Y(Math.log10(P[i])); i > 1 ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
     ctx.stroke();
     const pa = P[P.length - 1];
-    ctx.fillStyle = r.positive ? C.accent : C.muted; ctx.beginPath(); ctx.arc(X(0.5) - 2, Y(Math.log10(pa)), 4.5, 0, 7); ctx.fill();
+    ctx.fillStyle = r.positive ? C.finding : C.ink; ctx.beginPath(); ctx.arc(X(0.5) - 2, Y(Math.log10(pa)), 4.5, 0, 7); ctx.fill();
   }
 
   // ---------- file upload: plain CSV/TXT, or binary EDF/EDF+ with a channel picker ----------
