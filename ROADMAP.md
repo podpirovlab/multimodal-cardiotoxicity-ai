@@ -30,7 +30,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 2. **Put the real numbers** into README section 5.4 and regenerate figure 08 with trained weights.
 3. **Find recordings with a known answer** for TWA (paced or exercise tests with clinical TWA results), because the 2008 reference is a consensus of other algorithms, not measured truth.
 4. **Find a cardio-oncology mentor** with one concrete question, for example: "Is it realistic to obtain de-identified ECGs from patients before and after anthracyclines?"
-5. **Release v1.0 with a DOI** (GitHub release archived by Zenodo) once the repository audit is complete.
+5. ~~Release v1.0 with a DOI~~ — done: [10.5281/zenodo.23090356](https://doi.org/10.5281/zenodo.23090356) (1.0.0).
 
 **Done when:** real AUCs with confidence intervals are in the README and all tests pass.
 

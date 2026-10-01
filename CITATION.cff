@@ -12,6 +12,14 @@ authors:
     family-names: Podpirov
     alias: podpirovlab
 version: 1.0.0
+doi: 10.5281/zenodo.23090355
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23090355
+    description: All versions (resolves to the latest)
+  - type: doi
+    value: 10.5281/zenodo.23090356
+    description: Version 1.0.0
 date-released: 2026-10-01
 license: MIT
 repository-code: "https://github.com/podpirovlab/multimodal-cardiotoxicity-ai"

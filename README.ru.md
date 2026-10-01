@@ -3,6 +3,7 @@
 **Исследовательская программа, которая измеряет микровольтную альтернацию зубца T в записях ЭКГ, чтобы проверить, служит ли она ранним электрическим признаком кардиотоксичности антрациклинов. Вопрос открыт; здесь собраны и проверены инструменты, чтобы на него ответить.**
 
 [![CI](https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/actions)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23090355.svg)](https://doi.org/10.5281/zenodo.23090355)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-model-EE4C2C?logo=pytorch&logoColor=white)
 ![Data](https://img.shields.io/badge/Data-PhysioNet%20TWADB%20%7C%20PTB--XL-2b6cb0)
@@ -586,6 +587,7 @@ python scripts/make_figures.py --only 08 --checkpoint runs/ptbxl/model.pt
   title   = {CardioOncoPredict: research software for measuring microvolt T-wave alternans},
   year    = {2026},
   version = {1.0.0},
+  doi     = {10.5281/zenodo.23090356},
   url     = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
 }
 ```
