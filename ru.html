@@ -68,6 +68,7 @@
               </div>
               <div class="ctl"><label for="f-unit">Единицы</label><select id="f-unit"><option value="mv">мВ</option><option value="uv">мкВ</option></select></div>
             </div>
+            <div class="ctl"><label for="f-lead">Отведение (если известно)</label><select id="f-lead"><option value="">не указано</option><option value="I">I</option><option value="II">II</option><option value="III">III</option><option value="aVR">aVR</option><option value="aVL">aVL</option><option value="aVF">aVF</option><option value="V1">V1</option><option value="V2">V2</option><option value="V3">V3</option><option value="V4">V4</option><option value="V5">V5</option><option value="V6">V6</option></select></div>
             <span class="hint" id="f-status">Нужно не меньше 1–2 минут записи. Файл остаётся в браузере и никуда не отправляется.</span>
           </div>
 
@@ -120,10 +121,11 @@
 
         <div class="panels">
           <dl class="fields">
-            <dt>Запись</dt><dd id="f-rec">—</dd>
-            <dt>Анализ</dt><dd id="f-beats">—</dd>
-            <dt>ЧСС</dt><dd id="m-hr">—</dd>
-            <dt>Алгоритм</dt><dd id="f-ver">—</dd>
+            <div><dt>Запись</dt><dd id="f-rec">—</dd></div>
+            <div><dt>Анализ</dt><dd id="f-beats">—</dd></div>
+            <div><dt>ЧСС</dt><dd id="m-hr">—</dd></div>
+            <div><dt>Алгоритм</dt><dd id="f-ver">—</dd></div>
+            <div><dt>Отведение</dt><dd id="f-lead-out">—</dd></div>
           </dl>
           <div class="verdict none" id="verdict" aria-live="polite"><span class="label">Заключение</span><span class="pill">Запись не загружена</span><p>Загрузите запись или откройте пример ниже.</p></div>
           <p class="hint result-note">Только исследовательский показатель, не диагноз. Не валидирован для выявления кардиотоксичности.</p>

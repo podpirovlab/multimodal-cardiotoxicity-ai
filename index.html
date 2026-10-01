@@ -68,6 +68,7 @@
               </div>
               <div class="ctl"><label for="f-unit">Units</label><select id="f-unit"><option value="mv">mV</option><option value="uv">µV</option></select></div>
             </div>
+            <div class="ctl"><label for="f-lead">Lead (if known)</label><select id="f-lead"><option value="">not given</option><option value="I">I</option><option value="II">II</option><option value="III">III</option><option value="aVR">aVR</option><option value="aVL">aVL</option><option value="aVF">aVF</option><option value="V1">V1</option><option value="V2">V2</option><option value="V3">V3</option><option value="V4">V4</option><option value="V5">V5</option><option value="V6">V6</option></select></div>
             <span class="hint" id="f-status">At least 1–2 minutes of recording. The file stays in your browser and is never uploaded.</span>
           </div>
 
@@ -120,10 +121,11 @@
 
         <div class="panels">
           <dl class="fields">
-            <dt>Recording</dt><dd id="f-rec">—</dd>
-            <dt>Analysis</dt><dd id="f-beats">—</dd>
-            <dt>Heart rate</dt><dd id="m-hr">—</dd>
-            <dt>Algorithm</dt><dd id="f-ver">—</dd>
+            <div><dt>Recording</dt><dd id="f-rec">—</dd></div>
+            <div><dt>Analysis</dt><dd id="f-beats">—</dd></div>
+            <div><dt>Heart rate</dt><dd id="m-hr">—</dd></div>
+            <div><dt>Algorithm</dt><dd id="f-ver">—</dd></div>
+            <div><dt>Lead</dt><dd id="f-lead-out">—</dd></div>
           </dl>
           <div class="verdict none" id="verdict" aria-live="polite"><span class="label">Conclusion</span><span class="pill">No recording loaded</span><p>Upload a recording or open an example below.</p></div>
           <p class="hint result-note">Research metric only — not a diagnosis. Not validated for detecting cardiotoxicity.</p>

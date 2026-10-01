@@ -78,3 +78,10 @@ def test_unknown_unit_is_reported():
 def test_csv_column(text, col, expected):
     r = run_js(f"console.log(JSON.stringify(Array.from(E.parseCSV({json.dumps(text)},{col}))))")
     np.testing.assert_allclose(r, expected)
+
+
+@needs_node
+def test_lead_name_from_channel_label():
+    labels = ["ECG II", "EKG V5", "Lead aVL", "v3", "AVR", "I", "ECG1", "MLII", "Resp", "ЭКГ III", ""]
+    r = run_js(f"console.log(JSON.stringify({json.dumps(labels)}.map(E.leadFromLabel)))")
+    assert r == ["II", "V5", "aVL", "V3", "aVR", "I", "", "", "", "III", ""]

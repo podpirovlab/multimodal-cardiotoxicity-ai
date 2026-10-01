@@ -10,7 +10,7 @@
       pos: "Критерий альтернации выполнен", neg: "Значимой альтернации нет", ind: "Не определено", err: "Анализ невозможен",
       busy: "Анализ…", busyText: "Считаю окна по всей записи.",
       none: "Запись не загружена", noneText: "Загрузите запись или откройте пример ниже.",
-      synthName: "синтетический пример", version: (v) => `версия ${v}`,
+      synthName: "синтетический пример", leadNone: "не указано", version: (v) => `версия ${v}`,
       beatsWindows: (n, w) => `${n} ${plural(n, "удар", "удара", "ударов")}, ${w} ${plural(w, "окно", "окна", "окон")}`,
       posText: (r) => `Альтернация ${fmt(r.vAlt, 1)} мкВ при ${kEq(r.k)} в окне с ЧСС ${fmt(r.windowHr, 0)} уд/мин: выполнен критерий спектрального метода (не меньше 1,9 мкВ, K не меньше 3, ЧСС не выше 110, шум не выше 1,8 мкВ). На бумажной ЭКГ это ${fmt(r.vPeak / 100, 2)} мм — глазом не увидеть.`,
       negText: (r) => `Значимой альтернации нет ни в одном окне (наибольшая ${fmt(r.vAlt, 1)} мкВ, ${kEq(r.k)}), в том числе в чистых окнах с ЧСС до ${fmt(r.hrMaxClean, 0)} уд/мин. Это отрицательный результат по правилам метода: для него ЧСС должна дойти до 105.`,
@@ -43,7 +43,7 @@
       pos: "Alternans criterion met", neg: "No significant alternans", ind: "Indeterminate", err: "Cannot analyse",
       busy: "Analysing…", busyText: "Scanning windows across the whole recording.",
       none: "No recording loaded", noneText: "Upload a recording or open an example below.",
-      synthName: "synthetic example", version: (v) => `version ${v}`,
+      synthName: "synthetic example", leadNone: "not given", version: (v) => `version ${v}`,
       beatsWindows: (n, w) => `${n} beats, ${w} window${w === 1 ? "" : "s"}`,
       posText: (r) => `Alternans ${fmt(r.vAlt, 1)} µV with ${kEq(r.k)} in a window at ${fmt(r.windowHr, 0)} bpm: meets the Spectral Method criterion (at least 1.9 µV, K at least 3, heart rate at most 110, noise at most 1.8 µV). On paper ECG that is ${fmt(r.vPeak / 100, 2)} mm, invisible to the eye.`,
       negText: (r) => `No significant alternans in any window (largest ${fmt(r.vAlt, 1)} µV, ${kEq(r.k)}), including clean windows at up to ${fmt(r.hrMaxClean, 0)} bpm. That is a negative result under the method's rules, which require the heart rate to reach 105.`,
@@ -163,7 +163,7 @@
   // ======================= TWA LAB =======================
   // source: "none" until the user uploads a file or opens a synthetic example — the page
   // never opens on a result about a person who does not exist.
-  const lab = { res: null, sig: null, seed: 7, source: "none", fileSig: null, fileFs: 500, fileName: "", edf: null, csvRawText: null };
+  const lab = { res: null, sig: null, seed: 7, source: "none", lead: "", fileSig: null, fileFs: 500, fileName: "", edf: null, csvRawText: null };
   const sliders = ["alt", "noise", "hr", "tamp", "mains"];
   function params() {
     const v = (id) => parseFloat($("#s-" + id).value);
@@ -181,7 +181,7 @@
   function schedule() { syncOutputs(); clearTimeout(pending); pending = setTimeout(runLab, 90); }
 
   function clearMetrics() {
-    for (const id of ["#f-rec", "#f-beats", "#m-hr", "#f-ver", "#m-valt", "#m-k", "#m-whr", "#m-noise", "#m-peak", "#m-mma"]) {
+    for (const id of ["#f-rec", "#f-beats", "#m-hr", "#f-ver", "#f-lead-out", "#m-valt", "#m-k", "#m-whr", "#m-noise", "#m-peak", "#m-mma"]) {
       $(id).textContent = "—"; $(id).classList.remove("met", "warn");
     }
   }
@@ -264,6 +264,9 @@
       $("#f-beats").textContent = T.beatsWindows(r.nBeats, r.nWindows);
       $("#m-hr").textContent = `${fmt(r.hr, 0)} ${T.bpm}`;
       $("#f-ver").textContent = T.version(D.version);
+      const lead = lab.source === "file" ? lab.lead : "";
+      if (lab.source === "file") leadField(lead); else $("#f-lead-out").textContent = "—";
+      if (lead) linkHeart(lead); else if (heart3d.fromRecording) linkHeart("");
       $("#m-valt").innerHTML = `${fmt(r.vAlt, 1)} <small>${T.uv}</small>`;
       $("#m-k").textContent = fmtK(r.k);
       $("#m-whr").innerHTML = `${fmt(r.windowHr, 0)} <small>${T.bpm}</small>`;
@@ -419,12 +422,14 @@
     const s = edf.signals[idx];
     const sig = edf.getChannel(idx);
     $("#f-status").textContent = T.edfOk(sig.length, Math.round(s.fs), s.label) + (s.unitToMv === null ? T.unitUnknown(s.unit) : "");
+    lab.lead = EDF.leadFromLabel(s.label); $("#f-lead").value = lab.lead;
     loadFromChannel(sig, s.fs, lab.fileName);
   }
   function parseCsvText(text) {
     const col = Math.max(0, parseInt($("#f-col").value || "0", 10));
     const unit = $("#f-unit").value, fs = Math.max(50, parseFloat($("#f-fs").value) || 500);
     const vals = EDF.parseCSV(text, col);
+    lab.lead = $("#f-lead").value;
     if (unit === "uv") for (let i = 0; i < vals.length; i++) vals[i] /= 1000;
     const status = $("#f-status");
     if (vals.length < fs * 10) { status.textContent = T.fileErr; return; }
@@ -527,6 +532,10 @@
     $("#f-file").addEventListener("change", onFile);
     ["#f-fs", "#f-col", "#f-unit"].forEach((sel) => $(sel).addEventListener("input", () => { if (lab.csvRawText) parseCsvText(lab.csvRawText); }));
     $("#f-edf-channel").addEventListener("change", (e) => selectEdfChannel(parseInt(e.target.value, 10)));
+    $("#f-lead").addEventListener("change", (e) => {
+      lab.lead = e.target.value;
+      if (lab.res && lab.source === "file") { leadField(lab.lead); linkHeart(lab.lead); }
+    });
     $("#b-fhir").addEventListener("click", exportFHIR);
     // opening the example panel is an explicit request to see a synthetic result
     $(".demo").addEventListener("toggle", (e) => {
@@ -549,6 +558,9 @@
       wall: { septal: "межжелудочковую перегородку", anterior: "переднюю стенку", lateral: "боковую стенку", inferior: "нижнюю стенку" },
       sees: (lead, wall, axis) => `${lead} смотрит на ${wall} левого желудочка (ось ${axis}). Это анатомия ЭКГ, а не карта повреждения.`,
       aVR: "aVR смотрит в полость сердца справа и сверху и ни одной стенки не локализует, поэтому подсветки нет.",
+      wallShort: { septal: "перегородка", anterior: "передняя стенка", lateral: "боковая стенка", inferior: "нижняя стенка" },
+      fromRecording: (lead, wall) => `Загруженная запись сделана в отведении ${lead}. Оно смотрит на ${wall} левого желудочка, поэтому альтернация измерена «со стороны» этой стенки. Это не место повреждения: по одному отведению его определить нельзя.`,
+      fromRecordingAVR: "Загруженная запись сделана в отведении aVR. Оно смотрит в полость сердца и ни одной стенки не локализует.",
       LV: "ЛЖ", RV: "ПЖ", apex: "верхушка", base: "основание",
     },
     en: {
@@ -557,6 +569,9 @@
       wall: { septal: "septum", anterior: "anterior wall", lateral: "lateral wall", inferior: "inferior wall" },
       sees: (lead, wall, axis) => `${lead} faces the ${wall} of the left ventricle (axis ${axis}). This is ECG anatomy, not a map of damage.`,
       aVR: "aVR looks into the cavity from the upper right and does not localise any wall, so nothing is lit.",
+      wallShort: { septal: "septum", anterior: "anterior wall", lateral: "lateral wall", inferior: "inferior wall" },
+      fromRecording: (lead, wall) => `The uploaded recording is lead ${lead}. It faces the ${wall} of the left ventricle, so the alternans was measured from that side. That is not where any damage is: one lead cannot tell.`,
+      fromRecordingAVR: "The uploaded recording is lead aVR. It looks into the cavity and does not localise any wall.",
       LV: "LV", RV: "RV", apex: "apex", base: "base",
     },
   }[LANG === "ru" ? "ru" : "en"];
@@ -701,7 +716,9 @@
   }
   function setHeartNote() {
     const note = $("#heart-note"); if (!note) return;
-    if (heart3d.lv) note.textContent = HEART_TEXT.lv;
+    if (heart3d.fromRecording && heart3d.sel)
+      note.textContent = heart3d.sel === "aVR" ? HEART_TEXT.fromRecordingAVR : HEART_TEXT.fromRecording(heart3d.sel, HEART_TEXT.wall[LEAD_WALL[heart3d.sel]]);
+    else if (heart3d.lv) note.textContent = HEART_TEXT.lv;
     else if (!heart3d.sel) note.textContent = HEART_TEXT.idle;
     else if (heart3d.sel === "aVR") note.textContent = HEART_TEXT.aVR;
     else {
@@ -709,6 +726,23 @@
       const axis = `${deg}° ${plane === "f" ? (LANG === "ru" ? "во фронтальной плоскости" : "in the frontal plane") : (LANG === "ru" ? "в горизонтальной плоскости" : "in the horizontal plane")}`;
       note.textContent = HEART_TEXT.sees(heart3d.sel, HEART_TEXT.wall[LEAD_WALL[heart3d.sel]], axis);
     }
+  }
+  // A recording with a known lead turns the model to that lead's side; choosing anything by hand
+  // on the model takes over again.
+  function pressLead(lead) {
+    document.querySelectorAll("[data-lead]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.lead === lead)));
+    const lv = $("#b-lv"); if (lv) lv.setAttribute("aria-pressed", "false");
+  }
+  function linkHeart(lead) {
+    if (!heart3d.model) return;
+    heart3d.sel = lead || null; heart3d.lv = false; heart3d.fromRecording = !!lead;
+    pressLead(heart3d.sel); aimHeart(); setHeartNote(); drawHeart(performance.now());
+  }
+  function leadField(lead) {
+    const dd = $("#f-lead-out");
+    if (!lead) { dd.textContent = T.leadNone; return; }
+    const wall = LEAD_WALL[lead];
+    dd.innerHTML = `<a href="#anatomy">${lead}${wall ? ", " + HEART_TEXT.wallShort[wall] : ""}</a>`;
   }
   function initHeart() {
     const cv = $("#c-heart"); if (!cv) return;
@@ -727,12 +761,12 @@
     document.querySelectorAll("[data-lead]").forEach((b) => b.addEventListener("click", () => {
       const on = b.getAttribute("aria-pressed") === "true";
       document.querySelectorAll("[data-lead]").forEach((x) => x.setAttribute("aria-pressed", "false"));
-      heart3d.sel = on ? null : b.dataset.lead; heart3d.lv = false; $("#b-lv").setAttribute("aria-pressed", "false");
+      heart3d.sel = on ? null : b.dataset.lead; heart3d.lv = false; heart3d.fromRecording = false; $("#b-lv").setAttribute("aria-pressed", "false");
       if (!on) b.setAttribute("aria-pressed", "true");
       aimHeart(); setHeartNote(); drawHeart(performance.now());
     }));
     $("#b-lv").addEventListener("click", (e) => {
-      heart3d.lv = e.currentTarget.getAttribute("aria-pressed") !== "true";
+      heart3d.lv = e.currentTarget.getAttribute("aria-pressed") !== "true"; heart3d.fromRecording = false;
       e.currentTarget.setAttribute("aria-pressed", String(heart3d.lv));
       if (heart3d.lv) { heart3d.sel = null; document.querySelectorAll("[data-lead]").forEach((x) => x.setAttribute("aria-pressed", "false")); }
       aimHeart(); setHeartNote(); drawHeart(performance.now());

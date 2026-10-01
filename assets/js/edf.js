@@ -4,7 +4,8 @@
              to physical values in mV.  EDF+D (discontinuous) is refused: beats on either
              side of a gap would be counted as neighbours and break the ABAB order.
    parseCSV  one numeric column of a CSV/TXT file, with a decimal comma when the
-             columns are separated by ";" or tabs (the usual Russian/European export). */
+             columns are separated by ";" or tabs (the usual Russian/European export).
+   leadFromLabel  the standard lead a channel label names, if any. */
 (function (root) {
   "use strict";
 
@@ -118,6 +119,16 @@
     return Float64Array.from(out);
   }
 
-  root.CardioEDF = { parseEDF, parseCSV, unitToMv };
+  // Standard lead name from a channel label ("ECG II", "EKG V5", "Lead aVL", "v3") or "" if
+  // the label does not name one of the twelve leads (e.g. "ECG1", "MLII", "Resp").
+  function leadFromLabel(label) {
+    const s = String(label || "").trim().replace(/^(ecg|ekg|экг|lead|отв\.?)[\s_:-]*/i, "");
+    const m = s.match(/^(I{1,3}|aVR|aVL|aVF|V[1-6])$/i);
+    if (!m) return "";
+    const t = m[1].toUpperCase();
+    return t.startsWith("AV") ? "a" + t.slice(1) : t;
+  }
+
+  root.CardioEDF = { parseEDF, parseCSV, unitToMv, leadFromLabel };
   if (typeof module !== "undefined") module.exports = root.CardioEDF;
 })(typeof window !== "undefined" ? window : globalThis);

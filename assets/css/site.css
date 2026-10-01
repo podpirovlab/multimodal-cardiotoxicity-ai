@@ -130,10 +130,10 @@ input[type="file"]:focus-visible + .pick { outline: 2px solid var(--accent); out
 
 /* ---------- result: fields, verdict, criteria, figures ---------- */
 .panels { display: grid; gap: 24px; min-width: 0; }
-.fields { display: grid; grid-template-columns: repeat(4, auto); gap: 2px 36px; justify-content: start; margin: 0;
-  padding-bottom: 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
-.fields dt { color: var(--muted); grid-row: 1; }
-.fields dd { margin: 0; font: 15px var(--mono); grid-row: 2; white-space: nowrap; }
+.fields { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 0; padding-bottom: 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.fields > div { display: grid; gap: 2px; }
+.fields dt { color: var(--muted); }
+.fields dd { margin: 0; font: 15px var(--mono); }
 
 .verdict { display: grid; gap: 8px; }
 .verdict .label { font-weight: 700; font-size: 14px; color: var(--muted); }
@@ -224,10 +224,8 @@ footer a { color: var(--muted); }
   .hero { padding-block: 44px 108px; padding-inline: 16px; }
   .hero .sub { font-size: 17px; }
   .cover-ecg { height: 70px; }
-  .fields { grid-template-columns: auto auto; gap: 2px 20px; }
-  .fields dd { white-space: normal; }
-  .fields dt:nth-of-type(n+3) { grid-row: 3; }
-  .fields dd:nth-of-type(n+3) { grid-row: 4; }
+  .fields { gap: 10px 20px; }
+  .fields > div { min-width: 40%; }
   .two { grid-template-columns: 1fr; }
   .heart { grid-template-columns: 1fr; gap: 20px; }
   .heart-stage canvas { height: 320px; }
