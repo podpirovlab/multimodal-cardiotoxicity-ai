@@ -22,3 +22,10 @@ demo_forward_pass.png
 data/
 runs/
 report.json
+
+# Local tool configuration (never published)
+.mcp.json
+
+# Packaging
+build/
+dist/

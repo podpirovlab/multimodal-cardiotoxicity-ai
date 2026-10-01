@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cardiooncopredict"
+dynamic = ["version"]
+description = "Research software that measures microvolt T-wave alternans in ECG recordings. Not a medical device."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "podpirovlab" }]
+keywords = ["ECG", "T-wave alternans", "cardio-oncology", "signal processing", "FHIR"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+# The TWA library (synth, preprocess, twa, fhir) needs only these two.
+dependencies = ["numpy>=1.24", "scipy>=1.10"]
+
+[project.optional-dependencies]
+model = ["torch>=2.1"]                                            # cardioonco/model.py
+train = ["torch>=2.1", "pandas", "scikit-learn", "wfdb", "matplotlib"]   # train_ptbxl.py
+data = ["wfdb"]                                                   # predict.py --wfdb, scripts/validate_twadb.py
+app = ["gradio>=4.36", "matplotlib"]                              # app.py
+figures = ["matplotlib", "PyWavelets", "torch>=2.1"]              # scripts/make_figures.py
+dev = ["pytest", "pyedflib"]
+
+[project.urls]
+Homepage = "https://podpirovlab.github.io/multimodal-cardiotoxicity-ai/"
+Source = "https://github.com/podpirovlab/multimodal-cardiotoxicity-ai"
+
+[tool.setuptools]
+packages = ["cardioonco"]
+
+[tool.setuptools.dynamic]
+version = { attr = "cardioonco.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

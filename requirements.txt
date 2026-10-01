@@ -1,18 +1,20 @@
+# Everything needed to run every script and test in this repository (what CI installs).
+# pyproject.toml lists the same dependencies in groups, e.g. `pip install .` for the TWA
+# library alone (numpy, scipy) or `pip install ".[app]"` for the Gradio lab.
 numpy
+scipy
 pandas
 matplotlib
 PyWavelets
 torch
 scikit-learn
 pyedflib
-scipy
-wfdb          # PhysioNet WFDB reader (PTB-XL)
-# Pinning to an exact old Gradio release can drag in a Pillow version with
-# no prebuilt wheel for newer Python — a lower bound keeps installs working
-# across Python versions while still requiring the 4.x+ Blocks/Interface API.
+wfdb          # PhysioNet WFDB reader (PTB-XL, TWA challenge database)
+# A lower bound rather than an exact old pin: old Gradio releases pull in Pillow
+# versions without wheels for newer Python.
 gradio>=4.36
 
-# Опционально — только для export_edge_onnx.py (экспорт/квантование модели):
+# Optional, only for legacy/export_edge_onnx.py (ONNX export and INT8 quantisation):
 # onnx
 # onnxruntime
-# onnxscript   # требуется torch>=2.x для экспорта в ONNX
+# onnxscript

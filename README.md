@@ -355,11 +355,11 @@ PTB-XL [12] contains **21,799** clinical 12-lead, 10-second ECGs from **18,869**
 
 ![INT8 quantisation](docs/figures/en/09_int8_quantization.png)
 
-The trained network is exported to **ONNX**, an open format that runs in phones, browsers (onnxruntime-web) and microcontrollers. Weights are then quantised to 8-bit integers with an affine map:
+This section is a plan, not a result: the network has not been trained on real data yet, and the web tool does not use it at all (the browser runs only the TWA signal processing). `train_ptbxl.py --export-onnx` writes the trained network to **ONNX**, an open format that ONNX Runtime can execute on phones and in browsers (onnxruntime-web). A wearable microcontroller would need a further conversion to a microcontroller runtime. To fit such devices, weights can be quantised to 8-bit integers with an affine map [21]:
 
 $$q = \operatorname{round}(x/s) + z,\qquad \hat x = (q - z)\,s,\qquad s = \frac{x_{max}-x_{min}}{255}$$
 
-The rounding error is uniform in $[-s/2, s/2]$ (panel b), while the model shrinks from 2.29 MB to 0.57 MB [21]. Accuracy after quantisation must be re-measured on the test set; that is part of the roadmap.
+The rounding error is uniform in $[-s/2, s/2]$ (panel b). For this network the arithmetic is simple: 573,482 weights take 2.29 MB as 32-bit floats and 0.57 MB as 8-bit integers. Quantisation is shown on a toy network in `legacy/export_edge_onnx.py` and has not been applied to this model; its accuracy after quantisation would have to be measured again on the test set.
 
 ### 6.2 Federated learning
 
@@ -371,7 +371,7 @@ and sends $W_{global}$ back. `legacy/federated_fhir_core.py` demonstrates the ag
 
 ### 6.3 HL7 FHIR R4
 
-Results are written as a FHIR `DiagnosticReport` so they can enter an electronic health record. `cardioonco/fhir.py` uses only real codes for standard concepts: category **EC** (Electrocardiac) from HL7 table v2-0074, code **LOINC 11524-6** "EKG study", UCUM units (`uV`). Project-specific measurements (K-score, model probabilities) are coded in a clearly named *local* code system instead of invented codes that look official. Every report is tagged `research-only` and has status `preliminary`.
+FHIR is the format hospital systems use to exchange results, so the tool can export its output as a FHIR `DiagnosticReport` for research pipelines. The export is research data and must not be filed in a patient's record. `cardioonco/fhir.py` uses only real codes for standard concepts: category **EC** (Electrocardiac) from HL7 table v2-0074, code **LOINC 11524-6** "EKG study", UCUM units (`uV`). Project-specific measurements (K-score, model probabilities) are coded in a clearly named *local* code system instead of invented codes that look official. Every report is tagged `research-only` and has status `preliminary`.
 
 ---
 
@@ -507,6 +507,8 @@ An internal review of version 0.2 found several places where the project claimed
 - **Not a medical device.** No ethics approval, clinical validation or regulatory clearance. Any clinical study would require ethics-committee approval, informed consent and de-identified data.
 - **Fairness.** PTB-XL comes from one German centre. A model trained on it may perform worse on other populations and devices; external validation is required.
 
+**Licences and attribution.** The code is under the [MIT licence](LICENSE). Data are not included in the repository and keep their own licences: PTB-XL [12] is CC BY 4.0, and the PhysioNet/CinC Challenge 2008 T-Wave Alternans Database [26] is under the Open Data Commons Attribution License v1.0; both are distributed by PhysioNet (Goldberger et al., *Circulation* 2000;101:e215–e220). The web fonts in `assets/fonts/` (PT Serif, PT Sans, PT Mono by ParaType; Fraunces; Literata) are under the SIL Open Font License 1.1, with the licence texts in `assets/fonts/OFL.txt`.
+
 ---
 
 ## 12. References
@@ -547,12 +549,12 @@ An internal review of version 0.2 found several places where the project claimed
 **Citation:**
 
 ```bibtex
-@software{cardiooncopredict,
-  author = {podpirovlab},
-  title  = {CardioOncoPredict: microvolt T-wave alternans and multimodal deep learning
-            for early detection of anthracycline cardiotoxicity (research prototype)},
-  year   = {2026},
-  url    = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
+@software{podpirov2026cardiooncopredict,
+  author  = {Podpirov, Petr},
+  title   = {CardioOncoPredict: research software for measuring microvolt T-wave alternans},
+  year    = {2026},
+  version = {0.6.0},
+  url     = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
 }
 ```
 

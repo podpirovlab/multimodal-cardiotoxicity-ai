@@ -1,0 +1,8 @@
+# Allow-list: the image needs the library, the lab and the files pyproject.toml reads.
+*
+!pyproject.toml
+!README.md
+!LICENSE
+!cardioonco/
+!app.py
+**/__pycache__

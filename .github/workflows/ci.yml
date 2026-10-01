@@ -36,3 +36,14 @@ jobs:
         run: |
           pip install pytest
           python -m pytest -q tests
+
+  # The Dockerfile cannot be checked by the tests above: build the image and run
+  # one TWA analysis inside it.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the lab image
+        run: docker build -t cardioonco-lab .
+      - name: Run one analysis inside the image
+        run: docker run --rm cardioonco-lab python -c "import app; print(app.run_lab(20, 15, 75, 0.35)[0].splitlines()[0])"
