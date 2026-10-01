@@ -428,7 +428,7 @@ The [T-Wave Alternans Challenge Database](https://physionet.org/content/challeng
 | Version | All 100 | Synthetic (32) | Real, held out (34) |
 |---|---|---|---|
 | 0.4 — first 128 beats, one fixed window | 0.095 (p = 0.16) | 0.14 | 0.04 |
-| 0.6 — current | **0.43** (p ≈ 10⁻⁸ against no association) | 0.48 | 0.08 (p = 0.59) |
+| 0.6 (and 1.0.0, same algorithm) | **0.43** (p ≈ 10⁻⁸ against no association) | 0.48 | 0.08 (p = 0.59) |
 
 The 0.43 of version 0.6 is just below the organisers' 0.436 line and below every one of the 19 entries that formed the reference.
 
@@ -491,7 +491,8 @@ cd multimodal-cardiotoxicity-ai
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt pytest
 
-python -m pytest -q                       # all tests
+python -m pytest -q                       # all tests (Node, if installed, runs the browser code too)
+ln -s ../../scripts/pre-push .git/hooks/pre-push   # optional: run the tests before every git push
 python predict.py --demo --alternans 20   # TWA analysis of a two-minute synthetic recording
 python app.py                             # interactive lab at http://localhost:7860
 python scripts/make_figures.py            # regenerate all figures
@@ -519,6 +520,8 @@ python scripts/make_figures.py --only 08 --checkpoint runs/ptbxl/model.pt
 | No automated tests of the mathematics | Tests, including exact-amplitude and JS/Python parity checks |
 
 **0.4.** The site became a research tool rather than a landing page: it opens with no result instead of an invented one, refuses recordings shorter than 64 beats instead of calling them negative, reports MMA on the clinical scale, attaches patient metadata to the export only on request, and states plainly that it is not a medical device.
+
+**1.0.0.** The first archived release, with a DOI. The algorithm is 0.6's, unchanged; "1.0" marks a stable, citable version of the software, not a validated method.
 
 **0.5–0.6.** The TWA analysis covers the whole recording, gives three outcomes, removes false beats and fills missed ones, aligns beats, uses the PR baseline, and was checked against the PhysioNet challenge with a development/held-out protocol (§7.1). The browser reads BDF and Russian-style CSV, runs the analysis off the page thread, shows lead anatomy in 3D, and makes no third-party requests.
 
@@ -582,7 +585,7 @@ python scripts/make_figures.py --only 08 --checkpoint runs/ptbxl/model.pt
   author  = {Podpirov, Petr},
   title   = {CardioOncoPredict: research software for measuring microvolt T-wave alternans},
   year    = {2026},
-  version = {0.6.0},
+  version = {1.0.0},
   url     = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
 }
 ```
