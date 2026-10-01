@@ -36,7 +36,11 @@ print(f"Скомпилированные глобальные веса ИИ (б�
 # Теперь отчёт собирается модулем cardioonco.fhir: стандартные понятия кодируются
 # настоящими кодами (LOINC 11524-6 «EKG study», HL7 v2-0074 «EC»), а собственные
 # измерения проекта (K-score, V_alt) — в явно помеченной локальной системе кодов.
-from cardioonco.fhir import diagnostic_report
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # скрипт лежит в legacy/, пакет в корне
+from cardioonco.fhir import diagnostic_report  # noqa: E402
 
 
 def generate_fhir_diagnostic_report(patient_id, twa_metrics=None, probabilities=None):

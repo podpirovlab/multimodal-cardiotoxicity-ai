@@ -47,7 +47,9 @@ def run_lab(alternans_uv, noise_uv, heart_rate, t_amp_mv, seed=7):
     ax[2].legend(loc="upper left")
     fig.tight_layout()
 
-    verdict = "TWA POSITIVE (V_alt >= 1.9 uV and K >= 3)" if res.positive else "TWA negative / indeterminate"
+    verdict = {"positive": "TWA criterion met (V_alt >= 1.9 uV, K >= 3, HR <= 110, noise <= 1.8 uV)",
+               "negative": "No significant TWA, with clean windows at HR >= 105",
+               "indeterminate": f"Indeterminate ({res.reason.replace('_', ' ')})"}[res.outcome]
     text = (f"{verdict}\n"
             f"heart rate      {res.heart_rate_bpm:6.1f} bpm   (from {res.n_beats} beats)\n"
             f"V_alt (RMS)     {res.v_alt_uv:6.2f} uV\n"

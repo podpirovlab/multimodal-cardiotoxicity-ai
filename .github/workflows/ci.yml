@@ -32,39 +32,7 @@ jobs:
       - name: Byte-compile all Python sources (syntax / import sanity check)
         run: python -m compileall -q cardioonco legacy scripts app.py train_ptbxl.py predict.py
 
-      - name: Unit tests (TWA maths, JS parity, file readers, training pipeline on fake PTB-XL)
+      - name: Tests (TWA maths, JS parity, file readers, entry points, training on fake PTB-XL)
         run: |
           pip install pytest
           python -m pytest -q tests
-
-      - name: Smoke-test predict.py (synthetic Holter strip + FHIR report)
-        run: python predict.py --demo --alternans 20 --fhir-out report.json
-
-      - name: Smoke-test federated averaging + FHIR export
-        run: python legacy/federated_fhir_core.py
-
-      - name: Smoke-test pure-NumPy pedagogical demo (headless)
-        run: MPLBACKEND=Agg python legacy/main_model.py
-
-      - name: Smoke-test PyTorch model + EDF loader + ROC-AUC
-        run: |
-          python -c "
-          import torch, advanced_model as m
-          sig, fs = m.load_real_hospital_edf(None)
-          assert sig.shape == (12, 1250) and fs == 250
-          net = m.EnhancedCardioOncoNet()
-          out = net(torch.randn(4, 2), torch.randn(4, 2))
-          assert out.shape == (4, 1)
-          auc_val, _, _ = m.calculate_system_roc_auc()
-          print('advanced_model.py smoke test OK, AUC =', auc_val)
-          "
-
-      - name: Smoke-test Gradio app (one computed TWA analysis, no server launch)
-        run: |
-          MPLBACKEND=Agg python -c "
-          import app
-          positive, _ = app.run_lab(20, 15, 75, 0.35)
-          negative, _ = app.run_lab(0, 15, 75, 0.35)
-          assert positive.startswith('TWA POSITIVE') and not negative.startswith('TWA POSITIVE')
-          print('app.py smoke test OK')
-          "
