@@ -13,7 +13,9 @@ Appending a constant 1 to each vector before the outer product (Zadeh et al.,
     v_e * 1       -- ECG-only terms
     1 * v_m       -- metadata-only terms
     1             -- bias
-so the fused model can never be worse than either branch alone.
+so the fused model can represent anything either branch alone can.  That is a
+statement about expressive power, not a guarantee of better accuracy: the extra
+weights can also overfit.
 """
 from __future__ import annotations
 

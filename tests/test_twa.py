@@ -28,7 +28,7 @@ def test_r_peak_detection(hr):
     assert heart_rate_bpm(r, 500) == pytest.approx(hr, rel=0.03)
 
 
-def test_no_alternans_is_negative():
+def test_no_alternans_is_not_called_positive():
     _, x, _ = generate_ecg(SynthConfig(alternans_uv=0, noise_uv=15, seed=2))
     res = analyze(x, 500)
     assert not res.positive

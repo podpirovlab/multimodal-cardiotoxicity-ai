@@ -24,7 +24,8 @@ Outputs (in --out, default runs/ptbxl):
     model.pt        best checkpoint (by validation macro-AUC) + normalisation stats
     metrics.json    test-set AUC per class with bootstrap 95 % CI, sens/spec, etc.
     roc_test.png    ROC curves on the untouched test fold
-    model.onnx      (with --export-onnx) portable model for the browser / edge devices
+    model.onnx      (with --export-onnx) portable model for ONNX Runtime (phones, servers,
+                    browsers); the web tool does not use it yet
 """
 from __future__ import annotations
 

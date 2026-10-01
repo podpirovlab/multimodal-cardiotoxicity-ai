@@ -15,8 +15,10 @@ R-peak detection (Pan & Tompkins, 1985, simplified)
 2. derivative          -> y[n] = x[n+1] - x[n-1]
 3. squaring            -> makes everything positive, amplifies large slopes
 4. moving-window integration over 150 ms
-5. peak picking with a 250 ms refractory period and an adaptive threshold,
-   then refinement to the true maximum of the filtered ECG within +-60 ms.
+5. peak picking with a 250 ms refractory period above a fixed threshold, 30% of the
+   99th percentile of the whole recording (simpler than the running thresholds of the
+   original algorithm), then refinement to the largest |ECG| sample from 120 ms
+   before to 60 ms after the energy peak.
 6. removal of detections that split one normal R-R interval in two (tall T waves).
 """
 from __future__ import annotations

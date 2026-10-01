@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from cardioonco.preprocess import bandpass, detect_r_peaks  # noqa: E402
 from cardioonco.synth import LEADS_12, SynthConfig, generate_12lead, generate_ecg, heart_vector  # noqa: E402
-from cardioonco.twa import analyze, beat_matrix  # noqa: E402
+from cardioonco.twa import align_beats, analyze, beat_matrix  # noqa: E402
 
 # ----------------------------------------------------------------------------- style
 INK, MUTED, LINE = "#16202e", "#5b6573", "#d9d4d1"
@@ -70,7 +70,7 @@ L = {
         # 05
         f5_title="T-wave alternans: the Spectral Method step by step",
         a5="a  128 aligned beats minus the mean beat", b5="b  Even (A) vs odd (B) average beats", c5="c  One ST-T point across beats",
-        d5="d  Aggregate spectrum", stt="ST-T danger zone", even="even beats A", odd="odd beats B", diffx="(A − B) × 10",
+        d5="d  Aggregate spectrum", stt="ST-T window", even="even beats A", odd="odd beats B", diffx="(A − B) × 10",
         cpb="cycles / beat", pow="power, µV²", noiseband="noise band", altpk="alternans\n0.5 cycles/beat",
         # 06
         f6_title="Detection map: when can alternans be measured?", alt_ax="true alternans amplitude, µV", noise_ax="muscle noise, µV (RMS)",
@@ -117,7 +117,7 @@ L = {
         qrsband="энергия QRS", wander="дыхательный дрейф", mains="сеть 50 Гц",
         f5_title="Альтернация зубца T: спектральный метод шаг за шагом",
         a5="a  128 выровненных ударов минус средний удар", b5="b  Средние чётные (A) и нечётные (B) удары", c5="c  Одна точка ST-T по ударам",
-        d5="d  Суммарный спектр", stt="опасная зона ST-T", even="чётные удары A", odd="нечётные удары B", diffx="(A − B) × 10",
+        d5="d  Суммарный спектр", stt="окно ST-T", even="чётные удары A", odd="нечётные удары B", diffx="(A − B) × 10",
         cpb="циклы / удар", pow="мощность, мкВ²", noiseband="полоса шума", altpk="альтернация\n0,5 цикла/удар",
         f6_title="Карта обнаружения: когда альтернацию можно измерить?", alt_ax="истинная амплитуда альтернации, мкВ", noise_ax="мышечный шум, мкВ (RMS)",
         kmap="K-score (лог. шкала)", detected="TWA обнаружена\nV_alt ≥ 1,9 мкВ и K ≥ 3", hidden="неопределённо:\nтонет в шуме",
@@ -383,8 +383,8 @@ def fig05(lang, out):
     fs = 500
     _, x, _ = generate_ecg(SynthConfig(fs=fs, alternans_uv=15, noise_uv=8, heart_rate=90, hrv_std=0.004, t_amp=0.28, seed=11))
     res = analyze(x, fs)
-    r = detect_r_peaks(x, fs)
     xf = bandpass(x, fs)
+    r = align_beats(xf, detect_r_peaks(x, fs), fs)     # as in the analysis: beats superimposed on the QRS
     B = beat_matrix(xf, r, fs, -0.25, 0.55)[:128]
     tb = np.arange(B.shape[1]) / fs - 0.25
     rr = 60 / res.heart_rate_bpm
@@ -463,7 +463,7 @@ def fig06(lang, out):
     global _GRID
     T = L[lang]
     if _GRID is None:
-        print("   computing detection grid (280 full analyses)...")
+        print("   computing detection grid (560 full analyses)...")
         _GRID = detection_grid()
     alts, noises, K, V = _GRID
     fig, ax = plt.subplots(figsize=(10, 6))

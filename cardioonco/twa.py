@@ -52,7 +52,9 @@ The result has three outcomes, following the Spectral Method's clinical rules
   indeterminate  everything else -- too noisy, too many ectopic beats, alternans
                  only above 110 bpm, or the heart rate never reached 105 bpm.
 Those rules were written for exercise tests; at rest most negatives are
-indeterminate by design, and the reason is reported.
+indeterminate by design, and the reason is reported.  One simplification: the clinical
+rule asks for alternans sustained for at least a minute, and here a single significant
+128-beat window stands in for it; below 110 bpm such a window lasts longer than a minute.
 """
 from __future__ import annotations
 

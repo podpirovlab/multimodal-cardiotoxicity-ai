@@ -1,11 +1,11 @@
 # CardioOncoPredict
 
-**Looking for the earliest electrical sign of anthracycline cardiotoxicity: microvolt T-wave alternans, extracted from the ECG with signal processing and a multimodal neural network.**
+**Research software that measures microvolt T-wave alternans in ECG recordings, to test whether it is an early electrical sign of anthracycline cardiotoxicity. The question is open; this repository builds and checks the tools to answer it.**
 
 [![CI](https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/actions)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-model-EE4C2C?logo=pytorch&logoColor=white)
-![Data](https://img.shields.io/badge/Data-PhysioNet%20PTB--XL-2b6cb0)
+![Data](https://img.shields.io/badge/Data-PhysioNet%20TWADB%20%7C%20PTB--XL-2b6cb0)
 ![FHIR](https://img.shields.io/badge/Interop-HL7%20FHIR%20R4-005EB8)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-research%20prototype-yellow)
@@ -22,7 +22,7 @@
 
 ## Contents
 
-**[Try it on a real ECG](#try-it-on-a-real-ecg)** — upload EDF/CSV, PhysioNet data, patient context, FHIR export, lead anatomy
+**[Try it on a real ECG](#try-it-on-a-real-ecg)** — upload EDF/BDF/CSV, PhysioNet data, research metadata, JSON export, lead anatomy
 
 1. [Summary](#1-summary)
 2. [Medicine and biochemistry: how anthracyclines injure the heart](#2-medicine-and-biochemistry-how-anthracyclines-injure-the-heart)
@@ -33,7 +33,7 @@
 7. [What has been verified so far](#7-what-has-been-verified-so-far), including [the PhysioNet TWA challenge](#71-check-against-the-physionet-twa-challenge)
 8. [Repository map](#8-repository-map)
 9. [How to run everything](#9-how-to-run-everything)
-10. [What changed in version 0.3](#10-what-changed-in-version-03)
+10. [What changed between versions](#10-what-changed-between-versions)
 11. [Limitations and ethics](#11-limitations-and-ethics)
 12. [References](#12-references)
 
@@ -43,13 +43,13 @@
 
 The [live tool](https://podpirovlab.github.io/multimodal-cardiotoxicity-ai/) runs the analysis below entirely in your browser — nothing you upload leaves your device or touches a server.
 
-**What it needs:** one lead of ECG, at least ~2 minutes long. The Spectral Method looks at 128 beats at a time ([§4.4](#44-the-spectral-method-for-t-wave-alternans)); a longer file is scanned in 128-beat windows from start to end. A standard 10-second clinical ECG only has about 12 beats, so the tool refuses it rather than call it normal.
+**What it needs:** one lead of ECG with at least 64 usable beats (about a minute); the method's standard is 128 beats, about two minutes. The Spectral Method looks at 128 beats at a time ([§4.4](#44-the-spectral-method-for-t-wave-alternans)); a longer file is scanned in 128-beat windows from start to end. A standard 10-second clinical ECG only has about 12 beats, so the tool refuses it rather than call it normal.
 
-**Three possible answers**, following the Spectral Method's clinical rules [11]: *alternans criterion met* (≥ 1.9 µV, K ≥ 3, heart rate ≤ 110, noise ≤ 1.8 µV in some window), *no significant alternans* (nothing significant, and at least one clean window at ≥ 105 bpm), and *indeterminate* with the reason — too noisy, too many ectopic beats, alternans only above 110 bpm, or a heart rate that never reached 105. Those rules were written for exercise tests, so a resting recording without alternans comes out indeterminate, not negative.
+**Three possible answers**, following the Spectral Method's clinical rules [11]: *alternans criterion met* (≥ 1.9 µV, K ≥ 3, heart rate ≤ 110, noise ≤ 1.8 µV in some window), *no significant alternans* (nothing significant, and at least one clean window at ≥ 105 bpm), and *indeterminate* with the reason — too noisy, too many ectopic beats, alternans only above 110 bpm, or a heart rate that never reached 105. Those rules were written for exercise tests, so a resting recording without alternans comes out indeterminate, not negative. One simplification: the clinical rule asks for alternans *sustained* for at least a minute; here one significant 128-beat window stands in for that (below 110 bpm such a window lasts more than a minute).
 
 **File formats:**
-- **EDF / EDF+** — read directly in the browser (`assets/js/edf.js`, no server). If the file has more than one channel, a dropdown lets you pick which one is the ECG lead.
-- **CSV / TXT** — one column of numbers, in mV or µV, with the sampling rate typed in by hand.
+- **EDF / EDF+ and BDF / BDF+** — read directly in the browser (`assets/js/edf.js`, no server). If the file has more than one channel, a dropdown lets you pick the lead; a channel labelled with a standard lead name ("ECG II", "V3") is recognised. Discontinuous EDF+D files are refused, because beats on either side of a gap would break the even/odd order.
+- **CSV / TXT** — one column of numbers, in mV or µV, with the sampling rate typed in by hand. Both "0.123,0.456" and the Russian/European "0,123;0,456" are read.
 
 **Getting a real recording from PhysioNet:**
 - [T-Wave Alternans Challenge Database](https://physionet.org/content/twadb/1.0.0/) — 100 two-minute recordings, real and simulated, built for testing TWA detectors; [§7.1](#71-check-against-the-physionet-twa-challenge) uses it to check this algorithm.
@@ -64,7 +64,7 @@ python scripts/wfdb_to_csv.py records100/00000/00001_lr --lead II --out ecg.csv
 
 Then upload `ecg.csv` and set the sampling rate the script prints on the upload form.
 
-**Patient context and the FHIR export.** Age, sex and cumulative anthracycline dose next to the upload are optional. They don't change the TWA numbers — the analysis only ever looks at the ECG — they exist so the "Export FHIR report" button can attach them to a downloadable `DiagnosticReport` JSON alongside the measurement (same structure as `cardioonco/fhir.py`, [§6.3](#63-hl7-fhir-r4)). The dose field also shows where that number falls on the population dose–response curve from [§2.1](#21-the-clinical-scale-of-the-problem) — a group statistic, not a prediction for that one patient.
+**Research metadata and the JSON export.** Age, sex and cumulative doxorubicin dose next to the upload are optional and never enter the analysis, which looks only at the ECG. They are added to the downloadable research JSON (FHIR `DiagnosticReport` format, same structure as `cardioonco/fhir.py`, [§6.3](#63-hl7-fhir-r4)) only when the "add these fields" box is ticked. Next to the dose field the page quotes the population figures from [§2.1](#21-the-clinical-scale-of-the-problem) as a reference; it does not place the patient on that curve or predict anything for them.
 
 **Which lead sees which wall.** The 12 ECG leads look at the heart from 12 directions:
 
@@ -75,13 +75,13 @@ Then upload `ecg.csv` and set the sampling rate the script prints on the upload 
 | Lateral wall | I, aVL, V5, V6 |
 | Inferior wall | II, III, aVF |
 
-aVR doesn't localise to a wall and is left out, as usual. Anthracycline injury is typically diffuse across the ventricle rather than confined to one wall, so this table is about ECG anatomy, not about where any particular patient's damage is — the tool does not try to localise anything.
+aVR doesn't localise to a wall and is left out, as usual. The web tool shows the same mapping on a rotatable 3D heart, and when an uploaded file names its lead the model turns to that lead's side. Anthracycline injury is typically diffuse across the ventricle rather than confined to one wall, so this is ECG anatomy, not a map of anyone's damage — the tool does not try to localise anything.
 
 ---
 
 ## 1. Summary
 
-**Problem.** Anthracyclines (doxorubicin, epirubicin) are among the most effective anticancer drugs, but they injure heart muscle in a dose-dependent way. At a cumulative doxorubicin dose of 550 mg/m², about a quarter of patients develop heart failure [1]. Current monitoring relies on echocardiography, which detects damage only once the ejection fraction has already fallen.
+**Problem.** Anthracyclines (doxorubicin, epirubicin) are among the most effective anticancer drugs, but they injure heart muscle in a dose-dependent way. At a cumulative doxorubicin dose of 550 mg/m², about a quarter of patients develop heart failure [1]. Monitoring relies on imaging and blood tests [3]: the left-ventricular ejection fraction falls only after substantial injury, while strain imaging and troponin catch earlier stages but need echo expertise or repeated blood samples. A cheap marker from a standard ECG would complement them — if one exists.
 
 **Hypothesis.** Injury to cardiomyocyte ion channels should disturb *repolarisation* before it disturbs *contraction*. One sensitive marker of unstable repolarisation is **T-wave alternans (TWA)**: an every-other-beat change of the ST-T segment by 1–100 µV. That is 0.01–1 mm on paper ECG, too small to see but measurable mathematically.
 
@@ -89,13 +89,13 @@ aVR doesn't localise to a wall and is left out, as usual. Anthracycline injury i
 
 | Layer | What it does | Where |
 |---|---|---|
-| Physics model | Synthetic 12-lead ECG from a moving cardiac dipole, with controllable microvolt alternans and realistic noise | `cardioonco/synth.py` |
-| Signal processing | Zero-phase filtering, Pan–Tompkins R-peak detection, beat alignment | `cardioonco/preprocess.py` |
-| TWA mathematics | Spectral Method (V_alt, K-score) and Modified Moving Average, unit-tested | `cardioonco/twa.py` |
+| Physics model | Synthetic 12-lead ECG from a moving cardiac dipole, with controllable microvolt alternans, white noise, baseline wander and mains hum | `cardioonco/synth.py` |
+| Signal processing | Zero-phase filtering, Pan–Tompkins R-peak detection, removal of false beats, shared R peaks across leads | `cardioonco/preprocess.py` |
+| TWA mathematics | Beat alignment, ectopy control, Spectral Method (V_alt, K-score) over the whole recording, Modified Moving Average, three outcomes; checked on the PhysioNet challenge ([§7.1](#71-check-against-the-physionet-twa-challenge)) | `cardioonco/twa.py` |
 | Neural network | 1D ResNet over 12 leads + age/sex branch, fused by an outer (tensor) product | `cardioonco/model.py` |
-| Training on real ECGs | Full PTB-XL pipeline (21,799 clinical ECGs): patient-wise split, bootstrap CIs, ONNX export | `train_ptbxl.py` |
+| Training pipeline | For PTB-XL (21,799 clinical ECGs): patient-wise split, bootstrap CIs, ONNX export; tested on a miniature dataset, not yet run on the full one | `train_ptbxl.py` |
 | Interoperability | HL7 FHIR R4 `DiagnosticReport` with valid LOINC / HL7 codes | `cardioonco/fhir.py` |
-| Web lab | The same TWA algorithm ported to JavaScript and run live in the browser | `index.html`, `assets/js/dsp.js` |
+| Web tool | The same TWA algorithm in JavaScript, run in the browser; EDF/BDF/CSV upload; 3D lead anatomy | `index.html`, `assets/js/` |
 | Figures | Every figure in this README is generated by code | `scripts/make_figures.py` |
 
 ---
@@ -109,6 +109,7 @@ aVR doesn't localise to a wall and is left out, as usual. Anthracycline injury i
 - Heart-failure incidence rises steeply with cumulative doxorubicin dose: **5% at 400 mg/m², 26% at 550 mg/m², 48% at 700 mg/m²** (retrospective analysis of three trials, Swain et al. [1]).
 - In a prospective cohort of **2,625** anthracycline-treated patients, cardiotoxicity occurred in about **9%**, and **98%** of cases appeared within the first year. Most patients who were detected early and treated recovered heart function fully or partially [2].
 - The 2022 ESC cardio-oncology guidelines define *cancer-therapy-related cardiac dysfunction* by a fall in LV ejection fraction, a relative fall in global longitudinal strain (GLS) above 15%, or a rise of troponin / natriuretic peptides [3]. None of these uses the fine structure of the ECG.
+- That structure carries information: a neural network applied to the ordinary 12-lead ECG detects a weak left ventricle (ejection fraction ≤ 35%) with an AUC of 0.93 [25]. Whether the ECG can show earlier, subclinical anthracycline injury is not known.
 
 ### 2.2 Molecular mechanisms (chemistry and biology)
 
@@ -136,14 +137,14 @@ flowchart LR
     C --> D["Lipid peroxidation<br/>(ferroptosis)"]
     C --> E["Damaged ion channels<br/>I_Kr, SERCA2a, RyR2"]
     E --> F["Longer, uneven<br/>repolarisation"]
-    F --> G["QT ↑, flat T wave,<br/>T-wave alternans"]
+    F --> G["QT ↑, flat T wave,<br/>T-wave alternans?"]
     D --> H["Cell loss"]
     H --> I["LVEF ↓ on echo<br/>(months later)"]
     G -.->|"CardioOncoPredict<br/>looks here"| J(("early<br/>signal"))
     I -.->|"standard<br/>monitoring"| K(("late<br/>signal"))
 ```
 
-Damaged membranes and oxidised channel proteins change the ionic currents that end the action potential (Section 3). Clinically, anthracyclines are associated with QTc prolongation, ST-T changes, reduced QRS voltage and arrhythmias. **The specific link between anthracyclines and microvolt TWA is the hypothesis this project is built to test.** It is biologically plausible but not yet established; Section 11 discusses this.
+Damaged membranes and oxidised channel proteins change the ionic currents that end the action potential (Section 3). Clinically, anthracyclines are associated with QTc prolongation, ST-T changes, reduced QRS voltage and arrhythmias. **The specific link between anthracyclines and microvolt TWA is the hypothesis this project is built to test.** It is biologically plausible but not established. The closest evidence comes from mice: two weeks after doxorubicin, isolated hearts showed beat-to-beat alternans of the calcium transient, the cellular process behind TWA, together with a fall in ejection fraction — at the same time as the mechanical damage, not before it [29]. A PubMed search in October 2026 found no study of microvolt TWA in patients receiving anthracyclines. Section 11 discusses this.
 
 ---
 
@@ -179,7 +180,7 @@ Seen from far away, the whole heart's activity is approximately one time-varying
 
 $$\varphi(\mathbf r) = \frac{1}{4\pi\sigma}\,\frac{\mathbf p\cdot\hat{\mathbf r}}{r^2}$$
 
-so every ECG lead measures a **projection** of the same vector: $V_{lead}(t) = \mathbf e_{lead}\cdot\mathbf H(t)$. Einthoven's limb leads point at 0° (I), 60° (II) and 120° (III); the augmented leads follow from them (aVR = −(I+II)/2, aVL = (I−III)/2, aVF = (II+III)/2), and the precordial leads V1–V6 look at the heart in the horizontal plane. Because $\mathbf e_{II} = \mathbf e_{I} + \mathbf e_{III}$, **Einthoven's law II = I + III** holds exactly. Panel **c** checks it numerically: the residual is at floating-point precision (10⁻¹⁶ mV). The synthetic 12-lead ECG used in this repository (`generate_12lead`) is built this way.
+so every ECG lead measures a **projection** of the same vector, the *heart vector* $\mathbf H(t) \propto \mathbf p(t)$: $V_{lead}(t) = \mathbf e_{lead}\cdot\mathbf H(t)$. Einthoven's limb leads point at 0° (I), 60° (II) and 120° (III); the augmented leads follow from them (aVR = −(I+II)/2, aVL = (I−III)/2, aVF = (II+III)/2), and the precordial leads V1–V6 look at the heart in the horizontal plane. Because $\mathbf e_{II} = \mathbf e_{I} + \mathbf e_{III}$, **Einthoven's law II = I + III** holds exactly. Panel **c** checks the arithmetic: the residual is at floating-point precision (10⁻¹⁶ mV). That is a check of the construction, not evidence about real hearts. The synthetic 12-lead ECG used in this repository (`generate_12lead`) is built this way, a simplified relative of the dynamical ECG model of McSharry et al. [23]; its noise is added to each lead separately, so the identity holds for the clean signal only.
 
 ### 3.5 Why the T wave alternates: a period-doubling bifurcation
 
@@ -198,7 +199,7 @@ The minus sign flips the perturbation on every beat: long, short, long, short. I
 Two consequences matter for this project:
 
 - **Heart rate matters.** Faster rates shorten DI and push the system onto the steep part of the curve. That is why clinical TWA tests raise the heart rate to about 105–110 bpm with exercise [11].
-- **Injury makes the curve steeper.** Impaired Ca²⁺ cycling and reduced repolarisation reserve steepen restitution (red dashed curve), so alternans appears at lower heart rates. Alternating APD in the tissue appears on the ECG as an alternating T wave.
+- **Injury can make the curve steeper.** Impaired Ca²⁺ cycling and reduced repolarisation reserve can steepen restitution (red dashed curve), so alternans appears at lower heart rates. Restitution is the simplest picture; alternans can also start in the cell's calcium cycling without a steep APD restitution [10]. Alternating APD in the tissue appears on the ECG as an alternating T wave.
 
 ### 3.6 The physics of noise
 
@@ -220,7 +221,7 @@ The alternans we look for (1–20 µV) is **smaller than all of these**. It can 
 
 ### 4.1 Sampling and quantisation
 
-An analogue-to-digital converter samples the voltage at rate $f_s$: $x[n] = V(n/f_s)$. The Nyquist–Shannon theorem requires $f_s > 2 f_{max}$. The diagnostic ECG band extends to about 150 Hz, so 500 Hz is standard; the neural network uses the 100 Hz PTB-XL version because its classes are defined by features below 50 Hz. PTB-XL stores 16-bit integers with 1 µV per step [12]; the physical value is $V = (X_{raw} - \text{baseline})/\text{gain}$.
+An analogue-to-digital converter samples the voltage at rate $f_s$: $x[n] = V(n/f_s)$. The Nyquist–Shannon theorem requires $f_s > 2 f_{max}$. The diagnostic ECG band extends to about 150 Hz, so 500 Hz is standard; the neural network uses the 100 Hz PTB-XL version, as the published PTB-XL benchmarks do [20]. PTB-XL stores 16-bit integers with 1 µV per step [12]; the physical value is $V = (X_{raw} - \text{baseline})/\text{gain}$.
 
 ### 4.2 Zero-phase Butterworth filtering
 
@@ -232,11 +233,13 @@ It is implemented as an IIR difference equation $y[n] = \sum_k b_k x[n-k] - \sum
 
 ### 4.3 Pan–Tompkins R-peak detection
 
-Following Pan and Tompkins [13]: band-pass 5–15 Hz (where QRS energy is concentrated), differentiate $d[n] = x[n+1]-x[n-1]$, square $e[n] = d[n]^2$ (positive, and it emphasises steep slopes), integrate over a 150 ms moving window (about one QRS width), then pick peaks above an adaptive threshold (30% of the 99th percentile) with a 250 ms refractory period (the heart cannot beat faster than about 240 bpm). Each peak is then moved to the true maximum of the filtered ECG within ±60 ms. On the synthetic tests the detector finds every beat and reproduces heart rate within 3% at 55, 75 and 110 bpm (`tests/test_twa.py`).
+Following Pan and Tompkins [13]: band-pass 5–15 Hz (where QRS energy is concentrated), differentiate $d[n] = x[n+1]-x[n-1]$, square $e[n] = d[n]^2$ (positive, and it emphasises steep slopes), integrate over a 150 ms moving window (about one QRS width), then pick peaks with a 250 ms refractory period (the heart cannot beat faster than about 240 bpm) above a fixed threshold, 30% of the 99th percentile of the whole recording. That is simpler than the running thresholds of the original algorithm. Each peak is then moved to the largest |ECG| sample from 120 ms before to 60 ms after it. On the synthetic tests the detector finds every beat and reproduces heart rate within 3% at 55, 75 and 110 bpm (`tests/test_twa.py`).
+
+For TWA one wrong beat is worse than a small error in timing, because it flips the even/odd order of every beat after it, so three clean-up steps follow (each tested in `tests/test_twa.py`). A detection that splits one normal R-R interval in two and does not look like a QRS (correlation with the median QRS below 0.9) is removed; this is how a tall, sharp T wave counted as a beat is caught [27]. A gap of about two R-R intervals gets a flagged placeholder, so a missed beat does not flip the order. In a multi-lead recording all leads share the R peaks of the lead the others agree with most. Finally each beat is shifted by up to ±20 ms to the position where its QRS best matches the median QRS (cross-correlation).
 
 ### 4.4 The Spectral Method for T-wave alternans
 
-**Step 1: build the beat matrix.** Align $N = 128$ consecutive beats on their R peaks. Take the ST-T window $[R + 0.10\,s,\; R + 0.42\,s]$, scaled by $\sqrt{RR/0.8}$ because the QT interval shortens with heart rate (Bazett). Subtract each beat's own median to remove residual drift. The result is a matrix $s_k[n]$: beat $n$, sample $k$ inside the window.
+**Step 1: build the beat matrix.** Align $N = 128$ consecutive beats on their R peaks. Take the ST-T window $[R + 0.10\,s,\; R + 0.42\,s]$, scaled by $\sqrt{RR/0.8}$ because the QT interval shortens with heart rate (Bazett). Measure every beat from its own isoelectric PR segment (80 to 40 ms before R) to remove residual drift. The result is a matrix $s_k[n]$: beat $n$, sample $k$ inside the window.
 
 **Step 2: a time series for every point of the T wave.** For fixed $k$, the sequence $s_k[0], s_k[1], \dots, s_k[N-1]$ is the value of the same point of the T wave, beat after beat. Remove its mean and compute the periodogram:
 
@@ -248,7 +251,7 @@ $$P(0.5) = \left|\frac1N\sum_n a(-1)^n(-1)^n\right|^2 = \left|\frac1N \cdot N a\
 
 All the alternans power collects in one frequency bin, and $\sqrt{P(0.5)} = a$ recovers the amplitude exactly. This is checked in `test_pure_alternating_series_gives_exact_amplitude`.
 
-**Step 4: why 128 beats beat the noise.** For white noise of variance $\sigma^2$, every bin has expected value $\mathbb E[P(f)] = \sigma^2/N$. The noise floor **falls as 1/N** while the alternans peak $a^2$ stays constant. With 128 beats, the signal-to-noise ratio in power improves 128-fold (about 21 dB) compared with a single beat. This is how a 5 µV signal is recovered from 30 µV of noise.
+**Step 4: why 128 beats beat the noise.** For white noise of variance $\sigma^2$, every bin has expected value $\mathbb E[P(f)] = \sigma^2/N$. The noise floor **falls as 1/N** while the alternans peak $a^2$ stays constant. With 128 beats, the signal-to-noise ratio in power improves 128-fold (about 21 dB) compared with a single beat. That is why alternans of a few microvolts can be found under tens of microvolts of noise (§4.5).
 
 **Step 5: aggregate and decide.** Average the spectra over all $L$ samples of the window, $P(f) = \frac1L\sum_k P_k(f)$. Estimate the noise from a reference band $B = [0.44, 0.49]$ cycles/beat, then
 
@@ -256,13 +259,26 @@ $$V_{alt} = \sqrt{P(0.5) - \mu_B},\qquad K = \frac{P(0.5) - \mu_B}{\sigma_B}$$
 
 The conventional criterion for significant alternans is $V_{alt} \ge 1.9\,\mu V$ **and** $K \ge 3$ [11, 14]. In this implementation $V_{alt}$ is the RMS alternans over the whole ST-T window. We also report `v_alt_peak_uv`, the alternans amplitude at the single most alternating sample; on synthetic data it recovers the injected amplitude within 15%.
 
-In the figure at the top of this README: (a) the 128×L beat matrix minus the mean beat, where alternans appears as a red/blue checkerboard inside the ST-T danger zone; (b) even and odd average beats; (c) one ST-T sample flipping up and down beat after beat; (d) the aggregate spectrum with a sharp peak at 0.5 cycles/beat far above the noise band.
+In the figure at the top of this README: (a) the 128×L beat matrix minus the mean beat, where alternans appears as a red/blue checkerboard inside the ST-T window; (b) even and odd average beats; (c) one ST-T sample flipping up and down beat after beat; (d) the aggregate spectrum with a sharp peak at 0.5 cycles/beat far above the noise band. The bright stripes at the QRS in panel (a) are not alternans: at 500 Hz each R peak falls up to half a sample off the sampling grid, and on the steep QRS that is tens of microvolts. They are random from beat to beat, so they do not build up at 0.5 cycles/beat, and the ST-T window excludes the QRS anyway.
+
+**Step 6: the whole recording and the decision.** A longer recording is scanned in 128-beat windows every 16 beats. In each window, beats whose R-R interval is more than 20% off the neighbouring intervals, or whose shape correlates below 0.9 with the median beat, are replaced by the median of the beats of the same parity, so the ABAB order survives an ectopic beat [28]; a window with more than 10% such beats is not used. The result follows the clinical rules [11]: *alternans criterion met* if some window has $V_{alt} \ge 1.9\,\mu V$ and $K \ge 3$ at a heart rate of at most 110 bpm with noise of at most 1.8 µV; *no significant alternans* if no window is significant and at least one clean window reaches 105 bpm; otherwise *indeterminate*, with the reason. The clinical rule asks for alternans sustained for at least a minute; a single 128-beat window, which lasts over a minute below 110 bpm, stands in for that.
 
 ### 4.5 When can alternans be measured? The detection map
 
 ![Detection map](docs/figures/en/06_detection_map.png)
 
-The map is the result of 560 complete analyses (14 alternans amplitudes × 10 noise levels × 4 random recordings, median K). The black line is $K = 3$, the blue dashed line $V_{alt} = 1.9\,\mu V$; the hatched region satisfies both. With good electrode contact (noise ≤ 20 µV) alternans of about 5 µV is reliably detected. With heavy muscle noise, the threshold rises. This is a quantitative statement about the method's sensitivity, and it defines the hardware requirement: **a wearable monitor for this purpose needs an input noise level of roughly 20 µV RMS or less.**
+The map is the result of 560 complete analyses (14 alternans amplitudes × 10 noise levels × 4 random recordings, median K and $V_{alt}$). The black line is $K = 3$, the blue dashed line $V_{alt} = 1.9\,\mu V$; the hatched region satisfies both. Because $V_{alt}$ is an RMS over the whole ST-T window, here about 40% of the alternans at the T-wave peak, the 1.9 µV line sits near 5 µV of injected alternans even without noise.
+
+Medians hide how often the method is right, so the same question was asked again with 12 recordings per point:
+
+| White noise | No alternans: called significant | 3 µV | 5 µV |
+|---|---|---|---|
+| 5 µV | 0 of 12 | 0 of 12 | 10 of 12 |
+| 20 µV | 0 of 12 | 0 of 12 | 8 of 12 |
+| 60 µV | 1 of 12 | 3 of 12 | 5 of 12 |
+| 100 µV | 1 of 12 | 3 of 12 | 3 of 12 |
+
+Up to about 20 µV of noise, 5 µV of alternans is found in most recordings and nothing is found where there is none. By 60 µV the method starts to miss alternans and, occasionally, to report it where there is none. Under this simple model a recording device would need an input noise of roughly 20 µV RMS or less. Real muscle noise is not white and not stationary, so the real requirement has to be measured on real recordings.
 
 ### 4.6 Modified Moving Average (cross-check)
 
@@ -270,7 +286,7 @@ The MMA method [15] keeps two running templates, one for even beats (A) and one 
 
 $$A_n = A_{n-1} + \operatorname{clip}\!\left(\frac{\text{beat}_n - A_{n-1}}{8},\,\pm 32\,\mu V\right)$$
 
-Alternans is $\max_k |A_k - B_k| / 2$ over the ST-T window. The step limit makes MMA robust to a single noisy beat or an ectopic beat. Two independent estimators that agree give more confidence than one.
+TWA$_{MMA}$ is $\max_k |A_k - B_k|$ over the ST-T window: the full even-minus-odd difference, the scale on which clinical MMA cut-points such as 47 µV are defined, and about twice $V_{alt}$ for pure alternans. The step limit makes MMA robust to a single noisy or ectopic beat. It is reported next to the Spectral Method, but the two are not interchangeable: on the PhysioNet challenge records MMA agreed with the reference far worse than the Spectral Method did (§7.1).
 
 ### 4.7 Time–frequency view: the complex Morlet wavelet
 
@@ -280,7 +296,7 @@ The Fourier transform says *which* frequencies are present but not *when*. The c
 
 $$W(a,b) = \frac{1}{\sqrt a}\int x(t)\,\psi^*\!\left(\frac{t-b}{a}\right)dt,\qquad \psi(t) = \frac{1}{\sqrt{\pi B}}\,e^{2\pi i C t}\,e^{-t^2/B}$$
 
-This is the complex Morlet wavelet (`cmor1.5-1.0`: B = 1.5, C = 1.0). A Gaussian envelope reaches the lower bound of the time–frequency uncertainty relation $\Delta t\,\Delta\omega \ge \tfrac12$, so Morlet wavelets are as sharp in time and frequency together as physics allows. The scalogram $|W|$ shows the QRS as a burst at 8–30 Hz and the T wave as energy at 2–6 Hz. Panel **c** shows that flattening the T wave removes energy exactly in the ST-T window at low frequency, a pattern a neural network can learn.
+This is the complex Morlet wavelet (`cmor1.5-1.0`: B = 1.5, C = 1.0) [24]. A Gaussian envelope reaches the lower bound of the time–frequency uncertainty relation $\Delta t\,\Delta\omega \ge \tfrac12$, so Morlet wavelets are as sharp in time and frequency together as physics allows. The scalogram $|W|$ shows the QRS as a burst at 8–30 Hz and the T wave as energy at 2–6 Hz. Panel **c** shows that flattening the T wave removes energy exactly in the ST-T window at low frequency. The network in Section 5 works on the raw signal, not on this transform; the scalogram is a way to see what it has to work with.
 
 ### 4.8 Statistics for honest evaluation
 
@@ -319,7 +335,7 @@ Early layers learn local shapes (QRS slopes, T-wave curvature); deeper layers wi
 
 ### 5.2 Bilinear (tensor) fusion: why multiply instead of concatenate
 
-The same ECG finding means different things in different patients: T-wave flattening is more worrying in a 30-year-old than in an 80-year-old. With plain concatenation $[v_e; v_m]$ followed by a linear layer, the score is a *sum* of ECG and metadata effects, so no interaction is possible. The outer product creates **every pairwise product** $v_{e,i}\,v_{m,j}$. Appending a constant 1 to each vector first (the Tensor Fusion Network trick [18]) keeps the unimodal terms as well:
+The same ECG finding can mean different things in different patients, for example at different ages. With plain concatenation $[v_e; v_m]$ followed by a linear layer, the score is a *sum* of ECG and metadata effects, so no interaction is possible. The outer product creates **every pairwise product** $v_{e,i}\,v_{m,j}$. Appending a constant 1 to each vector first (the Tensor Fusion Network trick [18]) keeps the unimodal terms as well:
 
 $$z = \begin{bmatrix} v_e \\ 1\end{bmatrix} \otimes \begin{bmatrix} v_m \\ 1\end{bmatrix} = \begin{bmatrix} v_e v_m^\top & v_e \\ v_m^\top & 1 \end{bmatrix} \in \mathbb R^{65\times17}$$
 
@@ -333,11 +349,11 @@ The flattened 1105-dimensional vector contains the interactions, the ECG-only fe
 
 $$\mathcal L = -\frac1C\sum_{c=1}^{C}\Big[w_c\, y_c \log\sigma(z_c) + (1-y_c)\log\big(1-\sigma(z_c)\big)\Big],\qquad \sigma(z)=\frac{1}{1+e^{-z}}$$
 
-The positive weight $w_c = \sqrt{(1-\pi_c)/\pi_c}$ (capped) compensates for rare classes with prevalence $\pi_c$. A useful identity: $\partial \mathcal L/\partial z_c = \sigma(z_c) - y_c$ for $w_c = 1$. The gradient is simply "prediction minus truth", and back-propagation carries it through the fusion product via the product rule: $\partial z_{ij}/\partial v_{e,i} = v_{m,j}$.
+The positive weight $w_c = \sqrt{(1-\pi_c)/\pi_c}$ (capped) compensates for rare classes with prevalence $\pi_c$. A useful identity: $\partial \mathcal L/\partial z_c = (\sigma(z_c) - y_c)/C$ for $w_c = 1$. The gradient is simply "prediction minus truth", and back-propagation carries it through the fusion product via the product rule: $\partial z_{ij}/\partial v_{e,i} = v_{m,j}$.
 
 **Optimiser.** AdamW [19] keeps running means of the gradient and of its square, $m_t = \beta_1 m_{t-1} + (1-\beta_1)g_t$ and $v_t = \beta_2 v_{t-1} + (1-\beta_2)g_t^2$, and updates $\theta \leftarrow \theta - \eta\,\hat m_t/(\sqrt{\hat v_t}+\epsilon) - \eta\lambda\theta$ with decoupled weight decay $\lambda = 0.01$. The learning rate follows a **one-cycle** schedule (warm-up, then cosine decay). Gradients are clipped to norm 1. Training stops early when validation macro-AUC has not improved for 8 epochs.
 
-**Physiological data augmentation.** During training each ECG is randomly scaled in amplitude (±10%, electrode contact), given baseline wander (0.3 Hz, breathing) and white noise (20 µV, EMG). The network learns to ignore exactly the artefacts listed in Section 3.6.
+**Data augmentation.** During training each standardised ECG is scaled in amplitude (standard deviation 10%, like changing electrode contact), given a 0.3 Hz baseline wave of up to 0.1 standard deviations and white noise of 0.02 standard deviations. Because the inputs are standardised per lead, these are relative units: mild versions of the artefacts in Section 3.6, not their full size.
 
 ### 5.4 Data: PTB-XL
 
@@ -381,14 +397,14 @@ FHIR is the format hospital systems use to exchange results, so the tool can exp
 |---|---|---|
 | A pure alternating series gives $V_{alt} = a$ exactly | `test_pure_alternating_series_gives_exact_amplitude` | ✅ |
 | R-peak detection is correct at 55 / 75 / 110 bpm | `test_r_peak_detection` | ✅ |
-| No false TWA without alternans (K < 3) | `test_no_alternans_is_negative` | ✅ |
+| No false TWA without alternans (K < 3) | `test_no_alternans_is_not_called_positive` | ✅ |
 | $V_{alt}$ grows monotonically; peak estimator recovers 40 µV within 15% | `test_strong_alternans_is_positive_and_monotonic` | ✅ |
 | Browser (JS) and Python give the same heart rate, V_alt (±10%), outcome and reason | `tests/test_js_parity.py` | ✅ |
 | A T wave mistaken for a beat is removed; a missed beat does not flip the ABAB phase | `test_extra_detection_on_t_wave_is_removed`, `test_missed_beat_keeps_abab_parity` | ✅ |
 | Too-short recordings are refused, not called negative | `test_short_recording_is_refused_not_called_negative` | ✅ |
 | Agreement with the PhysioNet 2008 TWA challenge reference | `scripts/validate_twadb.py`, [§7.1](#71-check-against-the-physionet-twa-challenge) | ⚠️ partial |
 | Training pipeline runs end to end and exports ONNX | `tests/test_train_smoke.py` | ✅ |
-| Einthoven's law holds in the synthetic 12-lead model | Figure 3c (residual ≈ 10⁻¹⁶ mV) | ✅ |
+| The synthetic 12-lead model obeys Einthoven's law (by construction; an arithmetic check) | Figure 3c (residual ≈ 10⁻¹⁶ mV) | ✅ |
 | Network accuracy on real ECGs (PTB-XL test fold) | `train_ptbxl.py` | ⏳ to run |
 | TWA is associated with anthracycline cardiotoxicity | needs a clinical cohort | ❌ not yet studied |
 
@@ -405,14 +421,16 @@ The two filters are built differently (a 4th-order Butterworth in Python, biquad
 
 ### 7.1 Check against the PhysioNet TWA challenge
 
-The [T-Wave Alternans Challenge Database](https://physionet.org/content/challenge-2008/1.0.0/) [26] has 100 two-minute recordings: 68 real ECGs from six PhysioNet databases and 32 simulated ones. There is no true alternans amplitude to compare with. What exists is a reference ranking of the 100 records built from the consensus of the 2008 challenge entries, scored with Kendall's rank correlation τ. Entries in 2008 reached τ between about 0.64 and 0.91.
+The [T-Wave Alternans Challenge Database](https://physionet.org/content/challenge-2008/1.0.0/) [26] has 100 two-minute recordings: 68 real ECGs from five PhysioNet databases and 32 simulated ones. There is no true alternans amplitude to compare with. What exists is a reference ranking of the 100 records, built from the median rank given by the 19 entries that told the simulated records with much and little alternans apart, and agreement with it is scored by Kendall's rank correlation τ. Those 19 entries scored between 0.451 and 0.911 against it, a comparison that favours them because the reference is their own consensus; the organisers called a score above 0.436 significant ([final scores](https://physionet.org/files/challenge-2008/1.0.0/final-scores)).
 
 `scripts/validate_twadb.py` runs the whole pipeline on every lead and ranks the records by the median over leads of the significance-gated amplitude: in each lead, the largest V_alt among 128-beat windows with K ≥ 3, or 0 if there is none.
 
 | Version | All 100 | Synthetic (32) | Real, held out (34) |
 |---|---|---|---|
 | 0.4 — first 128 beats, one fixed window | 0.095 (p = 0.16) | 0.14 | 0.04 |
-| 0.6 — current | **0.43** (p ≈ 10⁻⁸) | 0.48 | 0.08 (p = 0.59) |
+| 0.6 — current | **0.43** (p ≈ 10⁻⁸ against no association) | 0.48 | 0.08 (p = 0.59) |
+
+The 0.43 of version 0.6 is just below the organisers' 0.436 line and below every one of the 19 entries that formed the reference.
 
 What changed between them, in order of effect:
 
@@ -439,9 +457,9 @@ python scripts/validate_twadb.py
 ## 8. Repository map
 
 ```
-cardioonco/            core library (tested)
+cardioonco/            core library (tested; `pip install .` needs only numpy and scipy)
   synth.py             synthetic single-lead and 12-lead (dipole) ECG with alternans
-  preprocess.py        Butterworth filtfilt, notch, Pan–Tompkins
+  preprocess.py        Butterworth filtfilt, notch, Pan–Tompkins, false-beat removal, shared R peaks
   twa.py               Spectral Method, MMA, whole-recording windows, three outcomes
   model.py             CardioOncoNet: 1D ResNet + MLP + tensor fusion
   fhir.py              HL7 FHIR R4 DiagnosticReport
@@ -450,10 +468,16 @@ predict.py             analyse one ECG file → JSON + FHIR
 app.py                 Gradio TWA laboratory (python app.py)
 scripts/
   download_ptbxl.sh    fetch PTB-XL from PhysioNet (1.7 GB)
+  wfdb_to_csv.py       convert one lead of a PhysioNet WFDB record to CSV for the web tool
   make_figures.py      regenerate every figure in docs/figures/{en,ru}
   validate_twadb.py    score the pipeline on the PhysioNet TWA challenge (§7.1)
-tests/                 pytest: maths, detector, JS parity, training smoke test
-index.html, ru.html    the web lab (GitHub Pages), assets/js/dsp.js = JS port of the maths
+tests/                 pytest: TWA maths, detector, JS/Python parity, EDF/BDF/CSV readers,
+                       entry points, training smoke test (Node runs the browser code)
+index.html, ru.html    the web tool (GitHub Pages)
+assets/js/             dsp.js (JS port of the maths), twa-worker.js (analysis off the page thread),
+                       edf.js (EDF/BDF/CSV readers), site.js (page, charts, 3D anatomy)
+pyproject.toml         package metadata and optional dependency groups
+CITATION.cff           how to cite this software
 legacy/                early teaching prototypes kept for history (see legacy/README.md)
 ```
 
@@ -468,22 +492,21 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt pytest
 
 python -m pytest -q                       # all tests
-python predict.py --demo --alternans 20   # TWA analysis of a synthetic Holter strip
+python predict.py --demo --alternans 20   # TWA analysis of a two-minute synthetic recording
 python app.py                             # interactive lab at http://localhost:7860
 python scripts/make_figures.py            # regenerate all figures
 
 # real data (about 1.7 GB download, 20–60 min training on a laptop; Apple Silicon uses the GPU via mps)
 bash scripts/download_ptbxl.sh
 python train_ptbxl.py --data data/ptb-xl --epochs 30 --export-onnx
-cp runs/ptbxl/metrics.json assets/metrics.json   # the website shows the metrics automatically
 python scripts/make_figures.py --only 08 --checkpoint runs/ptbxl/model.pt
 ```
 
 ---
 
-## 10. What changed in version 0.3
+## 10. What changed between versions
 
-An internal review of version 0.2 found several places where the project claimed more than it did. They were fixed:
+**0.3.** An internal review of version 0.2 found several places where the project claimed more than it did:
 
 | Before | After |
 |---|---|
@@ -491,9 +514,13 @@ An internal review of version 0.2 found several places where the project claimed
 | The demo recommended "reduce doxorubicin by 15%, start dexrazoxane" | Removed: a research prototype must not give treatment advice |
 | FHIR report used invented LOINC/SNOMED codes and a genetics category | Real LOINC 11524-6 and HL7 v2-0074 "EC"; local codes clearly labelled |
 | README described a *complex* Morlet transform while the code used the real `morl` wavelet | The complex Morlet `cmor1.5-1.0` is used and explained |
-| The 3D heart highlighted a "ferroptosis focus" on one wall | Now teaches lead anatomy and states that anthracycline injury is diffuse |
+| The 3D heart highlighted a "ferroptosis focus" on one wall | Removed; anthracycline injury is diffuse |
 | A "ROC-AUC" was computed on random synthetic labels | Replaced by a real PTB-XL evaluation pipeline with bootstrap CIs |
-| No automated tests of the mathematics | 10 tests, including exact-amplitude and JS/Python parity checks |
+| No automated tests of the mathematics | Tests, including exact-amplitude and JS/Python parity checks |
+
+**0.4.** The site became a research tool rather than a landing page: it opens with no result instead of an invented one, refuses recordings shorter than 64 beats instead of calling them negative, reports MMA on the clinical scale, attaches patient metadata to the export only on request, and states plainly that it is not a medical device.
+
+**0.5–0.6.** The TWA analysis covers the whole recording, gives three outcomes, removes false beats and fills missed ones, aligns beats, uses the PR baseline, and was checked against the PhysioNet challenge with a development/held-out protocol (§7.1). The browser reads BDF and Russian-style CSV, runs the analysis off the page thread, shows lead anatomy in 3D, and makes no third-party requests.
 
 ---
 
@@ -501,6 +528,7 @@ An internal review of version 0.2 found several places where the project claimed
 
 - **The central hypothesis is unproven.** QT prolongation and ST-T changes are described after anthracyclines, but microvolt TWA as an *early* marker of anthracycline cardiotoxicity has not been established. This project provides the tools to test it; it does not claim the answer.
 - **TWA needs long recordings.** The Spectral Method needs about 128 beats (roughly 2 minutes), ideally at a raised heart rate. A routine 10-second ECG contains about 12 beats. Practical use would need Holter or exercise recordings.
+- **The clinical rules are simplified.** "Sustained for a minute" is approximated by one 128-beat window (§4.4), and sensitivity was measured only under white noise (§4.5).
 - **Agreement on real ECGs is not shown.** On the PhysioNet challenge the ranking of real recordings does not agree with the reference beyond chance ([§7.1](#71-check-against-the-physionet-twa-challenge)).
 - **The network has not been trained on real data yet**, and PTB-XL has no chemotherapy information. Its STTC class is a proxy, not the target.
 - **Synthetic signals are simplified.** The dipole model ignores torso inhomogeneity and electrode placement variation; the alternans is injected as a clean amplitude modulation, whereas real TWA can vary in phase and shape.
@@ -541,6 +569,7 @@ An internal review of version 0.2 found several places where the project claimed
 26. Moody GB. The PhysioNet/Computers in Cardiology Challenge 2008: T-wave alternans. *Computers in Cardiology*. 2008;35:505–508.
 27. Lipponen JA, Tarvainen MP. A robust algorithm for heart rate variability time series artefact correction using novel beat classification. *J Med Eng Technol*. 2019;43(3):173–181.
 28. Armoundas AA. On the estimation of T-wave alternans using the spectral fast Fourier transform method. *Heart Rhythm*. 2012;9(3):449–456.
+29. Azam MA, Chakraborty P, Bokhari MM, et al. Cardioprotective effects of dantrolene in doxorubicin-induced cardiomyopathy in mice. *Heart Rhythm O2*. 2021;2(6 Pt B):733–741.
 
 ---
 

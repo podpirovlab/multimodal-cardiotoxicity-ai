@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Convert one lead of a PhysioNet WFDB record (.hea/.dat, e.g. PTB-XL) to a
-single-column CSV that the browser lab (index.html / ru.html) can upload directly.
+"""Convert one lead of a PhysioNet WFDB record (.hea/.dat, e.g. PTB-XL or the TWA
+challenge database) to a single-column CSV that the web tool can upload directly.
 
 Usage:
     python scripts/wfdb_to_csv.py path/to/00001_lr --lead II --out ecg.csv
@@ -26,12 +26,10 @@ def main(argv=None):
     names = [s.strip() for s in rec.sig_name]
     lower = [n.lower() for n in names]
     want = args.lead.strip().lower()
-    if want in lower:
-        idx = lower.index(want)
-    else:
-        print(f"Lead '{args.lead}' not found. Available leads: {', '.join(names)}. Using {names[0]} instead.",
-              file=sys.stderr)
-        idx = 0
+    if want not in lower:
+        # exporting some other lead silently would analyse the wrong signal without anyone noticing
+        sys.exit(f"Lead '{args.lead}' not found. Available leads: {', '.join(names)}")
+    idx = lower.index(want)
 
     signal = rec.p_signal[:, idx]  # physical units, normally mV for PTB-XL
     unit = (rec.units[idx] or "mV").strip()

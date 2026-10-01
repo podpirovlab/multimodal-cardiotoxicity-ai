@@ -2,10 +2,10 @@
 
 Examples
 --------
-    python predict.py --demo --alternans 25                   # synthetic Holter strip
+    python predict.py --demo --alternans 25                   # two-minute synthetic recording
     python predict.py --wfdb data/ptb-xl/records100/00000/00001_lr --age 56 --sex female \
                       --checkpoint runs/ptbxl/model.pt
-    python predict.py --csv my_ecg.csv --fs 500 --lead 0      # one column per lead, mV
+    python predict.py --csv my_ecg.csv --fs 500 --lead 0      # comma-separated, one column per lead, mV
 
 TWA needs a long recording (>= 64 beats, ideally 128, i.e. about 2 minutes); a 10-second
 12-lead ECG has only ~12 beats, so for those only the neural-network output is reported.
@@ -20,6 +20,7 @@ import numpy as np
 from scipy.signal import resample_poly
 
 from cardioonco import fhir
+from cardioonco.preprocess import consensus_r_peaks
 from cardioonco.twa import analyze
 
 
@@ -79,7 +80,9 @@ def main(argv=None):
     report = {"fs": fs, "n_samples": int(sig.shape[0]), "n_leads": int(sig.shape[1]), "twa_lead": lead}
 
     try:
-        twa = analyze(sig[:, lead], fs).as_dict()
+        # several leads of one recording share one set of R peaks, as in scripts/validate_twadb.py
+        r_peaks = consensus_r_peaks(sig.T, fs) if sig.shape[1] > 1 else None
+        twa = analyze(sig[:, lead], fs, r_peaks=r_peaks).as_dict()
         report["twa"] = {k: v for k, v in twa.items() if not k.startswith("spectrum")}
     except ValueError as exc:
         twa = None
@@ -92,7 +95,7 @@ def main(argv=None):
 
     print(json.dumps(report, indent=2, ensure_ascii=False))
     if args.fhir_out:
-        doc = fhir.diagnostic_report("Patient/anonymous", twa, probs)
+        doc = fhir.diagnostic_report(None, twa, probs)   # no subject: there is no patient record to point to
         Path(args.fhir_out).write_text(json.dumps(doc, indent=2))
         print(f"FHIR DiagnosticReport -> {args.fhir_out}")
     return report

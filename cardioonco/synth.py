@@ -10,8 +10,14 @@ as an ABAB modulation of the T-wave amplitude:
 
     a_T[n] = a_T + (-1)^n * alt_mV
 
-so that even and odd beats differ by 2*alt_mV and the *alternans amplitude*
-(the quantity the Spectral Method estimates as V_alt) equals alt_mV.
+so that even and odd T-wave peaks differ by 2*alt_mV.  At the T-wave peak the
+alternans amplitude equals alt_mV (what twa.analyze reports as v_alt_peak_uv); the
+Spectral Method's V_alt is an RMS over the whole ST-T window and comes out smaller.
+
+The 12-lead version projects one moving dipole onto the leads, so the limb-lead
+identities (II = I + III and the Goldberger leads) hold exactly for the clean signal.
+Noise and baseline wander are then added to each lead separately, which a real
+recording would not do, so those identities hold only before the noise.
 
 All units: time in seconds, voltage in millivolts (mV).  1 mV = 1000 uV.
 """
@@ -31,7 +37,7 @@ class SynthConfig:
     alternans_uv: float = 0.0     # TWA amplitude, microvolts
     t_amp: float = 0.35           # T-wave amplitude, mV (anthracycline stress: flatter T)
     t_width: float = 0.05         # T-wave Gaussian width, s
-    noise_uv: float = 10.0        # white (EMG-like) noise std, microvolts
+    noise_uv: float = 10.0        # white noise std, microvolts (stands in for muscle noise)
     wander_mv: float = 0.10       # respiratory baseline wander amplitude, mV (0.25 Hz)
     mains_uv: float = 0.0         # 50 Hz power-line interference, microvolts
     mains_hz: float = 50.0

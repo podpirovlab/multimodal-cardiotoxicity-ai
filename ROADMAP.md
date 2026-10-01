@@ -6,42 +6,42 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 
 ---
 
-## Where we are (version 0.3, September 2026)
+## Where we are (version 0.6, October 2026)
 
 | Done | Not done |
 |---|---|
-| TWA algorithm (Spectral Method + MMA) with tests | Training the network on real ECGs |
-| The same maths in the browser, parity with Python tested | Validating TWA on real long recordings |
-| Tensor-fusion network and a complete PTB-XL training script | Data from patients receiving chemotherapy |
-| Valid FHIR report, ONNX export, CI | Clinical partner, ethics approval |
+| TWA over the whole recording (Spectral Method + MMA), three outcomes, tests | A TWA result that agrees with a reference on real ECGs |
+| The same maths in the browser, parity with Python tested in CI | Training the network on real ECGs |
+| Checked on the PhysioNet 2008 challenge with a held-out protocol: τ = 0.43 overall, 0.08 on held-out real records (README §7.1) | Data from patients receiving chemotherapy |
+| Tensor-fusion network and a complete PTB-XL training script | Clinical partner, ethics approval |
+| Valid research FHIR export, installable package, CI, citation file | |
 
 ---
 
-## Phase 0: this week (UWC application)
+## Next steps (autumn 2026)
 
-1. **Push version 0.3 to GitHub** and check that CI is green and the website loads.
-2. **Train on PTB-XL** on your own Mac:
+1. **Train on PTB-XL** and run the ablation without age and sex:
    ```bash
    bash scripts/download_ptbxl.sh
    python train_ptbxl.py --data data/ptb-xl --epochs 30 --export-onnx
    python train_ptbxl.py --data data/ptb-xl --epochs 30 --no-meta --out runs/ptbxl_nometa
-   cp runs/ptbxl/metrics.json assets/metrics.json
    ```
-   The second run is an **ablation**: the same network without age and sex. Comparing AUCs answers whether bilinear fusion helps. An honest negative answer is also a result.
-3. **Put the real numbers** into README section 5.4 and regenerate figure 08 with trained weights.
-4. **Send README.md to the professor** with a short note: what was built, what was verified, and one concrete question (for example: "Is it realistic to obtain de-identified ECGs from patients before and after anthracyclines?").
-5. **UWC achievements entry:** one sentence on the problem, one on the method, one on what has been verified, and the website link. Say "research prototype", not "a system that saves lives".
+   Comparing the two AUCs answers whether bilinear fusion helps. An honest negative answer is also a result.
+2. **Put the real numbers** into README section 5.4 and regenerate figure 08 with trained weights.
+3. **Find recordings with a known answer** for TWA (paced or exercise tests with clinical TWA results), because the 2008 reference is a consensus of other algorithms, not measured truth.
+4. **Find a cardio-oncology mentor** with one concrete question, for example: "Is it realistic to obtain de-identified ECGs from patients before and after anthracyclines?"
+5. **Release v1.0 with a DOI** (GitHub release archived by Zenodo) once the repository audit is complete.
 
-**Done when:** the website shows real AUCs with confidence intervals and all tests pass.
+**Done when:** real AUCs with confidence intervals are in the README and all tests pass.
 
 ---
 
 ## Phase 1: real data (October–December 2026)
 
 ### 1.1 Validate TWA on real recordings
-- **T-Wave Alternans Challenge Database** (PhysioNet, Computing in Cardiology Challenge 2008): 100 records with alternans of varying magnitude and a reference ranking. Compute V_alt with our method and compare ranks with the reference (Spearman correlation).
+- **T-Wave Alternans Challenge Database** (PhysioNet, Computing in Cardiology Challenge 2008): 100 records with alternans of varying magnitude and a reference ranking. **Done** (README §7.1): Kendall τ = 0.43 over all records, just below the organisers' significance line of 0.436; 0.48 on the simulated records; 0.08 on held-out real records, which is no better than chance.
 - Long Holter-type recordings on PhysioNet: test the R-peak detector on real artefacts, ectopic beats and changing heart rate.
-- **Success metric:** Spearman correlation with the reference ≥ 0.7; R-peak detector sensitivity and precision ≥ 99% on annotated records.
+- **Success metric:** Kendall τ with the challenge reference above 0.436 and clearly above chance on real records (not yet met); R-peak detector sensitivity and precision ≥ 99% on annotated records (not yet measured).
 
 ### 1.2 Make the network stronger and more honest
 - **External validation:** train on PTB-XL, test on a different open 12-lead dataset (for example from the PhysioNet/CinC Challenge 2020). The drop in AUC on unseen data is the key measure of robustness.
@@ -65,7 +65,7 @@ Without clinicians and real patients the project cannot answer its main question
    - Endpoint: cardiac dysfunction by the 2022 ESC criteria (LVEF fall, GLS, troponin rise).
    - Size: at least 200–300 patients. At about 9% incidence that gives 20–30 events; fewer would make confidence intervals too wide.
    - **Key modelling idea for this phase:** compare each patient's ECG *with their own baseline ECG* (a Siamese network, or "after minus before" features). Each patient is their own control, which removes differences between people.
-3. **Ethics and data:** ethics-committee approval, de-identification before transfer, data kept inside the hospital (the federated-learning code in this repository is meant for this).
+3. **Ethics and data:** ethics-committee approval, de-identification before transfer, data kept inside the hospital. Federated learning would allow that; the FedAvg script in `legacy/` only shows the idea, and a real study would need an established framework.
 4. **Pre-registered analysis plan:** hypothesis, metrics and thresholds are written down before looking at the data.
 
 **Done when:** a signed agreement with a clinic, ethics approval and an analysis plan exist.
@@ -74,7 +74,7 @@ Without clinicians and real patients the project cannot answer its main question
 
 ## Phase 3: device (2027–2028)
 
-- **Requirement from the detection map (figure 06):** input noise ≤ 20 µV RMS. That determines the analogue front end: dedicated 24-bit biopotential ADCs rather than the cheapest modules.
+- **Requirement from the detection map (README §4.5):** input noise of roughly 20 µV RMS or less under a white-noise model; to be confirmed on real recordings. That determines the analogue front end: dedicated 24-bit biopotential ADCs rather than the cheapest modules.
 - Holter prototype: 24-hour recording, TWA computed in windows of equal heart rate (alternans depends on heart rate, README section 3.5).
 - INT8 model on a phone via ONNX; compare float32 and INT8 accuracy on the test set.
 - FHIR report tested against a public FHIR test server (for example HAPI FHIR).
@@ -91,9 +91,11 @@ Without clinicians and real patients the project cannot answer its main question
 
 ## Technical backlog
 
-- [ ] Run `train_ptbxl.py` and publish the metrics (Phase 0)
+- [ ] Run `train_ptbxl.py` and publish the metrics
 - [ ] Ablation without metadata (`--no-meta`)
-- [ ] Validate TWA on the T-Wave Alternans Challenge Database
+- [x] Validate TWA on the T-Wave Alternans Challenge Database (τ = 0.43; real records not yet in agreement)
+- [ ] TWA recordings with a known answer (paced or exercise tests)
+- [ ] The clinical "sustained for a minute" rule instead of a single window
 - [ ] External validation of the network on a second dataset
 - [ ] Calibration and uncertainty estimates
 - [ ] Integrated gradients to explain decisions
