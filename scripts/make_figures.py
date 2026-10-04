@@ -106,6 +106,13 @@ L = {
         a11="a  AUC per diagnosis, with 95% CI", b11="b  With age and sex minus without (paired)",
         auc="AUC", dauc="difference in AUC", macro="macro", published="published\nmodels [20]",
         nometa="without age/sex", withmeta="with age/sex",
+        # 12
+        f12_title="The PhysioNet 2008 TWA challenge: synthetic recordings agree, real ones do not",
+        a12="a  This pipeline against the challenge reference", b12="b  Kendall τ by group",
+        refrank="challenge reference rank (100 = most alternans)", est="this pipeline: significance-gated V_alt, µV",
+        g_syn="synthetic (32)", g_dev="real, used for development (34)", g_test="real, held out (34)",
+        bar_all="all 100", bar_syn="synthetic", bar_dev="real,\ndevelopment", bar_test="real,\nheld out",
+        sigline="organisers' significance line 0.436", entries="the 19 entries\nthat formed\nthe reference",
         # 10
         f10_title="Why early detection matters", a10="a  Heart failure vs cumulative doxorubicin dose (Swain et al., 2003)",
         b10="b  When is injury visible? (project hypothesis)", dose="cumulative dose, mg/m²", hf="patients with heart failure, %",
@@ -162,6 +169,12 @@ L = {
         a11="a  AUC по диагнозам, с 95 % ДИ", b11="b  С возрастом и полом минус без них (парно)",
         auc="AUC", dauc="разница AUC", macro="среднее", published="опубликованные\nмодели [20]",
         nometa="без возраста и пола", withmeta="с возрастом и полом",
+        f12_title="Конкурс PhysioNet 2008 по TWA: синтетические записи согласуются, реальные — нет",
+        a12="a  Этот пайплайн против эталона конкурса", b12="b  τ Кендалла по группам",
+        refrank="эталонный ранг конкурса (100 = больше всего альтернации)", est="этот пайплайн: V_alt после проверки значимости, мкВ",
+        g_syn="синтетические (32)", g_dev="реальные, для разработки (34)", g_test="реальные, отложенные (34)",
+        bar_all="все 100", bar_syn="синтетические", bar_dev="реальные,\nразработка", bar_test="реальные,\nотложенные",
+        sigline="порог значимости организаторов 0,436", entries="19 участников,\nиз которых\nсобран эталон",
         f10_title="Почему важно раннее выявление", a10="a  Сердечная недостаточность и кумулятивная доза доксорубицина (Swain et al., 2003)",
         b10="b  Когда повреждение становится видно? (гипотеза проекта)", dose="кумулятивная доза, мг/м²", hf="пациентов с СН, %",
         mol="молекулярный\n(АФК, железо, TOP2B)", ele="электрический\n(QT, альтернация T)", mec="механический\n(ФВ ЛЖ ↓ на ЭхоКГ)",
@@ -768,6 +781,46 @@ def fig11(lang, out, run=RELEASED):
     save(fig, out, "11_ptbxl_results.png")
 
 
+# ============================================================================ 12
+def fig12(lang, out, csv_path=ROOT / "docs" / "results" / "twadb_v0.6.0.csv"):
+    """Section 7.1 as a picture, from the per-record table that scripts/validate_twadb.py writes."""
+    import csv
+    from scipy.stats import kendalltau
+    T = L[lang]
+    rows = list(csv.DictReader(open(csv_path)))
+    groups = [("synthetic", T["g_syn"], dict(color=BLUE, marker="o", s=34)),
+              ("real-dev", T["g_dev"], dict(facecolors="white", edgecolors=MUTED, marker="o", s=34, linewidths=1.2)),
+              ("real-test", T["g_test"], dict(color=AMBER, marker="D", s=30))]
+    fig, ax = plt.subplots(1, 2, figsize=(15, 5.2), gridspec_kw={"width_ratios": [1.45, 1]})
+    a = ax[0]
+    for g, lab, style in groups:
+        sel = [r for r in rows if r["group"] == g]
+        a.scatter([int(r["reference_rank"]) for r in sel], [float(r["estimate_uv"]) for r in sel], label=lab, zorder=3, **style)
+    a.set_yscale("symlog", linthresh=1)
+    a.set_yticks([0, 1, 10])
+    a.set_yticklabels(["0", "1", "10"])
+    a.set(xlim=(0, 101), ylim=(-0.15, 25), xlabel=T["refrank"], ylabel=T["est"], title=T["a12"])
+    a.legend(loc="upper left")
+    b = ax[1]
+    def tau(sel):
+        return kendalltau([float(r["estimate_uv"]) for r in sel], [int(r["reference_rank"]) for r in sel]).statistic
+    bars = [(T["bar_all"], tau(rows), INK), (T["bar_syn"], tau([r for r in rows if r["group"] == "synthetic"]), BLUE),
+            (T["bar_dev"], tau([r for r in rows if r["group"] == "real-dev"]), MUTED),
+            (T["bar_test"], tau([r for r in rows if r["group"] == "real-test"]), AMBER)]
+    x = np.arange(len(bars))
+    b.bar(x, [v for _, v, _ in bars], color=[c for _, _, c in bars], width=0.55, zorder=3)
+    for xi, (_, v, _) in zip(x, bars):
+        b.text(xi, v + 0.02, dec(lang, f"{v:.2f}"), ha="center", fontsize=10, fontweight="bold")
+    b.axhline(0.436, color=INK, lw=1, ls="--", zorder=2)
+    b.text(3.35, 0.448, T["sigline"], ha="right", va="bottom", fontsize=8.5)
+    b.plot([-0.42, -0.42], [0.451, 0.911], color=INK, lw=6, alpha=0.18, solid_capstyle="butt")   # entries' range, all 100 only
+    b.text(-0.36, 0.68, T["entries"], fontsize=8, va="center", ha="left")
+    b.set(xticks=x, xticklabels=[n for n, _, _ in bars], ylim=(0, 1), xlim=(-0.6, 3.5), ylabel="τ", title=T["b12"])
+    fig.suptitle(T["f12_title"], x=0.01, ha="left", fontsize=14, fontweight="bold", y=1.03)
+    fig.tight_layout()
+    save(fig, out, "12_twadb_check.png")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lang", nargs="+", default=["en", "ru"])
@@ -776,7 +829,7 @@ def main():
                     help="weights for figures 08 and 09 (default: the released model)")
     args = ap.parse_args()
     figs = {"01": fig01, "02": fig02, "03": fig03, "04": fig04, "05": fig05, "06": fig06,
-            "07": fig07, "08": fig08, "09": fig09, "10": fig10, "11": fig11}
+            "07": fig07, "08": fig08, "09": fig09, "10": fig10, "11": fig11, "12": fig12}
     for lang in args.lang:
         out = ROOT / "docs" / "figures" / lang
         print(f"[{lang}]")

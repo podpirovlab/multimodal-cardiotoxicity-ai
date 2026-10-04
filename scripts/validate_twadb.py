@@ -112,6 +112,17 @@ def analyse_record(path: Path) -> dict:
     return {"fs": rec.fs, "n_leads": rec.n_sig, "leads": leads, "failures": failures, "best": best}
 
 
+def write_scores_csv(path: Path, records: dict, ranks: dict, sources: dict, half: dict) -> None:
+    """One row per record: its group, the challenge reference rank and this pipeline's values.
+    docs/results/ keeps the copy behind README section 7.1 and figure 12."""
+    lines = ["record,group,source,reference_rank," + ",".join(METRICS)]
+    for n in sorted(records):
+        group = "synthetic" if sources.get(n) in SYNTHETIC else half.get(n, "unknown")
+        lines.append(f"{n},{group},{sources.get(n, '')},{ranks[n]},"
+                     + ",".join(f"{records[n]['best'][m]:.4f}" for m in METRICS))
+    path.write_text("\n".join(lines) + "\n")
+
+
 def tau(ours: list[float], ref: list[int]) -> float:
     return float(kendalltau(ours, ref).statistic) if len(ours) > 2 else float("nan")
 
@@ -150,7 +161,7 @@ def main(argv=None) -> dict:
     summary = {
         "algorithm_version": __version__,
         "subset": args.only,
-        "primary_metric": "estimate_uv (max over leads)",
+        "primary_metric": "estimate_uv (median over leads)",
         "kendall_tau": scores,
         "n_records": {g: len(ns) for g, ns in groups.items()},
         "records_without_any_analysable_lead": [n for n in names if not records[n]["leads"]],
@@ -162,6 +173,7 @@ def main(argv=None) -> dict:
     tag = f"v{__version__}" + ("" if args.only == "all" else f"_{args.only}")
     (out / f"summary_{tag}.json").write_text(json.dumps(summary, indent=2))
     (out / f"records_{tag}.json").write_text(json.dumps(records, indent=2))
+    write_scores_csv(out / f"scores_{tag}.csv", records, ranks, sources, half)
 
     print(f"CardioOncoPredict {__version__} on the TWA Challenge Database")
     print(f"{'group':<12}{'n':>5}  " + "".join(f"{m:>16}" for m in METRICS))
