@@ -41,7 +41,19 @@ was trained once, so the spread between random seeds is not measured.
 | `comparison_meta_vs_nometa.json` | paired bootstrap comparison | |
 | `roc_test.png` | ROC curves on the test fold | |
 
-`predict.py --checkpoint models/ptbxl-1.0/model.pt` runs the model on a 12-lead ECG.
+`predict.py --checkpoint models/ptbxl-1.0/model.pt` runs the model on a 12-lead ECG; the recording
+is resampled to 100 Hz and its first 10 seconds are used, as in training.
+
+**Use and limits.**
+- *Intended use:* research and teaching — a reproducible baseline for ECG classification and the
+  starting point for fine-tuning on cardio-oncology data.
+- *Not for:* diagnosis, screening or any decision about a patient, and not for cardiotoxicity,
+  which it was never trained to see.
+- *Data:* one German centre (PTB-XL), labels from at most two cardiologists, 10-second resting ECGs
+  at 100 Hz. Accuracy on other populations, devices and sampling rates is unknown until an external
+  dataset is tested.
+- *Not measured yet:* the spread between random seeds, calibration of the probabilities (whether
+  0.8 means 80%), and accuracy after INT8 quantisation.
 
 **Licence and attribution.** The weights are derived from PTB-XL, which is distributed by PhysioNet
 under CC BY 4.0, so they are shared under CC BY 4.0 as well. Cite Wagner P, Strodthoff N,

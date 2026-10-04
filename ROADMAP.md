@@ -54,10 +54,10 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 
 Without clinicians and real patients the project cannot answer its main question. This is the most important and the hardest phase.
 
-1. **Find a cardio-oncology mentor** through the professor and the school: a national cardiology or oncology research centre, or a university hospital.
+1. **Find a cardio-oncology mentor** through school and university contacts: a national cardiology or oncology research centre, or a university hospital.
 2. **Retrospective study.** Patients treated with anthracyclines who have an ECG before treatment, an ECG during or after treatment, and echocardiography.
    - Endpoint: cardiac dysfunction by the 2022 ESC criteria (LVEF fall, GLS, troponin rise).
-   - Size: at least 200–300 patients. At about 9% incidence that gives 20–30 events; fewer would make confidence intervals too wide.
+   - Size: at least 200–300 patients. At about 9% incidence [Cardinale 2015, README ref. 2] that gives 18–27 events; fewer would make confidence intervals too wide.
    - **Key modelling idea for this phase:** compare each patient's ECG *with their own baseline ECG* (a Siamese network, or "after minus before" features). Each patient is their own control, which removes differences between people.
 3. **Ethics and data:** ethics-committee approval, de-identification before transfer, data kept inside the hospital. Federated learning would allow that; the FedAvg script in `legacy/` only shows the idea, and a real study would need an established framework.
 4. **Pre-registered analysis plan:** hypothesis, metrics and thresholds are written down before looking at the data.
@@ -109,4 +109,4 @@ Without clinicians and real patients the project cannot answer its main question
 | TWA turns out not to be an early marker | That is also a scientific result. The raw-ECG model and QTc / QRS-voltage features are tested in parallel |
 | Clinical data cannot be obtained | Approach several partners; start with open data and publications on the method |
 | Overfitting on a small cohort | Pre-registered analysis plan, external validation, simple models as baselines |
-| Temptation to overstate results | Every claim in the README is tied to a test or a figure; open items are marked ⏳ or ❌ |
+| Temptation to overstate results | Every claim in the README is tied to a test or a figure; open items are marked ⚠️ or ❌ |

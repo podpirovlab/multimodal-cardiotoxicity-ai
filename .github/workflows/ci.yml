@@ -9,20 +9,26 @@ on:
 jobs:
   sanity-check:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # the oldest Python that pyproject.toml supports, and the newest
+        python-version: ["3.10", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python-version }}
+          cache: pip
 
       # Node runs the browser code in tests (JS/Python parity, EDF/BDF/CSV readers);
       # with CI set, those tests fail instead of skipping if Node is missing.
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install dependencies
         run: |
@@ -42,7 +48,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build the lab image
         run: docker build -t cardioonco-lab .
       - name: Run one analysis inside the image
