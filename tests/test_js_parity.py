@@ -39,3 +39,19 @@ def test_js_matches_python(tmp_path, alt, noise, hr, beats):
     assert js["v"] == pytest.approx(py.v_alt_uv, rel=0.10, abs=0.2)
     assert js["est"] == pytest.approx(py.estimate_uv, rel=0.10, abs=0.2)
     assert (js["outcome"], js["reason"]) == (py.outcome, py.reason)
+
+
+@pytest.mark.skipif(NODE is None and not os.environ.get("CI"), reason="node.js not installed")
+def test_js_finds_small_beats_next_to_large_ones(tmp_path):
+    """Both implementations find every beat of a bigeminy whose large beats are 3x the small ones."""
+    from cardioonco.preprocess import detect_r_peaks
+    from test_twa import bigeminy_like
+    x, small = bigeminy_like(2, 3)
+    (tmp_path / "x.json").write_text(json.dumps(x.tolist()))
+    script = (f"const D=require({json.dumps(str(ROOT / 'assets/js/dsp.js'))});"
+              f"const x=Float64Array.from(require({json.dumps(str(tmp_path / 'x.json'))}));"
+              "console.log(JSON.stringify(D.detectRPeaks(x,500).r));")
+    js = np.array(json.loads(subprocess.check_output([NODE, "-e", script], text=True)))
+    py = detect_r_peaks(x, 500)
+    assert len(js) == len(py) == 150
+    assert np.all(np.abs(np.sort(js) - np.sort(py)) <= 5)      # within 10 ms of each other

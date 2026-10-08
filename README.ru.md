@@ -49,6 +49,7 @@
 | Вопрос | Результат | Статус | Где |
 |---|---|---|---|
 | Находит ли метод микровольтную альтернацию на синтетических ЭКГ? | 5 мкВ альтернации найдены в 10 записях из 12 при белом шуме 5 мкВ и в 8 из 12 при 20 мкВ; ложных срабатываний нет вплоть до 20 мкВ шума | ✅ | [§4.5](#45-когда-альтернацию-можно-измерить-карта-обнаружения) |
+| Находит ли детектор R-пиков настоящие удары сердца? | MIT-BIH Arrhythmia Database: найдено 99,73 % отмеченных ударов, 99,92 % находок верны; 99,50 % / 99,93 % на второй базе с частотой 128 Гц | ✅ | [§4.3](#43-поиск-r-пиков) |
 | Совпадают ли версии в браузере и на Python? | Один и тот же исход и причина на всех тестовых сигналах; V_alt в пределах 10 % | ✅ | [§7](#7-что-уже-проверено) |
 | Согласуется ли метод с конкурсом PhysioNet 2008 по TWA? | τ Кендалла = 0,43 по 100 записям (порог значимости организаторов 0,436); 0,48 на синтетических, 0,08 на отложенных реальных | ⚠️ только синтетика | [§7.1](#71-проверка-на-конкурсе-physionet-по-twa) |
 | Работает ли нейросеть на настоящих клинических ЭКГ? | macro-AUC на тесте PTB-XL 0,921 — опубликованный уровень 0,92–0,93 | ✅ задача-заменитель | [§5.4](#54-данные-ptb-xl) |
@@ -60,7 +61,7 @@
 | Уровень | Что делает | Где |
 |---|---|---|
 | Физическая модель | Синтетическая 12-канальная ЭКГ от движущегося диполя сердца с управляемой микровольтной альтернацией, белым шумом, дрейфом изолинии и сетевой наводкой | `cardioonco/synth.py` |
-| Обработка сигнала | Фильтрация без сдвига фазы, поиск R-пиков (Пан–Томпкинс), удаление ложных ударов, общие R-пики для всех отведений | `cardioonco/preprocess.py` |
+| Обработка сигнала | Фильтрация без сдвига фазы, поиск R-пиков, проверенный на 126 записях с разметкой кардиологов, удаление ложных ударов, общие R-пики для всех отведений | `cardioonco/preprocess.py` |
 | Математика TWA | Совмещение ударов, контроль экстрасистол, спектральный метод (V_alt, K-score) по всей записи, модифицированное скользящее среднее, три исхода; проверено на конкурсе PhysioNet ([§7.1](#71-проверка-на-конкурсе-physionet-по-twa)) | `cardioonco/twa.py` |
 | Нейросеть | 1D-ResNet по 12 отведениям + ветка «возраст/пол», объединение внешним (тензорным) произведением | `cardioonco/model.py` |
 | Пайплайн обучения | Обучена на PTB-XL (21 799 клинических ЭКГ): разбиение по пациентам, macro-AUC на тесте 0,921 с бутстрэп-интервалами, экспорт ONNX ([§5.4](#54-данные-ptb-xl)) | `train_ptbxl.py`, `models/ptbxl-1.0/` |
@@ -255,9 +256,23 @@ C_m \frac{dV}{dt} = -\left(I_{Na} + I_{to} + I_{CaL} + I_{Kr} + I_{Ks} + I_{K1} 
 
 Он реализуется разностным уравнением $`y[n] = \sum_k b_k x[n-k] - \sum_{k\ge1} a_k y[n-k]`$. Любой причинный фильтр задерживает разные частоты по-разному и исказил бы форму ST-T, которую мы измеряем. **filtfilt** прогоняет фильтр вперёд, разворачивает результат, прогоняет ещё раз и разворачивает обратно. В частотной области это умножение на $`H(e^{j\omega})\,\overline{H(e^{j\omega})} = |H(e^{j\omega})|^2`$: действительная неотрицательная характеристика с **нулевой фазой**. Панель **b** показывает спектр мощности до и после фильтра: дыхательный дрейф ниже 0,5 Гц убран, энергия QRS (5–25 Гц) сохранена. Линия сети 50 Гц лежит чуть выше края 40 Гц, поэтому при частоте записи 500 Гц она ослабляется примерно в 60 раз по мощности, но не исчезает (сеть 60 Гц — примерно в 1200 раз). Отдельного режекторного фильтра в обработке нет; `preprocess.notch` есть для записей, которым он нужен.
 
-### 4.3 Поиск R-пиков: алгоритм Пана–Томпкинса
+### 4.3 Поиск R-пиков
 
-По Пану и Томпкинсу [13]: полосовой фильтр 5–15 Гц (там сосредоточена энергия QRS); производная $`d[n] = x[n+1]-x[n-1]`$; квадрат $`e[n] = d[n]^2`$ (делает всё положительным и усиливает крутые фронты); интегрирование в скользящем окне 150 мс (примерно ширина QRS); затем выбор пиков с рефрактерным периодом 250 мс (сердце не бьётся чаще ~240 уд/мин) выше фиксированного порога — 30 % от 99-го перцентиля всей записи. Это проще скользящих порогов исходного алгоритма. Каждый пик сдвигается к самому большому по модулю отсчёту ЭКГ в пределах от 120 мс до него до 60 мс после. На тестах детектор находит все удары и воспроизводит ЧСС с точностью 3 % при 55, 75 и 110 уд/мин (`tests/test_twa.py`).
+**Метод.** Детектор следует Elgendi [32]: ЭКГ пропускается через полосовой фильтр 8–20 Гц без сдвига фазы и возводится в квадрат, затем считаются два скользящих средних квадрата сигнала — длиной с комплекс QRS (97 мс) и длиной с удар сердца (611 мс). Там, где короткое среднее не меньше 97 мс держится выше длинного плюс 0,08 от среднего квадрата сигнала, находится QRS. Сравнение локальное: каждый удар оценивается по энергии вокруг него, а не по самым крупным ударам записи. Пик каждого блока затем сдвигается к самому большому по модулю отсчёту ЭКГ в пределах от 120 мс до него до 60 мс после, а две находки ближе 250 мс считаются одним ударом (сердце не бьётся чаще ~240 уд/мин). Все константы взяты из статьи, ни одна не подгонялась. Панель **d** рисунка выше показывает оба средних и найденные блоки.
+
+**Проверка на настоящих ЭКГ с разметкой.** `scripts/validate_rpeaks.py` сравнивает детектор с отметками ударов, сделанными кардиологами, по правилу стандарта ANSI/AAMI EC57 [36]: находка верна, если она не дальше 150 мс от отмеченного удара. Чувствительность — доля настоящих ударов, которые найдены; точность — доля находок, которые оказались настоящими ударами.
+
+| Детектор | MIT-BIH Arrhythmia [33]: 48 записей, 360 Гц | Supraventricular Arrhythmia [34]: 78 записей, 128 Гц |
+|---|---|---|
+| До версии 1.1: один фиксированный порог | 90,69 % / 99,96 % | 93,29 % / 99,94 % |
+| Адаптивные пороги Пана–Томпкинса [13], проверены и отклонены | 99,24 % / 99,50 % | 99,34 % / 99,30 % |
+| **Эта версия, Python** | **99,73 % / 99,92 %** | **99,50 % / 99,93 %** |
+| Эта версия, код в браузере | 99,76 % / 99,92 % | 99,70 % / 99,91 % |
+| NeuroKit2 0.2.13 [35], для сравнения | 98,87 % / 98,31 % | 99,03 % / 99,73 % |
+
+В каждой ячейке — чувствительность / точность по первому отведению каждой записи; оцениваются записи целиком, эпизод трепетания желудочков в записи 207 исключён. Результаты по каждой записи — в [`docs/results/`](docs/results/). Две реализации немного расходятся, потому что их фильтры устроены по-разному (§7).
+
+До версии 1.1 детектор использовал один порог на всю запись, и на настоящих аритмиях это сильно подводило: там, где экстрасистолы были намного крупнее обычных ударов, он пропускал целые минуты обычных ударов (запись 228: 1684 из 1688). Адаптивные пороги из исходной статьи Пана и Томпкинса [13] исправили большую часть этого, но теряли все мелкие удары синтетической бигеминии, где экстрасистолы втрое крупнее; локальное сравнение Elgendi их находит (`test_small_beats_next_to_large_beats_are_found`). Оба опубликованных метода были проверены на обеих базах до выбора одного из них, поэтому вторая база — не полностью нетронутый тестовый набор. Остаются два ограничения: если крупные удары бигеминии в десять раз больше мелких, мелкие всё ещё пропускаются, а на три шумные записи или записи с многоформными экстрасистолами (203, 106, 105) приходится половина оставшихся ошибок на MIT-BIH. На 66 записях для разработки конкурса PhysioNet по TWA новый детектор изменил одну оценку TWA на 0,03 мкВ и ни одного ранга (§7.1). На синтетических тестах он находит все удары и воспроизводит ЧСС с точностью 3 % при 55, 75 и 110 уд/мин (`tests/test_twa.py`).
 
 Для TWA один лишний или пропущенный удар хуже небольшой ошибки во времени: он меняет местами чётные и нечётные удары до конца записи. Поэтому дальше идут три шага очистки (каждый покрыт тестом в `tests/test_twa.py`). Пик, который делит один нормальный интервал R-R надвое и не похож на QRS (корреляция с медианным QRS меньше 0,9), удаляется — так ловится высокий острый зубец T, принятый за удар [27]. На место пропуска длиной около двух интервалов R-R ставится помеченная заглушка, чтобы порядок не сбился. В многоканальной записи все отведения используют R-пики того отведения, с которым остальные согласны лучше всего. Наконец, каждый удар сдвигается до ±20 мс туда, где его QRS лучше всего совпадает с медианным (взаимная корреляция).
 
@@ -456,6 +471,8 @@ FHIR — формат, в котором больничные системы о�
 |---|---|---|
 | Чистый чередующийся ряд даёт ровно $`V_{alt} = a`$ | `test_pure_alternating_series_gives_exact_amplitude` | ✅ |
 | R-пики находятся верно при 55 / 75 / 110 уд/мин | `test_r_peak_detection` | ✅ |
+| Поиск R-пиков на настоящих ЭКГ с разметкой: 99,73 % / 99,92 % (MIT-BIH), 99,50 % / 99,93 % (SVDB) | `scripts/validate_rpeaks.py`, [§4.3](#43-поиск-r-пиков) | ✅ |
+| Мелкие удары рядом с крупными экстрасистолами находятся — в Python и в браузере | `test_small_beats_next_to_large_beats_are_found`, `test_js_finds_small_beats_next_to_large_ones` | ✅ |
 | Без альтернации нет ложной TWA (K < 3) | `test_no_alternans_is_not_called_positive` | ✅ |
 | $`V_{alt}`$ растёт монотонно; пиковая оценка восстанавливает 40 мкВ с точностью 15 % | `test_strong_alternans_is_positive_and_monotonic` | ✅ |
 | Браузер (JS) и Python дают одинаковые ЧСС, V_alt (±10 %), исход и его причину | `tests/test_js_parity.py` | ✅ |
@@ -523,7 +540,7 @@ python scripts/validate_twadb.py
 ```
 cardioonco/            основная библиотека (покрыта тестами; для `pip install .` нужны только numpy и scipy)
   synth.py             синтетическая ЭКГ: одно отведение и 12 отведений (диполь), с альтернацией
-  preprocess.py        фильтр Баттерворта filtfilt, режекторный фильтр, Пан–Томпкинс, удаление ложных ударов, общие R-пики
+  preprocess.py        фильтр Баттерворта filtfilt, режекторный фильтр, поиск R-пиков (Elgendi), удаление ложных ударов, общие R-пики
   twa.py               спектральный метод, MMA, окна по всей записи, три исхода
   model.py             CardioOncoNet: 1D-ResNet + MLP + тензорное слияние
   fhir.py              HL7 FHIR R4 DiagnosticReport
@@ -538,6 +555,7 @@ scripts/
   wfdb_to_csv.py       перевести одно отведение записи PhysioNet WFDB в CSV для сайта
   make_figures.py      пересобрать все рисунки в docs/figures/{en,ru}
   validate_twadb.py    проверка на конкурсе PhysioNet по TWA (§7.1)
+  validate_rpeaks.py   проверка детектора R-пиков на размеченных базах (§4.3)
 tests/                 pytest: математика TWA, детектор, совпадение JS и Python, чтение EDF/BDF/CSV,
                        точки входа, обучение, опубликованная модель (браузерный код — в Node)
 index.html, ru.html    веб-инструмент (GitHub Pages)
@@ -547,7 +565,7 @@ assets/samples/        одна настоящая запись конкурса
 sw.js, manifest*.webmanifest, assets/icons/
                        работа без интернета и установка как приложения (service worker, манифесты, иконки)
 docs/figures/{en,ru}/  все рисунки этого README на английском и русском (scripts/make_figures.py)
-docs/results/          результаты по каждой записи для §7.1 и рисунка 12
+docs/results/          результаты по каждой записи для §4.3, §7.1 и рисунка 12
 pyproject.toml         описание пакета и группы необязательных зависимостей
 CITATION.cff           как цитировать эту программу
 legacy/                ранние учебные прототипы, сохранены для истории (см. legacy/README.md)
@@ -568,6 +586,10 @@ ln -s ../../scripts/pre-push .git/hooks/pre-push   # по желанию: тес
 python predict.py --demo --alternans 20   # анализ TWA двухминутной синтетической записи
 python app.py                             # лаборатория на http://localhost:7860
 python scripts/make_figures.py            # пересобрать все рисунки
+
+# детектор R-пиков на ЭКГ с разметкой кардиологов (~150 МБ с PhysioNet)
+python -c "import wfdb; wfdb.dl_database('mitdb', dl_dir='data/mitdb'); wfdb.dl_database('svdb', dl_dir='data/svdb')"
+python scripts/validate_rpeaks.py && python scripts/validate_rpeaks.py --data data/svdb --out docs/results/rpeaks_svdb.csv
 
 # реальные данные: PTB-XL, ~0,5 ГБ записей 100 Гц (или bash scripts/download_ptbxl.sh, 1,7 ГБ)
 python scripts/fetch_ptbxl_100hz.py
@@ -607,6 +629,8 @@ python scripts/make_figures.py --only 08 09 --checkpoint runs/ptbxl/model.pt   #
 
 **1.1.1.** Только документация и выгрузка результатов проверки; ни алгоритм, ни модель не менялись. README открывается тем, что уже показано, а формулы теперь правильно отображаются на GitHub. Рисунок 12 и `docs/results/twadb_v0.6.0.csv` показывают проверку на конкурсе PhysioNet по каждой записи, и `scripts/validate_twadb.py` теперь сам пишет эту таблицу. Добавлены ещё две работы об антрациклинах и альтернации [30, 31] вместе с запросом в PubMed, который их нашёл. Исправлено описание фильтрации сетевой наводки: линия 50 Гц ослабляется примерно в 60 раз, а не убирается.
 
+**1.2.0.** Новый детектор R-пиков (два скользящих средних Elgendi [32]), впервые проверенный на ЭКГ с разметкой кардиологов: 99,73 % ударов найдено при точности 99,92 % на MIT-BIH Arrhythmia Database против 90,69 % / 99,96 % у старого детектора с одним порогом, и 99,50 % / 99,93 % на второй базе с частотой 128 Гц (§4.3). В браузере работает тот же метод. На записях для разработки конкурса PhysioNet по TWA ни один ранг не изменился. Добавлены `scripts/validate_rpeaks.py` и тесты на мелкие удары рядом с крупными экстрасистолами; у каждой журнальной статьи в списке литературы теперь проверенный DOI.
+
 ---
 
 ## 11. Ограничения и этика
@@ -626,37 +650,42 @@ python scripts/make_figures.py --only 08 09 --checkpoint runs/ptbxl/model.pt   #
 
 ## 12. Литература
 
-1. Swain SM, Whaley FS, Ewer MS. Congestive heart failure in patients treated with doxorubicin: a retrospective analysis of three trials. *Cancer*. 2003;97(11):2869–2879.
-2. Cardinale D, Colombo A, Bacchiani G, et al. Early detection of anthracycline cardiotoxicity and improvement with heart failure therapy. *Circulation*. 2015;131(22):1981–1988.
-3. Lyon AR, López-Fernández T, Couch LS, et al. 2022 ESC Guidelines on cardio-oncology. *European Heart Journal*. 2022;43(41):4229–4361.
-4. Zhang S, Liu X, Bawa-Khalfe T, et al. Identification of the molecular basis of doxorubicin-induced cardiotoxicity. *Nature Medicine*. 2012;18(11):1639–1642.
-5. Fang X, Wang H, Han D, et al. Ferroptosis as a target for protection against cardiomyopathy. *PNAS*. 2019;116(7):2672–2680.
-6. Octavia Y, Tocchetti CG, Gabrielson KL, et al. Doxorubicin-induced cardiomyopathy: from molecular mechanisms to therapeutic strategies. *J Mol Cell Cardiol*. 2012;52(6):1213–1225.
-7. Hodgkin AL, Huxley AF. A quantitative description of membrane current and its application to conduction and excitation in nerve. *J Physiol*. 1952;117(4):500–544.
-8. Yan GX, Antzelevitch C. Cellular basis for the normal T wave and the electrocardiographic manifestations of the long-QT syndrome. *Circulation*. 1998;98(18):1928–1936.
-9. Nolasco JB, Dahlen RW. A graphic method for the study of alternation in cardiac action potentials. *J Appl Physiol*. 1968;25(2):191–196.
-10. Weiss JN, Karma A, Shiferaw Y, et al. From pulsus to pulseless: the saga of cardiac alternans. *Circulation Research*. 2006;98(10):1244–1253.
-11. Verrier RL, Klingenheben T, Malik M, et al. Microvolt T-wave alternans: physiological basis, methods of measurement, and clinical utility. *J Am Coll Cardiol*. 2011;58(13):1309–1324.
-12. Wagner P, Strodthoff N, Bousseljot RD, et al. PTB-XL, a large publicly available electrocardiography dataset. *Scientific Data*. 2020;7:154. Goldberger AL, et al. PhysioBank, PhysioToolkit, and PhysioNet. *Circulation*. 2000;101(23):e215–e220.
-13. Pan J, Tompkins WJ. A real-time QRS detection algorithm. *IEEE Trans Biomed Eng*. 1985;32(3):230–236.
-14. Rosenbaum DS, Jackson LE, Smith JM, et al. Electrical alternans and vulnerability to ventricular arrhythmias. *N Engl J Med*. 1994;330(4):235–241. Smith JM, Clancy EA, Valeri CR, et al. Electrical alternans and cardiac electrical instability. *Circulation*. 1988;77(1):110–121.
-15. Nearing BD, Verrier RL. Modified moving average analysis of T-wave alternans to predict ventricular fibrillation with high accuracy. *J Appl Physiol*. 2002;92(2):541–549.
-16. Hanley JA, McNeil BJ. The meaning and use of the area under a receiver operating characteristic (ROC) curve. *Radiology*. 1982;143(1):29–36.
-17. He K, Zhang X, Ren S, Sun J. Deep residual learning for image recognition. *CVPR*. 2016.
-18. Zadeh A, Chen M, Poria S, Cambria E, Morency LP. Tensor Fusion Network for multimodal sentiment analysis. *EMNLP*. 2017.
-19. Loshchilov I, Hutter F. Decoupled weight decay regularization. *ICLR*. 2019.
-20. Strodthoff N, Wagner P, Schaeffter T, Samek W. Deep learning for ECG analysis: benchmarks and insights from PTB-XL. *IEEE J Biomed Health Inform*. 2021;25(5):1519–1528.
-21. Jacob B, Kligys S, Chen B, et al. Quantization and training of neural networks for efficient integer-arithmetic-only inference. *CVPR*. 2018.
-22. McMahan HB, Moore E, Ramage D, Hampson S, Agüera y Arcas B. Communication-efficient learning of deep networks from decentralized data. *AISTATS*. 2017.
-23. McSharry PE, Clifford GD, Tarassenko L, Smith LA. A dynamical model for generating synthetic electrocardiogram signals. *IEEE Trans Biomed Eng*. 2003;50(3):289–294.
-24. Torrence C, Compo GP. A practical guide to wavelet analysis. *Bull Am Meteorol Soc*. 1998;79(1):61–78.
-25. Attia ZI, Kapa S, Lopez-Jimenez F, et al. Screening for cardiac contractile dysfunction using an artificial intelligence–enabled electrocardiogram. *Nature Medicine*. 2019;25(1):70–74.
-26. Moody GB. The PhysioNet/Computers in Cardiology Challenge 2008: T-wave alternans. *Computers in Cardiology*. 2008;35:505–508.
-27. Lipponen JA, Tarvainen MP. A robust algorithm for heart rate variability time series artefact correction using novel beat classification. *J Med Eng Technol*. 2019;43(3):173–181.
-28. Armoundas AA. On the estimation of T-wave alternans using the spectral fast Fourier transform method. *Heart Rhythm*. 2012;9(3):449–456.
-29. Azam MA, Chakraborty P, Bokhari MM, et al. Cardioprotective effects of dantrolene in doxorubicin-induced cardiomyopathy in mice. *Heart Rhythm O2*. 2021;2(6 Pt B):733–741.
-30. Ballan N, Shaheen N, Keller GM, Gepstein L. Single-cell mechanical analysis of human pluripotent stem cell-derived cardiomyocytes for drug testing and pathophysiological studies. *Stem Cell Reports*. 2020;15(3):587–596.
-31. Kanemoto N, Aoki N, Goto Y. Electrical alternans of the T-U wave without change in the QRS complex. *Internal Medicine*. 1992;31(4):486–488.
+1. Swain SM, Whaley FS, Ewer MS. Congestive heart failure in patients treated with doxorubicin: a retrospective analysis of three trials. *Cancer*. 2003;97(11):2869–2879. [doi:10.1002/cncr.11407](https://doi.org/10.1002/cncr.11407).
+2. Cardinale D, Colombo A, Bacchiani G, et al. Early detection of anthracycline cardiotoxicity and improvement with heart failure therapy. *Circulation*. 2015;131(22):1981–1988. [doi:10.1161/CIRCULATIONAHA.114.013777](https://doi.org/10.1161/CIRCULATIONAHA.114.013777).
+3. Lyon AR, López-Fernández T, Couch LS, et al. 2022 ESC Guidelines on cardio-oncology. *European Heart Journal*. 2022;43(41):4229–4361. [doi:10.1093/eurheartj/ehac244](https://doi.org/10.1093/eurheartj/ehac244).
+4. Zhang S, Liu X, Bawa-Khalfe T, et al. Identification of the molecular basis of doxorubicin-induced cardiotoxicity. *Nature Medicine*. 2012;18(11):1639–1642. [doi:10.1038/nm.2919](https://doi.org/10.1038/nm.2919).
+5. Fang X, Wang H, Han D, et al. Ferroptosis as a target for protection against cardiomyopathy. *PNAS*. 2019;116(7):2672–2680. [doi:10.1073/pnas.1821022116](https://doi.org/10.1073/pnas.1821022116).
+6. Octavia Y, Tocchetti CG, Gabrielson KL, et al. Doxorubicin-induced cardiomyopathy: from molecular mechanisms to therapeutic strategies. *J Mol Cell Cardiol*. 2012;52(6):1213–1225. [doi:10.1016/j.yjmcc.2012.03.006](https://doi.org/10.1016/j.yjmcc.2012.03.006).
+7. Hodgkin AL, Huxley AF. A quantitative description of membrane current and its application to conduction and excitation in nerve. *J Physiol*. 1952;117(4):500–544. [doi:10.1113/jphysiol.1952.sp004764](https://doi.org/10.1113/jphysiol.1952.sp004764).
+8. Yan GX, Antzelevitch C. Cellular basis for the normal T wave and the electrocardiographic manifestations of the long-QT syndrome. *Circulation*. 1998;98(18):1928–1936. [doi:10.1161/01.CIR.98.18.1928](https://doi.org/10.1161/01.CIR.98.18.1928).
+9. Nolasco JB, Dahlen RW. A graphic method for the study of alternation in cardiac action potentials. *J Appl Physiol*. 1968;25(2):191–196. [doi:10.1152/jappl.1968.25.2.191](https://doi.org/10.1152/jappl.1968.25.2.191).
+10. Weiss JN, Karma A, Shiferaw Y, et al. From pulsus to pulseless: the saga of cardiac alternans. *Circulation Research*. 2006;98(10):1244–1253. [doi:10.1161/01.RES.0000224540.97431.f0](https://doi.org/10.1161/01.RES.0000224540.97431.f0).
+11. Verrier RL, Klingenheben T, Malik M, et al. Microvolt T-wave alternans: physiological basis, methods of measurement, and clinical utility. *J Am Coll Cardiol*. 2011;58(13):1309–1324. [doi:10.1016/j.jacc.2011.06.029](https://doi.org/10.1016/j.jacc.2011.06.029).
+12. Wagner P, Strodthoff N, Bousseljot RD, et al. PTB-XL, a large publicly available electrocardiography dataset. *Scientific Data*. 2020;7:154. [doi:10.1038/s41597-020-0495-6](https://doi.org/10.1038/s41597-020-0495-6). Goldberger AL, et al. PhysioBank, PhysioToolkit, and PhysioNet. *Circulation*. 2000;101(23):e215–e220. [doi:10.1161/01.CIR.101.23.e215](https://doi.org/10.1161/01.CIR.101.23.e215).
+13. Pan J, Tompkins WJ. A real-time QRS detection algorithm. *IEEE Trans Biomed Eng*. 1985;BME-32(3):230–236. [doi:10.1109/TBME.1985.325532](https://doi.org/10.1109/TBME.1985.325532).
+14. Rosenbaum DS, Jackson LE, Smith JM, et al. Electrical alternans and vulnerability to ventricular arrhythmias. *N Engl J Med*. 1994;330(4):235–241. [doi:10.1056/NEJM199401273300402](https://doi.org/10.1056/NEJM199401273300402). Smith JM, Clancy EA, Valeri CR, et al. Electrical alternans and cardiac electrical instability. *Circulation*. 1988;77(1):110–121. [doi:10.1161/01.CIR.77.1.110](https://doi.org/10.1161/01.CIR.77.1.110).
+15. Nearing BD, Verrier RL. Modified moving average analysis of T-wave alternans to predict ventricular fibrillation with high accuracy. *J Appl Physiol*. 2002;92(2):541–549. [doi:10.1152/japplphysiol.00592.2001](https://doi.org/10.1152/japplphysiol.00592.2001).
+16. Hanley JA, McNeil BJ. The meaning and use of the area under a receiver operating characteristic (ROC) curve. *Radiology*. 1982;143(1):29–36. [doi:10.1148/radiology.143.1.7063747](https://doi.org/10.1148/radiology.143.1.7063747).
+17. He K, Zhang X, Ren S, Sun J. Deep residual learning for image recognition. *Proc. IEEE CVPR*. 2016:770–778. [doi:10.1109/CVPR.2016.90](https://doi.org/10.1109/CVPR.2016.90).
+18. Zadeh A, Chen M, Poria S, Cambria E, Morency LP. Tensor Fusion Network for multimodal sentiment analysis. *Proc. EMNLP*. 2017:1103–1114. [doi:10.18653/v1/D17-1115](https://doi.org/10.18653/v1/D17-1115).
+19. Loshchilov I, Hutter F. Decoupled weight decay regularization. *ICLR*. 2019. [arXiv:1711.05101](https://arxiv.org/abs/1711.05101).
+20. Strodthoff N, Wagner P, Schaeffter T, Samek W. Deep learning for ECG analysis: benchmarks and insights from PTB-XL. *IEEE J Biomed Health Inform*. 2021;25(5):1519–1528. [doi:10.1109/JBHI.2020.3022989](https://doi.org/10.1109/JBHI.2020.3022989).
+21. Jacob B, Kligys S, Chen B, et al. Quantization and training of neural networks for efficient integer-arithmetic-only inference. *Proc. IEEE/CVF CVPR*. 2018:2704–2713. [doi:10.1109/CVPR.2018.00286](https://doi.org/10.1109/CVPR.2018.00286).
+22. McMahan HB, Moore E, Ramage D, Hampson S, Agüera y Arcas B. Communication-efficient learning of deep networks from decentralized data. *Proc. AISTATS*, PMLR 54:1273–1282. 2017. [proceedings.mlr.press/v54/mcmahan17a](https://proceedings.mlr.press/v54/mcmahan17a.html).
+23. McSharry PE, Clifford GD, Tarassenko L, Smith LA. A dynamical model for generating synthetic electrocardiogram signals. *IEEE Trans Biomed Eng*. 2003;50(3):289–294. [doi:10.1109/TBME.2003.808805](https://doi.org/10.1109/TBME.2003.808805).
+24. Torrence C, Compo GP. A practical guide to wavelet analysis. *Bull Am Meteorol Soc*. 1998;79(1):61–78. [doi:10.1175/1520-0477(1998)079&lt;0061:APGTWA&gt;2.0.CO;2](https://doi.org/10.1175/1520-0477%281998%29079%3C0061:APGTWA%3E2.0.CO%3B2).
+25. Attia ZI, Kapa S, Lopez-Jimenez F, et al. Screening for cardiac contractile dysfunction using an artificial intelligence–enabled electrocardiogram. *Nature Medicine*. 2019;25(1):70–74. [doi:10.1038/s41591-018-0240-2](https://doi.org/10.1038/s41591-018-0240-2).
+26. Moody GB. The PhysioNet/Computers in Cardiology Challenge 2008: T-wave alternans. *Computers in Cardiology*. 2008;35:505–508. [doi:10.1109/CIC.2008.4749089](https://doi.org/10.1109/CIC.2008.4749089).
+27. Lipponen JA, Tarvainen MP. A robust algorithm for heart rate variability time series artefact correction using novel beat classification. *J Med Eng Technol*. 2019;43(3):173–181. [doi:10.1080/03091902.2019.1640306](https://doi.org/10.1080/03091902.2019.1640306).
+28. Armoundas AA. On the estimation of T-wave alternans using the spectral fast Fourier transform method. *Heart Rhythm*. 2012;9(3):449–456. [doi:10.1016/j.hrthm.2011.10.013](https://doi.org/10.1016/j.hrthm.2011.10.013).
+29. Azam MA, Chakraborty P, Bokhari MM, et al. Cardioprotective effects of dantrolene in doxorubicin-induced cardiomyopathy in mice. *Heart Rhythm O2*. 2021;2(6 Pt B):733–741. [doi:10.1016/j.hroo.2021.08.008](https://doi.org/10.1016/j.hroo.2021.08.008).
+30. Ballan N, Shaheen N, Keller GM, Gepstein L. Single-cell mechanical analysis of human pluripotent stem cell-derived cardiomyocytes for drug testing and pathophysiological studies. *Stem Cell Reports*. 2020;15(3):587–596. [doi:10.1016/j.stemcr.2020.07.006](https://doi.org/10.1016/j.stemcr.2020.07.006).
+31. Kanemoto N, Aoki N, Goto Y. Electrical alternans of the T-U wave without change in the QRS complex. *Internal Medicine*. 1992;31(4):486–488. [doi:10.2169/internalmedicine.31.486](https://doi.org/10.2169/internalmedicine.31.486).
+32. Elgendi M. Fast QRS detection with an optimized knowledge-based method: evaluation on 11 standard ECG databases. *PLoS ONE*. 2013;8(9):e73557. [doi:10.1371/journal.pone.0073557](https://doi.org/10.1371/journal.pone.0073557).
+33. Moody GB, Mark RG. The impact of the MIT-BIH Arrhythmia Database. *IEEE Eng Med Biol Mag*. 2001;20(3):45–50. [doi:10.1109/51.932724](https://doi.org/10.1109/51.932724).
+34. Greenwald SD, Patil RS, Mark RG. Improved detection and classification of arrhythmias in noise-corrupted electrocardiograms using contextual information. *Proc. Computers in Cardiology*. 1990:461–464. [doi:10.1109/CIC.1990.144257](https://doi.org/10.1109/CIC.1990.144257).
+35. Makowski D, Pham T, Lau ZJ, et al. NeuroKit2: a Python toolbox for neurophysiological signal processing. *Behav Res Methods*. 2021;53(4):1689–1696. [doi:10.3758/s13428-020-01516-y](https://doi.org/10.3758/s13428-020-01516-y).
+36. ANSI/AAMI EC57:2012. Testing and reporting performance results of cardiac rhythm and ST segment measurement algorithms. Arlington, VA: AAMI; 2012.
 
 ---
 
@@ -669,7 +698,7 @@ python scripts/make_figures.py --only 08 09 --checkpoint runs/ptbxl/model.pt   #
   author  = {Podpirov, Petr},
   title   = {CardioOncoPredict: research software for measuring microvolt T-wave alternans},
   year    = {2026},
-  version = {1.1.1},
+  version = {1.2.0},
   doi     = {10.5281/zenodo.23090355},
   url     = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
 }

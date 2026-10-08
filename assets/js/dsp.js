@@ -143,25 +143,55 @@
   const centred = (a) => { const m = mean(a); return Float64Array.from(a, (v) => v - m); };
 
   // ---------- Pan–Tompkins R-peak detection ----------
-  function detectRPeaks(x, fs) {
-    const qrs = bandpass(x, fs, 5, 15);
-    const n = qrs.length, e = new Float64Array(n);
-    for (let i = 1; i < n - 1; i++) { const d = qrs[i + 1] - qrs[i - 1]; e[i] = d * d; }
-    const w = Math.max(1, Math.round(0.15 * fs)), mwi = new Float64Array(n);
+  // Elgendi (2013) two-moving-average QRS detection, as in cardioonco/preprocess.py: 8-20 Hz
+  // band-pass, squaring, and a block of interest wherever the QRS-length (97 ms) average of the
+  // squared signal exceeds the beat-length (611 ms) average plus 0.08 x its mean.  Each beat is
+  // judged against the energy around it, so small beats next to large ectopic ones are found.
+  function movingAverage(y, n) {                     // centred, like numpy.convolve(..., "same")
+    const out = new Float64Array(y.length), off = Math.floor((n - 1) / 2);
     let run = 0;
-    for (let i = 0; i < n + (w >> 1); i++) {        // centred moving average
-      if (i < n) run += e[i];
-      if (i - w >= 0) run -= e[i - w];
-      const c = i - (w >> 1);
-      if (c >= 0 && c < n) mwi[c] = run / w;
+    for (let i = 0; i < y.length + n; i++) {
+      if (i < y.length) run += y[i];
+      if (i - n >= 0) run -= y[i - n];
+      const c = i - off;                            // the window y[i-n+1..i] belongs to c
+      if (c >= 0 && c < y.length) out[c] = run / n;
     }
-    const peaks = findPeaks(mwi, 0.3 * percentile(mwi, 99), Math.round(0.25 * fs));
-    const xf = bandpass(x, fs, 0.5, 40), half = Math.round(0.06 * fs), r = [];
-    for (const p of peaks) {
+    return out;
+  }
+  function qrsBlocks(x, fs) {
+    const f = bandpass(x, fs, 8, 20), n = f.length, y = new Float64Array(n);
+    let m = 0;
+    for (let i = 0; i < n; i++) { y[i] = f[i] * f[i]; m += y[i]; }
+    m /= n;
+    const n1 = Math.max(1, Math.round(0.097 * fs)), n2 = Math.max(1, Math.round(0.611 * fs));
+    const a = movingAverage(y, n1), b = movingAverage(y, n2), peaks = [];
+    let start = -1;
+    for (let i = 0; i <= n; i++) {
+      const on = i < n && a[i] > b[i] + 0.08 * m;
+      if (on && start < 0) start = i;
+      if (!on && start >= 0) {
+        if (i - start >= n1) {
+          let best = start;
+          for (let j = start; j < i; j++) if (Math.abs(f[j]) > Math.abs(f[best])) best = j;
+          peaks.push(best);
+        }
+        start = -1;
+      }
+    }
+    return peaks;
+  }
+
+  function detectRPeaks(x, fs) {
+    const blocks = qrsBlocks(x, fs);
+    const xf = bandpass(x, fs, 0.5, 40), n = xf.length, half = Math.trunc(0.06 * fs);
+    const gap = Math.trunc(0.25 * fs), r = [];
+    for (const p of blocks) {                       // refine to the largest |ECG| near the block peak
       const a = Math.max(0, p - 2 * half), b = Math.min(n, p + half);
-      let best = a;
-      for (let i = a; i < b; i++) if (Math.abs(xf[i]) > Math.abs(xf[best])) best = i;
-      if (!r.length || best !== r[r.length - 1]) r.push(best);
+      let q = a;
+      for (let i = a; i < b; i++) if (Math.abs(xf[i]) > Math.abs(xf[q])) q = i;
+      if (r.length && q - r[r.length - 1] < gap) {  // one beat cannot follow another within 250 ms
+        if (Math.abs(xf[q]) > Math.abs(xf[r[r.length - 1]])) r[r.length - 1] = q;
+      } else if (!r.length || q !== r[r.length - 1]) r.push(q);
     }
     return { r: removeExtraBeats(r, xf, fs), xf };
   }
@@ -386,7 +416,7 @@
              window: [aSt / fs, bSt / fs], windows };
   }
 
-  root.CardioDSP = { version: "1.1.1", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
+  root.CardioDSP = { version: "1.2.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
     HR_ONSET_MAX, HR_NEGATIVE_MIN, MAX_ECTOPIC, rng, synth, bandpass, detectRPeaks, removeExtraBeats,
     fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile };
   if (typeof module !== "undefined") module.exports = root.CardioDSP;

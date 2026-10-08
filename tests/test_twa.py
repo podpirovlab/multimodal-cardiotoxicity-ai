@@ -28,6 +28,27 @@ def test_r_peak_detection(hr):
     assert heart_rate_bpm(r, 500) == pytest.approx(hr, rel=0.03)
 
 
+def bigeminy_like(every: int, scale: float, fs: int = 500):
+    """Synthetic ECG where every `every`-th QRS is `scale` times larger, as with large
+    ectopic beats; returns the signal and the R peaks of the small beats."""
+    _, x, r = generate_ecg(SynthConfig(fs=fs, heart_rate=75, noise_uv=20, n_beats=150, seed=2))
+    h = int(0.06 * fs)
+    for i, p in enumerate(r):
+        if i % every == 0:
+            x[max(0, p - h): p + h] *= scale
+    return x, np.array([p for i, p in enumerate(r) if i % every])
+
+
+@pytest.mark.parametrize("every,scale", [(2, 3), (2, 6), (3, 6)])
+def test_small_beats_next_to_large_beats_are_found(every, scale):
+    # Up to 1.1 a single threshold for the whole recording missed every small beat here, and
+    # the adaptive Pan-Tompkins thresholds did too; the detector judges each beat locally now.
+    x, small = bigeminy_like(every, scale)
+    r = detect_r_peaks(x, 500)
+    found = [np.min(np.abs(r - p)) <= 25 for p in small]     # within 50 ms
+    assert np.mean(found) == 1.0
+
+
 def test_no_alternans_is_not_called_positive():
     _, x, _ = generate_ecg(SynthConfig(alternans_uv=0, noise_uv=15, seed=2))
     res = analyze(x, 500)

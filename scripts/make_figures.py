@@ -71,9 +71,9 @@ L = {
         # 04
         f4_title="Signal pipeline: raw electrode voltage → clean beats → R peaks",
         a4="a  Raw signal: wander + 50 Hz mains + white noise", b4="b  Power spectrum before and after the filter",
-        c4="c  Zero-phase band-pass 0.5–40 Hz", d4="d  Pan–Tompkins: derivative² and 150 ms integration",
+        c4="c  Zero-phase band-pass 0.5–40 Hz", d4="d  QRS blocks (Elgendi): squared 8–20 Hz signal and two moving averages",
         e4="e  {n} R peaks found, beats overlaid",
-        raw="raw", filt="filtered", freq="frequency, Hz", psd="power, mV²/Hz", mwi="integrated energy", thr="adaptive threshold",
+        raw="raw", filt="filtered", freq="frequency, Hz", psd="power, mV²/Hz", mwi="QRS-length average (97 ms)", thr="beat-length average (611 ms) + 0.08·mean", blk="QRS block",
         qrsband="QRS energy", wander="breathing drift", mains="mains 50 Hz", passband="pass band\n0.5–40 Hz",
         # 05
         f5_title="T-wave alternans: the Spectral Method step by step",
@@ -139,9 +139,9 @@ L = {
         loopq="петля QRS", loopt="петля T", xl3="x (влево от пациента), мВ", yl3="y (вниз), мВ", resid="II − (I + III)",
         f4_title="Обработка сигнала: напряжение электрода → чистые удары → R-пики",
         a4="a  Сырой сигнал: дрейф + сеть 50 Гц + белый шум", b4="b  Спектр мощности до и после фильтра",
-        c4="c  Фильтр 0,5–40 Гц без сдвига фазы", d4="d  Пан–Томпкинс: производная² и интегрирование 150 мс",
+        c4="c  Фильтр 0,5–40 Гц без сдвига фазы", d4="d  Блоки QRS (Elgendi): квадрат сигнала 8–20 Гц и два скользящих средних",
         e4="e  Найдено R-пиков: {n}, удары наложены",
-        raw="сырой", filt="после фильтра", freq="частота, Гц", psd="мощность, мВ²/Гц", mwi="интегр. энергия", thr="адаптивный порог",
+        raw="сырой", filt="после фильтра", freq="частота, Гц", psd="мощность, мВ²/Гц", mwi="среднее за QRS (97 мс)", thr="среднее за удар (611 мс) + 0,08·среднее", blk="блок QRS",
         qrsband="энергия QRS", wander="дыхательный дрейф", mains="сеть 50 Гц", passband="полоса\n0,5–40 Гц",
         f5_title="Альтернация зубца T: спектральный метод шаг за шагом",
         a5="a  128 выровненных ударов минус средний удар", b5="b  Средние чётные (A) и нечётные (B) удары", c5="c  Одна точка ST-T по ударам",
@@ -399,21 +399,22 @@ def fig04(lang, out):
     ecg_paper(c, (2, 7), (-0.8, 1.8), major_y=0.5)
     c.plot(t[win], xf[win], color=INK, lw=1.1)
     c.set(title=T["c4"], ylabel=T["mv"])
-    # Pan-Tompkins internals
+    # detector internals (Elgendi 2013), computed exactly as cardioonco.preprocess.qrs_blocks does
     from cardioonco.preprocess import bandpass as bp
-    q = bp(x, fs, 5, 15, order=2)
-    d = np.zeros_like(q)
-    d[1:-1] = q[2:] - q[:-2]
-    e = d ** 2
-    w = int(0.15 * fs)
-    mwi = np.convolve(e, np.ones(w) / w, mode="same")
-    thr = 0.3 * np.percentile(mwi, 99)
+    f = bp(x, fs, 8.0, 20.0, order=3)
+    y = f ** 2
+    n1, n2 = int(round(0.097 * fs)), int(round(0.611 * fs))
+    ma_qrs = np.convolve(y, np.ones(n1) / n1, mode="same")
+    thr = np.convolve(y, np.ones(n2) / n2, mode="same") + 0.08 * y.mean()
+    top = ma_qrs[win].max()
     dd = fig.add_subplot(gs[2, 0])
-    dd.plot(t[win], e[win] / e.max(), color=MUTED, lw=0.8, label="d[n]²")
-    dd.plot(t[win], mwi[win] / mwi.max(), color=BLUE, lw=1.8, label=T["mwi"])
-    dd.axhline(thr / mwi.max(), color=RED, ls="--", lw=1.2, label=T["thr"])
-    dd.set(title=T["d4"], xlabel=T["t_s"], xlim=(2, 7), ylim=(0, 1.22))
-    dd.legend(loc="upper right", ncol=3)
+    dd.fill_between(t[win], 0, 1.0, where=(ma_qrs > thr)[win], color=(31 / 255, 90 / 255, 166 / 255, 0.10),
+                    lw=0, label=T["blk"])
+    dd.plot(t[win], y[win] / y[win].max(), color=MUTED, lw=0.6, label="y = f²")
+    dd.plot(t[win], ma_qrs[win] / top, color=BLUE, lw=1.8, label=T["mwi"])
+    dd.plot(t[win], thr[win] / top, color=RED, ls="--", lw=1.2, label=T["thr"])
+    dd.set(title=T["d4"], xlabel=T["t_s"], xlim=(2, 7), ylim=(0, 1.32))
+    dd.legend(loc="upper right", ncol=2, fontsize=8)
     ee = fig.add_subplot(gs[2, 1])
     beats = beat_matrix(xf, r, fs, -0.25, 0.55)
     tb = np.arange(beats.shape[1]) / fs - 0.25

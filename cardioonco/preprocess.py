@@ -9,22 +9,30 @@ Filtering
   the 40 Hz low-pass removes EMG noise while keeping the QRS energy (5-25 Hz).
 * Optional IIR notch at 50/60 Hz for power-line interference.
 
-R-peak detection (Pan & Tompkins, 1985, simplified)
----------------------------------------------------
-1. band-pass 5-15 Hz  -> emphasises QRS slopes
-2. derivative          -> y[n] = x[n+1] - x[n-1]
-3. squaring            -> makes everything positive, amplifies large slopes
-4. moving-window integration over 150 ms
-5. peak picking with a 250 ms refractory period above a fixed threshold, 30% of the
-   99th percentile of the whole recording (simpler than the running thresholds of the
-   original algorithm), then refinement to the largest |ECG| sample from 120 ms
-   before to 60 ms after the energy peak.
-6. removal of detections that split one normal R-R interval in two (tall T waves).
+R-peak detection (Elgendi, 2013)
+--------------------------------
+1. band-pass 8-20 Hz (3rd-order Butterworth, zero phase) and squaring;
+2. two moving averages of the squared signal: one as long as a QRS complex (97 ms),
+   one as long as a heartbeat (611 ms);
+3. a QRS is a block of at least 97 ms where the short average exceeds the long one plus
+   0.08 times the mean of the squared signal.  The comparison is local: each beat is
+   judged against the energy around it, so small beats next to large ectopic beats are
+   still found;
+4. the R peak is the largest |ECG| in the block, refined on the 0.5-40 Hz signal from
+   120 ms before to 60 ms after it; detections closer than 250 ms are one beat;
+5. removal of detections that split one normal R-R interval in two (tall T waves).
+
+Constants are those of the paper (W1 = 97 ms, W2 = 611 ms, beta = 0.08); none was tuned
+here.  Up to version 1.1 the detector was a Pan-Tompkins variant with one fixed threshold
+for the whole recording, which missed 9.3% of the beats of the MIT-BIH Arrhythmia
+Database; the adaptive Pan-Tompkins thresholds of the 1985 paper were also tried and lost
+every small beat of a bigeminy whose ectopic beats are three times larger
+(scripts/validate_rpeaks.py, README section 4.3).
 """
 from __future__ import annotations
 
 import numpy as np
-from scipy.signal import butter, filtfilt, find_peaks, iirnotch
+from scipy.signal import butter, filtfilt, iirnotch
 
 
 def bandpass(x: np.ndarray, fs: float, lo: float = 0.5, hi: float = 40.0, order: int = 4) -> np.ndarray:
@@ -41,23 +49,41 @@ def notch(x: np.ndarray, fs: float, f0: float = 50.0, q: float = 30.0) -> np.nda
     return filtfilt(b, a, x, axis=-1)
 
 
+def qrs_blocks(x: np.ndarray, fs: float, w1_s: float = 0.097, w2_s: float = 0.611,
+               beta: float = 0.08) -> tuple[np.ndarray, np.ndarray]:
+    """Elgendi (2013) two-moving-average QRS detection.
+
+    Returns the index of the largest |8-20 Hz signal| in every block of interest, and the
+    8-20 Hz signal itself.  A block is a run of at least ``w1_s`` seconds where the
+    QRS-length moving average of the squared signal exceeds the beat-length moving average
+    plus ``beta`` times the mean of the squared signal.
+    """
+    f = bandpass(x, fs, 8.0, 20.0, order=3)
+    y = f ** 2
+    n1, n2 = max(1, int(round(w1_s * fs))), max(1, int(round(w2_s * fs)))
+    ma_qrs = np.convolve(y, np.ones(n1) / n1, mode="same")
+    ma_beat = np.convolve(y, np.ones(n2) / n2, mode="same")
+    on = np.concatenate([[False], ma_qrs > ma_beat + beta * y.mean(), [False]])
+    edges = np.flatnonzero(np.diff(on.astype(np.int8)))
+    starts, ends = edges[0::2], edges[1::2]
+    peaks = [s0 + int(np.argmax(np.abs(f[s0:e0]))) for s0, e0 in zip(starts, ends) if e0 - s0 >= n1]
+    return np.asarray(peaks, dtype=int), f
+
+
 def detect_r_peaks(x: np.ndarray, fs: float) -> np.ndarray:
     """Return sample indices of R peaks in a single-lead ECG (mV)."""
-    qrs = bandpass(x, fs, 5.0, 15.0, order=2)
-    d = np.zeros_like(qrs)
-    d[1:-1] = qrs[2:] - qrs[:-2]
-    e = d ** 2
-    w = max(1, int(0.150 * fs))
-    mwi = np.convolve(e, np.ones(w) / w, mode="same")
-    thr = 0.3 * np.percentile(mwi, 99)
-    peaks, _ = find_peaks(mwi, height=thr, distance=int(0.25 * fs))
-    # refine to the maximum |ECG| near each energy peak
+    blocks, _ = qrs_blocks(x, fs)
     xf = bandpass(x, fs, 0.5, 40.0)
-    r = []
     half = int(0.06 * fs)
-    for p in peaks:
+    r: list[int] = []
+    for p in blocks:                      # refine to the largest |ECG| near the block peak
         a, b = max(0, p - 2 * half), min(len(xf), p + half)
-        r.append(a + int(np.argmax(np.abs(xf[a:b]))))
+        q = a + int(np.argmax(np.abs(xf[a:b])))
+        if r and q - r[-1] < int(0.25 * fs):   # one beat cannot follow another within 250 ms
+            if abs(xf[q]) > abs(xf[r[-1]]):
+                r[-1] = q
+        else:
+            r.append(q)
     return remove_extra_beats(np.unique(np.asarray(r, dtype=int)), xf, fs)
 
 

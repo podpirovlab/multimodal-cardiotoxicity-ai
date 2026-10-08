@@ -6,7 +6,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 
 ---
 
-## Where we are (version 1.1, October 2026)
+## Where we are (version 1.2, October 2026)
 
 | Done | Not done |
 |---|---|
@@ -34,8 +34,8 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 
 ### 1.1 Validate TWA on real recordings
 - **T-Wave Alternans Challenge Database** (PhysioNet, Computing in Cardiology Challenge 2008): 100 records with alternans of varying magnitude and a reference ranking. **Done** (README §7.1): Kendall τ = 0.43 over all records, just below the organisers' significance line of 0.436; 0.48 on the simulated records; 0.08 on held-out real records, which is no better than chance.
-- Long Holter-type recordings on PhysioNet: test the R-peak detector on real artefacts, ectopic beats and changing heart rate.
-- **Success metric:** Kendall τ with the challenge reference above 0.436 and clearly above chance on real records (not yet met); R-peak detector sensitivity and precision ≥ 99% on annotated records (not yet measured).
+- **R-peak detector on annotated records. Done** (README §4.3): 99.73% sensitivity and 99.92% precision on the MIT-BIH Arrhythmia Database, 99.50% / 99.93% on the 128 Hz Supraventricular Arrhythmia Database. Next: long Holter-type recordings with real artefacts and changing heart rate, and the MIT-BIH Noise Stress Test.
+- **Success metric:** Kendall τ with the challenge reference above 0.436 and clearly above chance on real records (not yet met); R-peak detector sensitivity and precision ≥ 99% on annotated records (met in 1.2).
 
 ### 1.2 Make the network stronger and more honest
 - **External validation:** train on PTB-XL, test on a different open 12-lead dataset (for example from the PhysioNet/CinC Challenge 2020). The drop in AUC on unseen data is the key measure of robustness.
@@ -89,6 +89,8 @@ Without clinicians and real patients the project cannot answer its main question
 - [x] Ablation without metadata (`--no-meta`): no measurable gain
 - [ ] Five seeds per configuration
 - [x] Validate TWA on the T-Wave Alternans Challenge Database (τ = 0.43; real records not yet in agreement)
+- [x] R-peak detector scored on cardiologist-annotated databases (MIT-BIH, SVDB)
+- [ ] R-peak detector under controlled noise (MIT-BIH Noise Stress Test)
 - [ ] TWA recordings with a known answer (paced or exercise tests)
 - [ ] The clinical "sustained for a minute" rule instead of a single window
 - [ ] External validation of the network on a second dataset
