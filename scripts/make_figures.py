@@ -32,20 +32,70 @@ from cardioonco.synth import LEADS_12, SynthConfig, generate_12lead, generate_ec
 from cardioonco.twa import align_beats, analyze, beat_matrix  # noqa: E402
 
 # ----------------------------------------------------------------------------- style
-INK, MUTED, LINE = "#16202e", "#5b6573", "#d9d4d1"
-RED, BLUE, GREEN, AMBER = "#c8102e", "#1f5aa6", "#1d7a4f", "#b07000"
-PAPER, GRID_MIN, GRID_MAJ = "#fbf9f8", "#f3d9d9", "#e6b0b0"
-DANGER = (200 / 255, 16 / 255, 46 / 255, 0.10)
-CMAP_DIV = LinearSegmentedColormap.from_list("rb", [BLUE, "#ffffff", RED])
-CMAP_SEQ = LinearSegmentedColormap.from_list("seq", ["#ffffff", "#f3c4cb", RED, "#5a0714"])
+from matplotlib import font_manager  # noqa: E402
+from matplotlib.ticker import FuncFormatter, NullFormatter  # noqa: E402
 
-plt.rcParams.update({
-    "font.family": "DejaVu Sans", "font.size": 10, "axes.titlesize": 11, "axes.titleweight": "bold",
-    "axes.titlelocation": "left", "axes.edgecolor": LINE, "axes.labelcolor": INK, "text.color": INK,
-    "xtick.color": MUTED, "ytick.color": MUTED, "axes.grid": True, "grid.color": "#ece8e6", "grid.linewidth": 0.6,
-    "axes.spines.top": False, "axes.spines.right": False, "figure.facecolor": "white", "axes.facecolor": "white",
-    "axes.axisbelow": True, "legend.frameon": False, "legend.fontsize": 8.5, "savefig.dpi": 160, "savefig.bbox": "tight",
-})
+for _font in (ROOT / "scripts" / "fonts").glob("*.ttf"):     # PT Sans, the website's text face (OFL)
+    font_manager.fontManager.addfont(str(_font))
+# Use only the bundled PT Sans: macOS ships PT Sans as a .ttc collection, from which matplotlib
+# renders regular-weight text blank, and other systems may have another version or none.
+font_manager.fontManager.ttflist = [f for f in font_manager.fontManager.ttflist
+                                    if f.name != "PT Sans" or Path(f.fname).parent == ROOT / "scripts" / "fonts"]
+
+# One palette per style; every colour in the figures comes from these names.
+STYLES = {
+    "clinical": dict(INK="#16202e", MUTED="#5b6573", LINE="#d9d4d1", RED="#c8102e", BLUE="#1f5aa6",
+                     GREEN="#1d7a4f", AMBER="#b07000", PAPER="#fbf9f8", GRID_MIN="#f3d9d9", GRID_MAJ="#e6b0b0",
+                     BG="#ffffff", GRID="#ece8e6", DANGER=(200 / 255, 16 / 255, 46 / 255, 0.10),
+                     DIV=("#1f5aa6", "#ffffff", "#c8102e"), SEQ=("#ffffff", "#f3c4cb", "#c8102e", "#5a0714"),
+                     FONT=["DejaVu Sans"], GRID_ON=True),
+    "journal": dict(INK="#222222", MUTED="#666666", LINE="#bdbdbd", RED="#D55E00", BLUE="#0072B2",
+                    GREEN="#009E73", AMBER="#E69F00", PAPER="#ffffff", GRID_MIN="#f2f2f2", GRID_MAJ="#dedede",
+                    BG="#ffffff", GRID="#eeeeee", DANGER=(213 / 255, 94 / 255, 0, 0.08),
+                    DIV=("#0072B2", "#ffffff", "#D55E00"), SEQ=("#ffffff", "#fcd9c2", "#D55E00", "#5c2600"),
+                    FONT=["PT Sans", "DejaVu Sans"], GRID_ON=False),
+    "graphite": dict(INK="#efe9df", MUTED="#aeb5bc", LINE="#4a5662", RED="#f08a80", BLUE="#8fb3e0",
+                     GREEN="#a9cdbf", AMBER="#e8c27a", PAPER="#252d36", GRID_MIN="#2e3843", GRID_MAJ="#3f4c59",
+                     BG="#1f262e", GRID="#2e3843", DANGER=(240 / 255, 138 / 255, 128 / 255, 0.10),
+                     DIV=("#8fb3e0", "#1f262e", "#f08a80"), SEQ=("#1f262e", "#7a4f4c", "#f08a80", "#ffe3dc"),
+                     FONT=["PT Sans", "DejaVu Sans"], GRID_ON=True),
+}
+INK = MUTED = LINE = RED = BLUE = GREEN = AMBER = PAPER = GRID_MIN = GRID_MAJ = BG = None
+DANGER = CMAP_DIV = CMAP_SEQ = None
+
+
+def apply_style(name: str) -> None:
+    """Set the module-wide palette and matplotlib defaults for one figure style."""
+    global INK, MUTED, LINE, RED, BLUE, GREEN, AMBER, PAPER, GRID_MIN, GRID_MAJ, BG, DANGER, CMAP_DIV, CMAP_SEQ
+    st = STYLES[name]
+    INK, MUTED, LINE, RED, BLUE = st["INK"], st["MUTED"], st["LINE"], st["RED"], st["BLUE"]
+    GREEN, AMBER, PAPER, GRID_MIN, GRID_MAJ, BG = st["GREEN"], st["AMBER"], st["PAPER"], st["GRID_MIN"], st["GRID_MAJ"], st["BG"]
+    DANGER = st["DANGER"]
+    CMAP_DIV = LinearSegmentedColormap.from_list("rb", list(st["DIV"]))
+    CMAP_SEQ = LinearSegmentedColormap.from_list("seq", list(st["SEQ"]))
+    plt.rcParams.update({
+        "font.family": st["FONT"], "font.size": 10, "axes.titlesize": 11, "axes.titleweight": "bold",
+        "axes.titlelocation": "left", "axes.edgecolor": LINE, "axes.labelcolor": INK, "text.color": INK,
+        "xtick.color": MUTED, "ytick.color": MUTED, "axes.grid": st["GRID_ON"], "grid.color": st["GRID"],
+        "grid.linewidth": 0.6, "axes.spines.top": False, "axes.spines.right": False, "figure.facecolor": BG,
+        "axes.facecolor": BG, "savefig.facecolor": BG, "legend.labelcolor": INK, "axes.axisbelow": True,
+        "legend.frameon": False, "legend.fontsize": 8.5, "savefig.dpi": 160, "savefig.bbox": "tight",
+    })
+
+
+apply_style("clinical")
+
+
+def _decade(v, _pos=None) -> str:
+    """Log-axis labels as plain text (10⁻¹, 10⁰, 10¹): unlike mathtext, plain text falls back to
+    DejaVu Sans for glyphs the text face lacks, so the exponents never disappear."""
+    if v <= 0:
+        return ""
+    e = np.log10(v)
+    if abs(e - round(e)) > 1e-9:
+        return ""
+    return "10" + str(int(round(e))).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
+
 
 L = {
     "en": dict(
@@ -190,6 +240,11 @@ def dec(lang: str, s: str) -> str:
 
 
 def save(fig, out: Path, name: str):
+    for ax in fig.axes:
+        for axis in (ax.xaxis, ax.yaxis):
+            if axis.get_scale() == "log":
+                axis.set_major_formatter(FuncFormatter(_decade))
+                axis.set_minor_formatter(NullFormatter())
     out.mkdir(parents=True, exist_ok=True)
     fig.savefig(out / name)
     plt.close(fig)
@@ -452,7 +507,7 @@ def fig05(lang, out):
     a.axvline(w0, color=INK, lw=1, ls="--")
     a.axvline(w1, color=INK, lw=1, ls="--")
     a.text((w0 + w1) / 2, 8, T["stt"], ha="center", color=RED, fontsize=9, fontweight="bold",
-           bbox=dict(boxstyle="round,pad=0.25", fc="white", ec=RED, lw=0.8))
+           bbox=dict(boxstyle="round,pad=0.25", fc=BG, ec=RED, lw=0.8))
     a.set(title=T["a5"], xlabel=T["fromR"], ylabel=T["beat"])
     a.grid(False)
     cb = fig.colorbar(im, ax=a, pad=0.01)
@@ -484,7 +539,7 @@ def fig05(lang, out):
     d.text(0.02, 0.95, dec(lang, f"V_alt = {res.v_alt_uv:.1f} {T['uv']}   K = {res.k_score:.0f}\n"
                                  f"MMA   = {res.mma_uv:.1f} {T['uv']}  HR = {res.heart_rate_bpm:.0f} {T['bpm']}"),
            transform=d.transAxes, va="top", family="DejaVu Sans Mono", fontsize=9.5,
-           bbox=dict(boxstyle="round,pad=0.4", fc="white", ec=LINE))
+           bbox=dict(boxstyle="round,pad=0.4", fc=BG, ec=LINE))
     d.set(title=T["d5"], xlabel=T["cpb"], ylabel=T["pow"], xlim=(0, 0.51))
     d.legend(loc="lower left")
     fig.suptitle(T["f5_title"], x=0.01, ha="left", fontsize=14, fontweight="bold", y=0.97)
@@ -533,10 +588,10 @@ def fig06(lang, out):
     gx, gy = np.meshgrid(alts, noises)
     ax.scatter(gx, gy, s=6, color=INK, alpha=0.35, lw=0)
     ax.text(29.6, 97, T["grid6"], color=INK, fontsize=8, ha="right", va="top",
-            bbox=dict(boxstyle="round,pad=0.25", fc="white", ec=LINE, alpha=0.9))
+            bbox=dict(boxstyle="round,pad=0.25", fc=BG, ec=LINE, alpha=0.9))
     ax.text(21, 18, T["detected"], color="white", fontsize=11, fontweight="bold", ha="center")
     ax.text(2.2, 88, T["hidden"], color=INK, fontsize=10, ha="center",
-            bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=LINE))
+            bbox=dict(boxstyle="round,pad=0.3", fc=BG, ec=LINE))
     cb = fig.colorbar(im, ax=ax, pad=0.01)
     cb.set_label(T["kmap"])
     cb.set_ticks([-1, 0, 1, 2, 3])
@@ -690,7 +745,7 @@ def fig09(lang, out, checkpoint=None):
     ax[0].set(title=title_a, xlabel=T["w"], ylabel=T["count"])
     ax[0].legend(loc="upper right")
     ax[0].text(0.02, 0.95, "q  = round(x / s) + z\nx' = (q − z)·s\ns  = (max − min) / 255", transform=ax[0].transAxes,
-               va="top", family="DejaVu Sans Mono", fontsize=9, bbox=dict(boxstyle="round", fc="white", ec=LINE))
+               va="top", family="DejaVu Sans Mono", fontsize=9, bbox=dict(boxstyle="round", fc=BG, ec=LINE))
     zoom = ax[0].inset_axes([0.66, 0.36, 0.31, 0.42])   # the staircase x -> x' over a few steps
     xs = np.linspace(-3 * s, 3 * s, 400)
     zoom.plot(xs / s, xs / s, color=MUTED, lw=1, ls=":")
@@ -755,12 +810,12 @@ def fig11(lang, out, run=RELEASED):
         v = m["per_class"][c]
         a.plot(v["auc_ci95"], [yi, yi], color=INK, lw=2)
         a.plot(v["auc"], yi, "o", color=INK, ms=7, label=T["withmeta"] if k == 0 else None)
-        a.plot(mn["per_class"][c]["auc"], yi - 0.22, "o", mfc="white", mec=MUTED, ms=6, label=T["nometa"] if k == 0 else None)
+        a.plot(mn["per_class"][c]["auc"], yi - 0.22, "o", mfc=BG, mec=MUTED, ms=6, label=T["nometa"] if k == 0 else None)
         a.text(0.968, yi, num(v["auc"]), va="center", fontsize=9)
     a.axhspan(-0.45, 0.45, xmin=0, xmax=1, color="#f4f2f0", lw=0)
     a.fill_betweenx([-0.45, 0.45], 0.92, 0.93, color=(31 / 255, 90 / 255, 166 / 255, 0.18), lw=0)   # macro row only
     a.plot(m["test_macro_auc"], 0, "D", color=INK, ms=7)
-    a.plot(mn["test_macro_auc"], -0.22, "D", mfc="white", mec=MUTED, ms=6)
+    a.plot(mn["test_macro_auc"], -0.22, "D", mfc=BG, mec=MUTED, ms=6)
     a.text(0.968, 0, num(m["test_macro_auc"]), va="center", fontsize=9, fontweight="bold")
     a.text(0.9315, 0.05, T["published"], color=BLUE, fontsize=7.5, va="center")
     a.set(yticks=list(y) + [0], yticklabels=cls + [T["macro"]], xlim=(0.86, 0.985), ylim=(-0.7, 5.6),
@@ -790,7 +845,7 @@ def fig12(lang, out, csv_path=ROOT / "docs" / "results" / "twadb_v0.6.0.csv"):
     T = L[lang]
     rows = list(csv.DictReader(open(csv_path)))
     groups = [("synthetic", T["g_syn"], dict(color=BLUE, marker="o", s=34)),
-              ("real-dev", T["g_dev"], dict(facecolors="white", edgecolors=MUTED, marker="o", s=34, linewidths=1.2)),
+              ("real-dev", T["g_dev"], dict(facecolors=BG, edgecolors=MUTED, marker="o", s=34, linewidths=1.2)),
               ("real-test", T["g_test"], dict(color=AMBER, marker="D", s=30))]
     fig, ax = plt.subplots(1, 2, figsize=(15, 5.2), gridspec_kw={"width_ratios": [1.45, 1]})
     a = ax[0]
@@ -826,13 +881,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lang", nargs="+", default=["en", "ru"])
     ap.add_argument("--only", nargs="*", default=None, help="e.g. 05 06")
+    ap.add_argument("--style", choices=sorted(STYLES), default="clinical", help="figure palette and type")
+    ap.add_argument("--out", default=str(ROOT / "docs" / "figures"), help="folder for the en/ and ru/ subfolders")
     ap.add_argument("--checkpoint", default=str(RELEASED / "model.pt"),
                     help="weights for figures 08 and 09 (default: the released model)")
     args = ap.parse_args()
+    apply_style(args.style)
     figs = {"01": fig01, "02": fig02, "03": fig03, "04": fig04, "05": fig05, "06": fig06,
             "07": fig07, "08": fig08, "09": fig09, "10": fig10, "11": fig11, "12": fig12}
     for lang in args.lang:
-        out = ROOT / "docs" / "figures" / lang
+        out = Path(args.out) / lang
         print(f"[{lang}]")
         # tick labels with a decimal comma in Russian; if the system lacks the locale, points stay
         try:
