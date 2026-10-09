@@ -24,7 +24,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 2. **Repeat both runs with five random seeds** (about 5 minutes each on a laptop) and report the mean and spread. One run cannot show how much of a 0.001 difference is luck.
 3. **Find recordings with a known answer** for TWA (paced or exercise tests with clinical TWA results), because the 2008 reference is a consensus of other algorithms, not measured truth.
 4. **Find a cardio-oncology mentor** with one concrete question, for example: "Is it realistic to obtain de-identified ECGs from patients before and after anthracyclines?"
-5. ~~Release v1.0 with a DOI~~ — done: [10.5281/zenodo.23090356](https://doi.org/10.5281/zenodo.23090356) (1.0.0); 1.1.0 with the trained model: [10.5281/zenodo.23094298](https://doi.org/10.5281/zenodo.23094298); 1.1.1: [10.5281/zenodo.23144064](https://doi.org/10.5281/zenodo.23144064); 1.2.0, the new R-peak detector: [10.5281/zenodo.23238175](https://doi.org/10.5281/zenodo.23238175).
+5. ~~Release v1.0 with a DOI~~ — done: [10.5281/zenodo.23090356](https://doi.org/10.5281/zenodo.23090356) (1.0.0); 1.1.0 with the trained model: [10.5281/zenodo.23094298](https://doi.org/10.5281/zenodo.23094298); 1.1.1: [10.5281/zenodo.23144064](https://doi.org/10.5281/zenodo.23144064); 1.2.0, the new R-peak detector: [10.5281/zenodo.23238175](https://doi.org/10.5281/zenodo.23238175); 1.3.0, coarse sampling: [10.5281/zenodo.23264684](https://doi.org/10.5281/zenodo.23264684).
 
 **Done when:** the seed spread is in the README and a TWA data source with a known answer is identified.
 
