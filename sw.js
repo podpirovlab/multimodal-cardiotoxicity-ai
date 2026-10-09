@@ -2,7 +2,7 @@
    Pages: network first, so a new version shows as soon as there is a connection.
    Other files: served from the cache and refreshed in the background.
    Nothing the user loads (their ECG files) ever passes through here: files are read locally. */
-const VERSION = "cardioonco-1.2.0";
+const VERSION = "cardioonco-1.3.0";
 const CORE = [
   "./", "index.html", "ru.html", "manifest.webmanifest", "manifest-ru.webmanifest",
   "assets/css/site.css", "assets/css/fonts.css",

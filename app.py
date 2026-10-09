@@ -32,7 +32,7 @@ def run_lab(alternans_uv, noise_uv, heart_rate, t_amp_mv, seed=7):
     fig, ax = plt.subplots(3, 1, figsize=(11, 9))
     ax[0].plot(t[: 5 * FS], x[: 5 * FS], lw=1, color="#0b3d5c")
     ax[0].plot(r[r < 5 * FS] / FS, x[r[r < 5 * FS]], "o", color="#e63946", ms=5, label="detected R peaks")
-    ax[0].set(title="1. Raw synthetic ECG (first 5 s) + Pan-Tompkins R-peak detection", xlabel="s", ylabel="mV")
+    ax[0].set(title="1. Raw synthetic ECG (first 5 s) + detected R peaks", xlabel="s", ylabel="mV")
     ax[0].legend(loc="upper right")
     tb = np.arange(beats.shape[1]) / FS - 0.25
     ax[1].plot(tb, beats[0::2].mean(0), color="#1f77b4", lw=2, label="mean of EVEN beats (A)")
@@ -71,7 +71,7 @@ demo = gr.Interface(
     ],
     outputs=[gr.Textbox(label="Computed TWA metrics", lines=9), gr.Plot(label="Signal processing")],
     title="CardioOncoPredict - T-wave alternans lab",
-    description=("Real signal-processing mathematics (Pan-Tompkins, Spectral Method, MMA) running on a "
+    description=("Real signal-processing mathematics (R-peak detection, Spectral Method, MMA) running on a "
                  "controllable synthetic ECG. Research/education prototype - not a medical device."),
 )
 

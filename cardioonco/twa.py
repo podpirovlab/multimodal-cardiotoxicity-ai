@@ -67,6 +67,18 @@ import numpy as np
 MIN_BEATS = 64
 STANDARD_BEATS = 128
 WINDOW_HOP = 16
+# Below this sampling rate the recording is interpolated by an integer factor to at least
+# 500 Hz before analysis (polyphase, as scipy.signal.resample_poly).  At 130 Hz, the rate of a
+# chest-strap ECG, one sample is 7.7 ms, too coarse to superimpose beats to a microvolt: with
+# 20 uV of noise, interpolation raised the share of 10 uV alternans found from 19 to 24 of 24
+# simulated recordings and halved the false positives (scripts/simulate_sampling_rate.py,
+# README section 4.5).
+MIN_ANALYSIS_FS = 400.0
+
+
+def analysis_rate(fs: float) -> int:
+    """Integer interpolation factor applied before analysis (1 at 400 Hz and above)."""
+    return 1 if fs >= MIN_ANALYSIS_FS else int(np.ceil(500.0 / fs))
 MAX_ECTOPIC_FRACTION = 0.10
 V_ALT_MIN_UV, K_MIN = 1.9, 3.0
 NOISE_MAX_UV = 1.8
@@ -233,8 +245,16 @@ def analyze(x_mv: np.ndarray, fs: float, r_peaks: np.ndarray | None = None,
             n_beats: int = STANDARD_BEATS, hop: int = WINDOW_HOP) -> TWAResult:
     """Whole-recording pipeline on one ECG lead: filter -> R peaks -> ectopy control ->
     sliding 128-beat Spectral-Method windows -> three-outcome decision."""
+    from scipy.signal import resample_poly
+
     from .preprocess import bandpass, detect_r_peaks, heart_rate_bpm
 
+    up = analysis_rate(fs)
+    if up > 1:                    # coarse sampling: interpolate before aligning beats (see MIN_ANALYSIS_FS)
+        x_mv = resample_poly(np.asarray(x_mv, dtype=float), up, 1)
+        fs = fs * up
+        if r_peaks is not None:
+            r_peaks = np.asarray(r_peaks, dtype=int) * up
     xf = bandpass(x_mv, fs, 0.5, 40.0)
     if r_peaks is None:
         r_peaks = detect_r_peaks(x_mv, fs)

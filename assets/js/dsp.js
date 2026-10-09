@@ -3,7 +3,8 @@
  *  Everything the web page reports is computed here, live, from the signal:
  *    synth()          parametric PQRST generator with microvolt T-wave alternans
  *    bandpass()       zero-phase Butterworth (biquad, forward + backward)
- *    detectRPeaks()   Pan–Tompkins: 5–15 Hz band-pass → derivative → square → 150 ms integration
+ *    detectRPeaks()   Elgendi (2013): 8–20 Hz band-pass → square → QRS-length vs beat-length averages
+ *    resamplePoly()   interpolation of recordings sampled below 400 Hz, as scipy.signal.resample_poly
  *    analyzeTWA()     whole-recording TWA: beat clean-up and alignment → 128-beat Spectral Method
  *                     windows (V_alt, K-score) + Modified Moving Average → three outcomes
  *
@@ -142,7 +143,7 @@
   }
   const centred = (a) => { const m = mean(a); return Float64Array.from(a, (v) => v - m); };
 
-  // ---------- Pan–Tompkins R-peak detection ----------
+  // ---------- R-peak detection ----------
   // Elgendi (2013) two-moving-average QRS detection, as in cardioonco/preprocess.py: 8-20 Hz
   // band-pass, squaring, and a block of interest wherever the QRS-length (97 ms) average of the
   // squared signal exceeds the beat-length (611 ms) average plus 0.08 x its mean.  Each beat is
@@ -352,8 +353,53 @@
   // Whole-recording pipeline, the same as cardioonco/twa.py analyze():
   // R peaks -> missed/extra beats -> alignment -> PR baseline -> ectopy control ->
   // 128-beat windows every 16 beats -> positive / negative / indeterminate.
+  // ---------- interpolation for coarse sampling (as scipy.signal.resample_poly(x, up, 1)) ----------
+  // Below MIN_ANALYSIS_FS one sample is too coarse to superimpose beats to a microvolt, so the
+  // recording is interpolated by an integer factor first, exactly as cardioonco/twa.py does.
+  const MIN_ANALYSIS_FS = 400;
+  const analysisRate = (fs) => (fs >= MIN_ANALYSIS_FS ? 1 : Math.ceil(500 / fs));
+  function besselI0(v) {
+    let sum = 1, term = 1;
+    for (let k = 1; k < 60; k++) { term *= (v / (2 * k)) ** 2; sum += term; if (term < 1e-17 * sum) break; }
+    return sum;
+  }
+  function resamplePoly(x, up) {
+    // scipy's default filter: firwin(2*10*up + 1, 1/up, window=("kaiser", 5.0)) * up, zero padding
+    const half = 10 * up, N = 2 * half + 1, fc = 1 / up, h = new Float64Array(N);
+    let sum = 0;
+    for (let n = 0; n < N; n++) {
+      const m = n - half, arg = fc * m;
+      const sinc = arg === 0 ? 1 : Math.sin(Math.PI * arg) / (Math.PI * arg);
+      const r = 2 * n / (N - 1) - 1;
+      h[n] = fc * sinc * besselI0(5 * Math.sqrt(Math.max(0, 1 - r * r))) / besselI0(5);
+      sum += h[n];
+    }
+    for (let n = 0; n < N; n++) h[n] *= up / sum;
+    const nOut = x.length * up, y = new Float64Array(nOut);
+    for (let m = 0; m < nOut; m++) {
+      // y[m] = sum_n h[n] * xu[m + half - n], where xu holds x at multiples of `up` and zeros elsewhere
+      const j0 = m + half;
+      let acc = 0;
+      for (let n = ((j0 % up) + up) % up; n < N; n += up) {
+        const i = (j0 - n) / up;
+        if (i >= 0 && i < x.length) acc += h[n] * x[i];
+      }
+      y[m] = acc;
+    }
+    return y;
+  }
+
   function analyzeTWA(x, fs, opts) {
     const o = Object.assign({ nBeats: STANDARD_BEATS, hop: WINDOW_HOP, rPeaks: null }, opts || {});
+    const up = analysisRate(fs);
+    if (up > 1) {
+      // analyse at fs*up, then hand back R peaks, filtered signal and beats at the input rate
+      const res = analyzeTWA(resamplePoly(x, up), fs * up,
+        Object.assign({}, o, { rPeaks: o.rPeaks ? Array.from(o.rPeaks, (v) => v * up) : null }));
+      const every = (a) => Float64Array.from({ length: Math.ceil(a.length / up) }, (_, k) => a[k * up]);
+      return Object.assign(res, { r: res.r.map((v) => Math.round(v / up)), xf: every(res.xf),
+                                  fullBeats: res.fullBeats.map(every), upsampled: up });
+    }
     let r0, xf;
     if (o.rPeaks) { r0 = Array.from(o.rPeaks); xf = bandpass(x, fs, 0.5, 40); }
     else ({ r: r0, xf } = detectRPeaks(x, fs));
@@ -416,8 +462,8 @@
              window: [aSt / fs, bSt / fs], windows };
   }
 
-  root.CardioDSP = { version: "1.2.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
+  root.CardioDSP = { version: "1.3.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
     HR_ONSET_MAX, HR_NEGATIVE_MIN, MAX_ECTOPIC, rng, synth, bandpass, detectRPeaks, removeExtraBeats,
-    fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile };
+    fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile, resamplePoly, MIN_ANALYSIS_FS };
   if (typeof module !== "undefined") module.exports = root.CardioDSP;
 })(typeof window !== "undefined" ? window : globalThis);

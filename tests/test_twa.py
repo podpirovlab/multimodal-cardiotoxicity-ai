@@ -49,6 +49,19 @@ def test_small_beats_next_to_large_beats_are_found(every, scale):
     assert np.mean(found) == 1.0
 
 
+def test_coarse_sampling_does_not_create_alternans():
+    # At 130 Hz (a chest-strap ECG) 3 of these 12 recordings without alternans were called
+    # positive before the analysis interpolated coarse recordings to >= 500 Hz.
+    calls = []
+    for seed in range(2000, 2012):
+        _, x, _ = generate_ecg(SynthConfig(fs=130, alternans_uv=0, noise_uv=5, heart_rate=108,
+                                           n_beats=160, seed=seed))
+        calls.append(analyze(x, 130).outcome)
+    assert "positive" not in calls
+    _, x, _ = generate_ecg(SynthConfig(fs=130, alternans_uv=10, noise_uv=5, heart_rate=108, n_beats=160, seed=7))
+    assert analyze(x, 130).outcome == "positive"
+
+
 def test_no_alternans_is_not_called_positive():
     _, x, _ = generate_ecg(SynthConfig(alternans_uv=0, noise_uv=15, seed=2))
     res = analyze(x, 500)

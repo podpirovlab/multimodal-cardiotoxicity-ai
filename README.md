@@ -325,6 +325,17 @@ Medians hide how often the method is right, so the same question was asked again
 
 Up to about 20 µV of noise, 5 µV of alternans is found in most recordings and nothing is found where there is none. By 60 µV the method starts to miss alternans and, occasionally, to report it where there is none. Under this simple model a recording device would need an input noise of roughly 20 µV RMS or less. Real muscle noise is not white and not stationary, so the real requirement has to be measured on real recordings.
 
+**Sampling rate.** Clinical ECGs are sampled at 500 Hz or more, many Holter recorders at 128–250 Hz, and a Polar H10 chest strap at 130 Hz. At 130 Hz one sample lasts 7.7 ms, too coarse to superimpose beats to a microvolt. Since version 1.3, a recording sampled below 400 Hz is therefore interpolated by an integer factor to at least 500 Hz before the analysis (polyphase interpolation, as `scipy.signal.resample_poly`; the browser code computes the same filter to within 10⁻¹⁵). With 24 synthetic recordings per cell at 108 bpm (`scripts/simulate_sampling_rate.py`):
+
+| Sampling | White noise | No alternans: called positive | 5 µV found | 10 µV found |
+|---|---|---|---|---|
+| 500 Hz | 20 µV | 0 of 24 | 24 of 24 | 24 of 24 |
+| 250 Hz, interpolated to 500 Hz | 20 µV | 0 of 24 | 24 of 24 | 24 of 24 |
+| 130 Hz, as recorded (up to 1.2) | 20 µV | 2 of 24 | 14 of 24 | 19 of 24 |
+| 130 Hz, interpolated to 520 Hz | 20 µV | 1 of 24 | 22 of 24 | 24 of 24 |
+
+With 5 µV of noise every rate found all alternans and called nothing positive without it. Interpolation cannot restore information the coarse sampling never recorded; what it fixes is the alignment of beats. A chest strap is therefore usable at rest with good skin contact, not during exercise, where its noise is far higher.
+
 ### 4.6 Modified Moving Average (cross-check)
 
 The MMA method [15] keeps two running templates, one for even beats (A) and one for odd beats (B), and updates each with a limited step:
@@ -556,6 +567,7 @@ scripts/
   make_figures.py      regenerate every figure in docs/figures/{en,ru}
   validate_twadb.py    score the pipeline on the PhysioNet TWA challenge (§7.1)
   validate_rpeaks.py   score the R-peak detector on annotated databases (§4.3)
+  simulate_sampling_rate.py what the analysis finds at 500, 250 and 130 Hz (§4.5)
 tests/                 pytest: TWA maths, detector, JS/Python parity, EDF/BDF/CSV readers,
                        entry points, training smoke test, released model (Node runs the browser code)
 index.html, ru.html    the web tool (GitHub Pages)
@@ -565,7 +577,7 @@ assets/samples/        one real TWA challenge recording for the "Open a real ECG
 sw.js, manifest*.webmanifest, assets/icons/
                        offline cache and app install (service worker, web app manifests, icons)
 docs/figures/{en,ru}/  every figure in this README, in English and Russian (scripts/make_figures.py)
-docs/results/          per-record results behind §4.3, §7.1 and figure 12
+docs/results/          per-record results behind §4.3, §4.5, §7.1 and figure 12
 pyproject.toml         package metadata and optional dependency groups
 CITATION.cff           how to cite this software
 legacy/                early teaching prototypes kept for history (see legacy/README.md)
@@ -586,6 +598,7 @@ ln -s ../../scripts/pre-push .git/hooks/pre-push   # optional: run the tests bef
 python predict.py --demo --alternans 20   # TWA analysis of a two-minute synthetic recording
 python app.py                             # interactive lab at http://localhost:7860
 python scripts/make_figures.py            # regenerate all figures
+python scripts/simulate_sampling_rate.py  # TWA found at 500, 250 and 130 Hz sampling (§4.5)
 
 # R-peak detector on cardiologist-annotated ECGs (~150 MB from PhysioNet)
 python -c "import wfdb; wfdb.dl_database('mitdb', dl_dir='data/mitdb'); wfdb.dl_database('svdb', dl_dir='data/svdb')"
@@ -630,6 +643,8 @@ python scripts/make_figures.py --only 08 09 --checkpoint runs/ptbxl/model.pt   #
 **1.1.1.** Documentation and validation outputs only; no algorithm or model changed. The README opens with what has been shown so far, and its formulas now render correctly on GitHub. Figure 12 and `docs/results/twadb_v0.6.0.csv` show the PhysioNet challenge check record by record, and `scripts/validate_twadb.py` now writes that table. Two more studies of anthracyclines and alternans are cited [30, 31], with the PubMed query that found them. The description of mains filtering is corrected: the 50 Hz line is weakened about 60-fold, not removed.
 
 **1.2.0.** A new R-peak detector (Elgendi's two moving averages [32]), checked for the first time on cardiologist-annotated ECGs: 99.73% of beats found with 99.92% precision on the MIT-BIH Arrhythmia Database, against 90.69% / 99.96% for the old fixed-threshold detector, and 99.50% / 99.93% on a second database recorded at 128 Hz (§4.3). The browser runs the same method. On the PhysioNet TWA challenge's development recordings no ranking changed. `scripts/validate_rpeaks.py` and tests for small beats next to large ectopic beats were added; every journal article in the references now carries a verified DOI.
+
+**1.3.0.** Recordings sampled below 400 Hz are interpolated to at least 500 Hz before the TWA analysis, in Python and in the browser. At 130 Hz, the rate of a chest-strap ECG, this raised the share of 10 µV alternans found in simulation from 19 to 24 of 24 recordings and halved the false positives (§4.5, `scripts/simulate_sampling_rate.py`). Recordings at 400 Hz and above are analysed exactly as before.
 
 ---
 
@@ -698,7 +713,7 @@ python scripts/make_figures.py --only 08 09 --checkpoint runs/ptbxl/model.pt   #
   author  = {Podpirov, Petr},
   title   = {CardioOncoPredict: research software for measuring microvolt T-wave alternans},
   year    = {2026},
-  version = {1.2.0},
+  version = {1.3.0},
   doi     = {10.5281/zenodo.23090355},
   url     = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
 }

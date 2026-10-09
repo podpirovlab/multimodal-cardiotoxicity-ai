@@ -1,0 +1,9 @@
+fs_hz,interpolated,noise_uv,positive_0uv,positive_5uv,positive_10uv,n_per_cell
+500,no,5,0,24,24,24
+500,no,20,0,24,24,24
+250,yes,5,0,24,24,24
+250,yes,20,0,24,24,24
+130,no,5,0,24,24,24
+130,no,20,2,14,19,24
+130,yes,5,0,24,24,24
+130,yes,20,1,22,24,24
