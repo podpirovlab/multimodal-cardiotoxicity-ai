@@ -1,0 +1,102 @@
+{
+  "n_features": 209,
+  "n_train": 17084,
+  "n_val": 2146,
+  "n_test": 2158,
+  "logistic": {
+    "test_macro_auc": 0.8684756510352362,
+    "per_class": {
+      "NORM": {
+        "params": {
+          "C": 10.0
+        },
+        "val_auc": 0.9020322576390994,
+        "test_auc": 0.892608089260809
+      },
+      "MI": {
+        "params": {
+          "C": 0.1
+        },
+        "val_auc": 0.8486854849868549,
+        "test_auc": 0.8394787426503845
+      },
+      "STTC": {
+        "params": {
+          "C": 10.0
+        },
+        "val_auc": 0.8752891242461701,
+        "test_auc": 0.8870505360092955
+      },
+      "CD": {
+        "params": {
+          "C": 0.1
+        },
+        "val_auc": 0.866313039541386,
+        "test_auc": 0.8574164919840069
+      },
+      "HYP": {
+        "params": {
+          "C": 0.1
+        },
+        "val_auc": 0.8742867133978669,
+        "test_auc": 0.865824395271685
+      }
+    },
+    "network_minus_baseline": 0.05235906147303593,
+    "network_minus_baseline_ci95": [
+      0.04504791294348272,
+      0.06031639521048047
+    ]
+  },
+  "boosting": {
+    "test_macro_auc": 0.8888981435084897,
+    "per_class": {
+      "NORM": {
+        "params": {
+          "learning_rate": 0.05,
+          "max_depth": 6
+        },
+        "val_auc": 0.9237131892333865,
+        "test_auc": 0.9150710167407465
+      },
+      "MI": {
+        "params": {
+          "learning_rate": 0.1,
+          "max_depth": 6
+        },
+        "val_auc": 0.880143904801439,
+        "test_auc": 0.8655382180009046
+      },
+      "STTC": {
+        "params": {
+          "learning_rate": 0.05,
+          "max_depth": 6
+        },
+        "val_auc": 0.9095333745364649,
+        "test_auc": 0.9036015744357041
+      },
+      "CD": {
+        "params": {
+          "learning_rate": 0.05,
+          "max_depth": 6
+        },
+        "val_auc": 0.8939803853189681,
+        "test_auc": 0.8712467489616087
+      },
+      "HYP": {
+        "params": {
+          "learning_rate": 0.05,
+          "max_depth": 6
+        },
+        "val_auc": 0.8964085324177834,
+        "test_auc": 0.889033159403485
+      }
+    },
+    "network_minus_baseline": 0.031936568999782367,
+    "network_minus_baseline_ci95": [
+      0.025740053188417204,
+      0.03889564409299456
+    ]
+  },
+  "network_macro_auc": 0.9208347125082721
+}

@@ -164,7 +164,7 @@ L = {
         w="weight value", count="count", err="error, % of the step s", size="MB",
         # 11
         f11_title="The network on the PTB-XL test fold (2,158 ECGs): accuracy, chance and calibration",
-        released="released model (seed 42), 95% CI", ensemble5="ensemble of 5 seeds", macro_auc="macro-AUC",
+        released="released model (seed 42), 95% CI", baseline="features + boosted trees (baseline)", ensemble5="ensemble of 5 seeds", macro_auc="macro-AUC",
         b11s="b  Five training seeds, with and without age/sex",
         effect_note="paired by seed: {d}, 95% CI [{lo}, {hi}]\nwith age/sex better in {k} of 5 seeds",
         c11="c  Calibration: does 0.8 mean 80%? (5 classes pooled)", raw_cal="as trained", platt_cal="Platt-scaled on validation",
@@ -247,7 +247,7 @@ L = {
         zoom9="увеличено: x → x'", b9="b  Ошибка квантования", c9="c  Размер модели",
         w="значение веса", count="количество", err="ошибка, % от шага s", size="МБ",
         f11_title="Сеть на тестовом фолде PTB-XL (2158 ЭКГ): точность, случайность и калибровка",
-        released="опубликованная модель (seed 42), 95 % ДИ", ensemble5="ансамбль из 5 seed", macro_auc="macro-AUC",
+        released="опубликованная модель (seed 42), 95 % ДИ", baseline="признаки + бустинг деревьев (ориентир)", ensemble5="ансамбль из 5 seed", macro_auc="macro-AUC",
         b11s="b  Пять запусков обучения: с возрастом и полом и без",
         effect_note="парно по seed: {d}, 95 % ДИ [{lo}; {hi}]\nс возрастом и полом лучше в {k} из 5 запусков",
         c11="c  Калибровка: значит ли 0,8 «80 %»? (5 классов вместе)", raw_cal="как обучена", platt_cal="после Платта на валидации",
@@ -926,6 +926,7 @@ def fig11(lang, out, run=RELEASED):
     res = ROOT / "docs" / "results"
     m = json.loads((run / "metrics.json").read_text())
     sd = json.loads((res / "ptbxl_seeds.json").read_text())
+    bl = json.loads((res / "ptbxl_baseline.json").read_text())["boosting"]
     ev = json.loads((res / "ptbxl_evaluation.json").read_text())["calibration"]
     pr = np.load(res / "ptbxl_test_probabilities.npz")
     cls = ["NORM", "MI", "STTC", "CD", "HYP"]
@@ -939,14 +940,16 @@ def fig11(lang, out, run=RELEASED):
         a.plot(v["auc_ci95"], [yi, yi], color=INK, lw=2)
         a.plot(v["auc"], yi, "o", color=INK, ms=7, label=T["released"] if k == 0 else None)
         a.plot(sd["ensemble"]["per_class"][c], yi + 0.25, "*", color=RED, ms=10, label=T["ensemble5"] if k == 0 else None)
+        a.plot(bl["per_class"][c]["test_auc"], yi - 0.25, "v", color=MUTED, ms=6, label=T["baseline"] if k == 0 else None)
     a.axhspan(-0.5, 0.5, color=GRID_MIN, lw=0)
     a.fill_betweenx([-0.45, 0.45], 0.92, 0.93, color=BLUE, alpha=0.18, lw=0)
     a.text(0.9315, -0.22, T["published"].replace("\n", " "), color=BLUE, fontsize=7.5)
     a.plot(m["test_macro_auc"], 0, "D", color=INK, ms=7)
     a.plot(sd["ensemble"]["macro_auc"], 0.25, "*", color=RED, ms=11)
+    a.plot(bl["test_macro_auc"], -0.25, "v", color=MUTED, ms=7)
     a.text(0.975, 0, num(m["test_macro_auc"]), va="center", fontsize=9)
     a.text(0.975, 0.3, num(sd["ensemble"]["macro_auc"]), va="center", fontsize=9, color=RED, fontweight="bold")
-    a.set(yticks=list(y) + [0], yticklabels=cls + [T["macro"]], xlim=(0.865, 0.99), ylim=(-0.6, 5.6),
+    a.set(yticks=list(y) + [0], yticklabels=cls + [T["macro"]], xlim=(0.84, 0.99), ylim=(-0.6, 5.6),
           xlabel=T["auc"], title=T["a11"])
     a.legend(loc="upper left", fontsize=8)
     # b: five seeds, with and without age/sex, paired

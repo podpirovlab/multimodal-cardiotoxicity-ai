@@ -52,7 +52,7 @@
 | Does the R-peak detector find real heartbeats? | MIT-BIH Arrhythmia Database: 99.73% of annotated beats found, 99.92% of detections correct; 99.50% / 99.93% on a second database at 128 Hz | ✅ | [§4.3](#43-r-peak-detection) |
 | Do the browser and Python versions agree? | The same outcome and reason on every test signal; V_alt within 10% | ✅ | [§7](#7-what-has-been-verified-so-far) |
 | Does it agree with the PhysioNet 2008 TWA challenge? | Kendall τ = 0.43 over 100 recordings (the organisers' significance line is 0.436); 0.48 on the synthetic ones, 0.08 on held-out real ones | ⚠️ synthetic only | [§7.1](#71-check-against-the-physionet-twa-challenge) |
-| Does the neural network work on real clinical ECGs? | PTB-XL test macro-AUC 0.9205 ± 0.0015 over five training seeds; their ensemble 0.930, at the top of the published 0.92–0.93 | ✅ proxy task | [§5.4](#54-data-ptb-xl) |
+| Does the neural network work on real clinical ECGs? | PTB-XL test macro-AUC 0.9205 ± 0.0015 over five training seeds; their ensemble 0.930, as good as the best published single model (0.930) and below the published ensemble (0.934) | ✅ proxy task | [§5.4](#54-data-ptb-xl) |
 | Does adding age and sex to the network help? | +0.0013 AUC, 95% CI [−0.0005, +0.0032], paired over five seeds | ❌ no measurable gain | [§5.4](#54-data-ptb-xl) |
 | Is TWA an early sign of anthracycline cardiotoxicity? | Not studied yet: it needs ECGs of patients before and during treatment | open | [§11](#11-limitations-and-ethics) |
 
@@ -322,7 +322,7 @@ V_{alt} = \sqrt{P(0.5) - \mu_B},\qquad K = \frac{P(0.5) - \mu_B}{\sigma_B}
 
 The conventional criterion for significant alternans is $`V_{alt} \ge 1.9\,\mu V`$ **and** $`K \ge 3`$ [11, 14]. In this implementation $`V_{alt}`$ is the RMS alternans over the whole ST-T window. We also report `v_alt_peak_uv`, the alternans amplitude at the single most alternating sample; on synthetic data it recovers the injected amplitude within 15%.
 
-In the figure at the top of this README: (a) the 128×L beat matrix minus the mean beat, where alternans appears as a red/blue checkerboard inside the ST-T window; (b) even and odd average beats; (c) one ST-T sample flipping up and down beat after beat; (d) the aggregate spectrum with a sharp peak at 0.5 cycles/beat far above the noise band. The bright stripes at the QRS in panel (a) are not alternans: at 500 Hz each R peak falls up to half a sample off the sampling grid, and on the steep QRS that is tens of microvolts. They are random from beat to beat, so they do not build up at 0.5 cycles/beat, and the ST-T window excludes the QRS anyway.
+In the figure at the top of this README: (a) the 128×L beat matrix minus the mean beat, where alternans appears as an orange and blue checkerboard inside the ST-T window; (b) even and odd average beats; (c) one ST-T sample flipping up and down beat after beat; (d) the aggregate spectrum with a sharp peak at 0.5 cycles/beat far above the noise band. The bright stripes at the QRS in panel (a) are not alternans: at 500 Hz each R peak falls up to half a sample off the sampling grid, and on the steep QRS that is tens of microvolts. They are random from beat to beat, so they do not build up at 0.5 cycles/beat, and the ST-T window excludes the QRS anyway.
 
 **Step 6: the whole recording and the decision.** A longer recording is scanned in 128-beat windows every 16 beats. In each window, beats whose R-R interval is more than 20% off the neighbouring intervals, or whose shape correlates below 0.9 with the median beat, are replaced by the median of the beats of the same parity, so the ABAB order survives an ectopic beat [28]; a window with more than 10% such beats is not used. The result follows the clinical rules [11]: *alternans criterion met* if some window has $`V_{alt} \ge 1.9\,\mu V`$ and $`K \ge 3`$ at a heart rate of at most 110 bpm with noise of at most 1.8 µV; *no significant alternans* if no window is significant and at least one clean window reaches 105 bpm; otherwise *indeterminate*, with the reason. The clinical rule asks for alternans sustained for at least a minute; a single 128-beat window, which lasts over a minute below 110 bpm, stands in for that.
 
@@ -453,9 +453,11 @@ PTB-XL [12] contains **21,799** clinical 12-lead, 10-second ECGs from **18,869**
 
 The ROC curves themselves are in [`models/ptbxl-1.0/roc_test.png`](models/ptbxl-1.0/roc_test.png). So a single model reaches the published level: it is correct, but not better than existing models.
 
+**Does the network earn its complexity? A simple baseline.** The same split was given to two classical models on 209 hand-made features: 17 statistics and band powers per lead, heart rate and R-R variability, age and sex (`scripts/baseline_ptbxl.py`; hyper-parameters chosen on the validation fold, the test fold scored once). Logistic regression reached a macro-AUC of 0.869 and gradient-boosted trees 0.889, close to the published feature baseline (0.874 [20]). The network is better than the stronger baseline by **+0.032, 95% CI [+0.026, +0.039]** (paired bootstrap; grey triangles in panel **a**), so the deep model is not decoration.
+
 **How much of this is luck? Five seeds.** The same configuration was trained with four more random seeds, and every model scored the same test ECGs (`scripts/compare_seeds.py`). Macro-AUC was 0.9205 ± 0.0015 (SD; range 0.9182–0.9218), so the third decimal of any single run is partly chance.
 
-**An ensemble of the five is clearly better.** Averaging the five models' probabilities (a deep ensemble [39]) gives a macro-AUC of **0.930**, **+0.0098 over a single model, 95% CI [+0.0090, +0.0105]** (paired bootstrap over test ECGs), at the top of the published range; per class NORM 0.950, MI 0.931, STTC 0.941, CD 0.922, HYP 0.907. The five members also disagree more on some ECGs than on others (median SD of their probabilities 0.04, 95th percentile 0.20), which is a usable measure of uncertainty. `predict.py --ensemble` runs all five.
+**An ensemble of the five is clearly better.** Averaging the five models' probabilities (a deep ensemble [39]) gives a macro-AUC of **0.930**, **+0.0098 over a single model, 95% CI [+0.0090, +0.0105]** (paired bootstrap over test ECGs). That equals the best published single model on this task (0.930) and stays below the published ensemble of six architectures (0.934) [20]; per class NORM 0.950, MI 0.931, STTC 0.941, CD 0.922, HYP 0.907. The five members also disagree more on some ECGs than on others (median SD of their probabilities 0.04, 95th percentile 0.20), which is a usable measure of uncertainty. `predict.py --ensemble` runs all five.
 
 **Calibration: does 0.8 mean 80%?** Not as trained. The loss weights rare classes up, which pushes probabilities up: the expected calibration error (ECE) is 0.043–0.064 per class (panel **c**). Platt scaling [40], fitted on the validation fold only, lowers it to 0.011–0.018 without changing the ranking (AUC), a known and fixable property of modern networks [41].
 
@@ -516,6 +518,7 @@ FHIR is the format hospital systems use to exchange results, so the tool can exp
 | Training pipeline runs end to end; the exported ONNX model gives the same outputs as PyTorch in ONNX Runtime | `tests/test_train_smoke.py` | ✅ |
 | The synthetic 12-lead model obeys Einthoven's law (by construction; an arithmetic check) | Figure 3c (residual ≈ 10⁻¹⁶ mV) | ✅ |
 | Network accuracy on real ECGs: test macro-AUC 0.921, at the published level of 0.92–0.93 [20] | `models/ptbxl-1.0/metrics.json`, [§5.4](#54-data-ptb-xl) | ✅ |
+| The network beats a simple baseline (features + boosted trees, 0.889) by +0.032 [+0.026, +0.039] | `docs/results/ptbxl_baseline.json` | ✅ |
 | The result is not luck of one run: five seeds give 0.9205 ± 0.0015 | `docs/results/ptbxl_seeds.json` | ✅ |
 | An ensemble of five models is better than one: +0.0098 [+0.0090, +0.0105] | `docs/results/ptbxl_seeds.json`, `predict.py --ensemble` | ✅ |
 | Probabilities are calibrated | ECE 0.043–0.064 as trained, 0.011–0.018 after Platt scaling on validation | ⚠️ needs recalibration |
@@ -595,6 +598,7 @@ scripts/
   compare_seeds.py     five seeds with and without age/sex, and their ensemble (§5.4)
   evaluate_ptbxl_model.py INT8, calibration and integrated gradients on the test fold (§5.4, §6.1)
   train_seeds.sh       train four more seeds of each configuration
+  baseline_ptbxl.py    hand-made features + logistic regression and boosted trees (§5.4)
   wfdb_to_csv.py       convert one lead of a PhysioNet WFDB record to CSV for the web tool
   make_figures.py      regenerate every figure in docs/figures/{en,ru}
   validate_twadb.py    score the pipeline on the PhysioNet TWA challenge (§7.1)
@@ -647,6 +651,7 @@ python train_ptbxl.py --data data/ptb-xl --epochs 30 --no-meta --out runs/ptbxl_
 python scripts/compare_ptbxl_runs.py runs/ptbxl runs/ptbxl_nometa                    # paired comparison
 bash scripts/train_seeds.sh && python scripts/compare_seeds.py   # four more seeds of each, and the ensemble
 python scripts/evaluate_ptbxl_model.py                           # INT8, calibration, attributions
+python scripts/baseline_ptbxl.py                                 # simple baseline on hand-made features
 python scripts/make_figures.py --only 08 09 --checkpoint runs/ptbxl/model.pt   # figures 08-09 with your weights
 ```
 
