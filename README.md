@@ -453,7 +453,7 @@ PTB-XL [12] contains **21,799** clinical 12-lead, 10-second ECGs from **18,869**
 
 The ROC curves themselves are in [`models/ptbxl-1.0/roc_test.png`](models/ptbxl-1.0/roc_test.png). So a single model reaches the published level: it is correct, but not better than existing models.
 
-**Does the network earn its complexity? A simple baseline.** The same split was given to two classical models on 209 hand-made features: 17 statistics and band powers per lead, heart rate and R-R variability, age and sex (`scripts/baseline_ptbxl.py`; hyper-parameters chosen on the validation fold, the test fold scored once). Logistic regression reached a macro-AUC of 0.869 and gradient-boosted trees 0.889, close to the published feature baseline (0.874 [20]). The network is better than the stronger baseline by **+0.032, 95% CI [+0.026, +0.039]** (paired bootstrap; grey triangles in panel **a**), so the deep model is not decoration.
+**Does the network earn its complexity? A simple baseline.** The same split was given to two classical models on 209 hand-made features: 17 statistics and band powers per lead, heart rate and R-R variability, age and sex (`scripts/baseline_ptbxl.py`; hyper-parameters chosen on the validation fold, the test fold scored once). Logistic regression reached a macro-AUC of 0.868 and gradient-boosted trees 0.889, close to the published feature baseline (0.874 [20]). The network is better than the stronger baseline by **+0.032, 95% CI [+0.026, +0.039]** (paired bootstrap; grey triangles in panel **a**), so the deep model is not decoration.
 
 **How much of this is luck? Five seeds.** The same configuration was trained with four more random seeds, and every model scored the same test ECGs (`scripts/compare_seeds.py`). Macro-AUC was 0.9205 ± 0.0015 (SD; range 0.9182–0.9218), so the third decimal of any single run is partly chance.
 
@@ -483,7 +483,7 @@ This section is a plan, not a result: the network is trained on PTB-XL ([§5.4](
 q = \mathrm{round}(x/s) + z,\qquad \hat x = (q - z)\,s,\qquad s = \frac{x_{max}-x_{min}}{255}
 ```
 
-Panel **a** quantises one layer of the trained network; each weight moves by at most half a step. Then the whole model was quantised and measured (`scripts/evaluate_ptbxl_model.py`): ONNX Runtime's static quantisation (8-bit weights per channel, 8-bit activations, calibrated on 512 training ECGs) shrinks the file from 2.39 MB to 0.70 MB and runs about 2.3 times faster on one laptop CPU core (0.21 against 0.48 ms per ECG). On the 2,158 test ECGs the macro-AUC is 0.9206 against 0.9208, **difference −0.0002, 95% CI [−0.0008, +0.0003]**. The median probability changes by 0.003 and the largest by 0.28 (panel **b**), so single borderline ECGs can move. Whether a microcontroller can run it is a further, untested step.
+Panel **a** quantises one layer of the trained network; each weight moves by at most half a step. Then the whole model was quantised and measured (`scripts/evaluate_ptbxl_model.py`): ONNX Runtime's static quantisation (8-bit weights per channel, 8-bit activations, calibrated on 512 training ECGs) shrinks the file from 2.39 MB to 0.70 MB and runs about 2.3 times faster on one laptop CPU core (0.20 against 0.48 ms per ECG). On the 2,158 test ECGs the macro-AUC is 0.9206 against 0.9208, **difference −0.0002, 95% CI [−0.0008, +0.0003]**. The median probability changes by 0.003 and the largest by 0.28 (panel **b**), so single borderline ECGs can move. Whether a microcontroller can run it is a further, untested step.
 
 ### 6.2 Federated learning
 
