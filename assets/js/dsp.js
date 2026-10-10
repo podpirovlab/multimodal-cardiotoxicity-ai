@@ -462,7 +462,7 @@
              window: [aSt / fs, bSt / fs], windows };
   }
 
-  root.CardioDSP = { version: "1.3.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
+  root.CardioDSP = { version: "1.4.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
     HR_ONSET_MAX, HR_NEGATIVE_MIN, MAX_ECTOPIC, rng, synth, bandpass, detectRPeaks, removeExtraBeats,
     fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile, resamplePoly, MIN_ANALYSIS_FS };
   if (typeof module !== "undefined") module.exports = root.CardioDSP;

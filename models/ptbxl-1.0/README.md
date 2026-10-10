@@ -1,7 +1,7 @@
 # CardioOncoNet trained on PTB-XL (model card)
 
 **What it is.** The network of README §5 (1D ResNet over 12 leads, age/sex branch, bilinear fusion;
-573,482 weights) trained once on PTB-XL v1.0.3 at 100 Hz to recognise the five diagnostic
+573,482 weights) trained on PTB-XL v1.0.3 at 100 Hz to recognise the five diagnostic
 super-classes NORM, MI, STTC, CD and HYP. PTB-XL has no chemotherapy information: this is a
 check that the pipeline works on real clinical ECGs, and **not** a detector of cardiotoxicity.
 Research use only; not a medical device.
@@ -24,11 +24,32 @@ thresholds chosen on validation by Youden's J):
 | HYP | 0.895 [0.874, 0.915] | 0.86 | 0.76 |
 | **macro** | **0.921** | | |
 
-**Ablation.** The same network with age and sex set to zero (`--no-meta`, `metrics_nometa.json`)
-reached a test macro-AUC of 0.920. On the same 2,158 test ECGs the difference is +0.0007, paired
-bootstrap (2,000 resamples) 95% CI [−0.003, +0.004], and every per-class CI includes zero (`comparison_meta_vs_nometa.json`, from
-`scripts/compare_ptbxl_runs.py`): no measurable benefit from the metadata on this task. Each model
-was trained once, so the spread between random seeds is not measured.
+**Five seeds and the ensemble.** The same configuration was trained with four more random seeds
+(1–4; `scripts/train_seeds.sh`), with and without age and sex, and every model scored the same
+test ECGs (`scripts/compare_seeds.py`, `ensemble/ensemble_metrics.json`):
+
+| | Macro-AUC over 5 seeds | Range |
+|---|---|---|
+| With age/sex (seed 42 released) | 0.9205 ± 0.0015 (SD) | 0.9182–0.9218 |
+| Without age/sex | 0.9192 ± 0.0012 | 0.9176–0.9202 |
+| **Ensemble: mean probability of the 5 with-age/sex models** | **0.9303** | |
+
+- *Age and sex:* paired by seed, +0.0013, 95% CI [−0.0005, +0.0032] (pooled paired bootstrap over test
+  ECGs), better in 4 of 5 seeds. The effect, if real, is small; it is not distinguishable from zero.
+- *Ensemble:* +0.0098 over the mean single model, 95% CI [+0.0090, +0.0105]; per class NORM 0.950,
+  MI 0.931, STTC 0.941, CD 0.922, HYP 0.907. The members disagree by a median standard deviation of
+  0.04 in probability (95th percentile 0.20), a measure of the model's uncertainty for each ECG.
+
+**Calibration.** As trained, the probabilities are too high for positives, because the loss weights
+rare classes up: the expected calibration error (ECE, 10 bins) is 0.043–0.064 per class. Platt scaling
+fitted on the validation fold lowers it to 0.011–0.018 and the Brier score from 0.082–0.104 to
+0.068–0.097, with AUC unchanged (`docs/results/ptbxl_evaluation.json`). The released weights are not
+recalibrated; the fitted slopes and intercepts are in that file.
+
+**INT8.** The ONNX copy, quantised with ONNX Runtime (static QDQ, per-channel 8-bit weights, 8-bit
+activations, calibrated on 512 training ECGs) is 0.70 MB instead of 2.39 MB. Its macro-AUC is
+0.9206 against 0.9208, difference −0.0002, 95% CI [−0.0008, +0.0003]; the median probability
+changes by 0.003, the largest by 0.28 (`scripts/evaluate_ptbxl_model.py`).
 
 **Files.**
 
@@ -40,9 +61,15 @@ was trained once, so the spread between random seeds is not measured.
 | `metrics.json`, `metrics_nometa.json` | full metrics and training history of both runs | |
 | `comparison_meta_vs_nometa.json` | paired bootstrap comparison | |
 | `roc_test.png` | ROC curves on the test fold | |
+| `ensemble/seed1.pt` | ensemble member, seed 1 | `2d693ebfca11ee494408f0265ba888b0da377cc34aef43d80986acb9abe4f0ea` |
+| `ensemble/seed2.pt` | ensemble member, seed 2 | `a5937893c7ad4a2e0ddce82df7e90ee11c085813328a782b3680f53f2f7686ad` |
+| `ensemble/seed3.pt` | ensemble member, seed 3 | `2a6494db5eaad5a61ce5dce3c46b09d95b3a11b8260f94f805dc3283d6e89196` |
+| `ensemble/seed4.pt` | ensemble member, seed 4 | `f759ecd46fc08ad508483c130ff8a176f3ddaeebf5dd3612bb2b891f976766f5` |
+| `ensemble/*_metrics.json` | metrics of each member and of the ensemble | |
 
-`predict.py --checkpoint models/ptbxl-1.0/model.pt` runs the model on a 12-lead ECG; the recording
-is resampled to 100 Hz and its first 10 seconds are used, as in training.
+`predict.py --checkpoint models/ptbxl-1.0/model.pt` runs the model on a 12-lead ECG, and
+`predict.py --ensemble` runs all five and averages them; the recording is resampled to 100 Hz and
+its first 10 seconds are used, as in training.
 
 **Use and limits.**
 - *Intended use:* research and teaching — a reproducible baseline for ECG classification and the
@@ -52,8 +79,11 @@ is resampled to 100 Hz and its first 10 seconds are used, as in training.
 - *Data:* one German centre (PTB-XL), labels from at most two cardiologists, 10-second resting ECGs
   at 100 Hz. Accuracy on other populations, devices and sampling rates is unknown until an external
   dataset is tested.
-- *Not measured yet:* the spread between random seeds, calibration of the probabilities (whether
-  0.8 means 80%), and accuracy after INT8 quantisation.
+- *What it looks at:* integrated gradients on two test ECGs (README figure 08) put most of the
+  weight of an STTC prediction on the edges of the QRS complexes rather than on the ST-T segment
+  itself, so the network may rely on features that accompany ST-T change rather than on the change.
+- *Not measured yet:* accuracy on an external dataset, and attributions over many ECGs rather than
+  two examples.
 
 **Licence and attribution.** The weights are derived from PTB-XL, which is distributed by PhysioNet
 under CC BY 4.0, so they are shared under CC BY 4.0 as well. Cite Wagner P, Strodthoff N,

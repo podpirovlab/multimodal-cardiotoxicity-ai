@@ -32,3 +32,6 @@ report.json
 # Packaging
 build/
 dist/
+
+# ...and the seeds of the released ensemble
+!models/*/ensemble/*.pt

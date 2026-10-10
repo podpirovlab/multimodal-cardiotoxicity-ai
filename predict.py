@@ -5,6 +5,7 @@ Examples
     python predict.py --demo --alternans 25                   # two-minute synthetic recording
     python predict.py --wfdb data/ptb-xl/records100/00000/00001_lr --age 56 --sex female \
                       --checkpoint models/ptbxl-1.0/model.pt
+    python predict.py --wfdb data/ptb-xl/records100/00000/00001_lr --ensemble   # mean of 5 seeds
     python predict.py --csv my_ecg.csv --fs 500 --lead 0      # comma-separated, one column per lead, mV
 
 TWA needs a long recording (>= 64 beats, ideally 128, i.e. about 2 minutes); a 10-second
@@ -39,25 +40,34 @@ def load_input(args):
     raise SystemExit("give --demo, --wfdb PATH or --csv PATH")
 
 
-def run_model(sig, fs, age, sex, ckpt_path):
+ENSEMBLE = [Path(__file__).resolve().parent / "models" / "ptbxl-1.0" / "model.pt"] + sorted(
+    (Path(__file__).resolve().parent / "models" / "ptbxl-1.0" / "ensemble").glob("seed*.pt"))
+
+
+def run_model(sig, fs, age, sex, ckpt_paths):
+    """Probabilities of the five PTB-XL classes; with several checkpoints, their mean (an ensemble)."""
     import torch
     from cardioonco.model import CardioOncoNet
-    ck = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     if sig.shape[1] != 12:
         return None, "model skipped: it needs a 12-lead ECG"
-    x = resample_poly(sig, 100, int(round(fs)), axis=0) if int(round(fs)) != 100 else sig
-    x = x[:1000]
-    if len(x) < 1000:
-        x = np.pad(x, ((0, 1000 - len(x)), (0, 0)))
-    x = ((x.T[None] - ck["mu"]) / ck["sd"]).astype(np.float32)
+    x0 = resample_poly(sig, 100, int(round(fs)), axis=0) if int(round(fs)) != 100 else sig
+    x0 = x0[:1000]
+    if len(x0) < 1000:
+        x0 = np.pad(x0, ((0, 1000 - len(x0)), (0, 0)))
     a = 90.0 if age > 120 else age
     meta = np.array([[(a - 62.0) / 17.0, 1.0 if sex == "female" else 0.0, 0.0]], dtype=np.float32)
-    net = CardioOncoNet(n_classes=len(ck["classes"]), width=ck["width"])
-    net.load_state_dict(ck["state_dict"])
-    net.eval()
-    with torch.no_grad():
-        p = torch.sigmoid(net(torch.from_numpy(x), torch.from_numpy(meta)))[0].numpy()
-    return {c: float(v) for c, v in zip(ck["classes"], p)}, "ok"
+    probs, classes = [], None
+    for path in ([ckpt_paths] if isinstance(ckpt_paths, (str, Path)) else ckpt_paths):
+        ck = torch.load(path, map_location="cpu", weights_only=False)
+        classes = ck["classes"]
+        x = ((x0.T[None] - ck["mu"]) / ck["sd"]).astype(np.float32)
+        net = CardioOncoNet(n_classes=len(classes), width=ck["width"])
+        net.load_state_dict(ck["state_dict"])
+        net.eval()
+        with torch.no_grad():
+            probs.append(torch.sigmoid(net(torch.from_numpy(x), torch.from_numpy(meta)))[0].numpy())
+    p = np.mean(probs, axis=0)
+    return {c: float(v) for c, v in zip(classes, p)}, "ok"
 
 
 def main(argv=None):
@@ -71,11 +81,15 @@ def main(argv=None):
     ap.add_argument("--lead", type=int, default=None, help="lead index for TWA (default: V5 if 12-lead)")
     ap.add_argument("--age", type=float, default=60.0)
     ap.add_argument("--sex", choices=["male", "female"], default="male")
-    ap.add_argument("--checkpoint", default=None)
+    ap.add_argument("--checkpoint", nargs="+", default=None, help="one or more trained models; several are averaged")
+    ap.add_argument("--ensemble", action="store_true", help="the five released PTB-XL models, averaged")
     ap.add_argument("--fhir-out", default=None)
     args = ap.parse_args(argv)
-    if args.checkpoint and not Path(args.checkpoint).exists():
-        raise SystemExit(f"checkpoint not found: {args.checkpoint}")
+    if args.ensemble:
+        args.checkpoint = [str(p) for p in ENSEMBLE]
+    for path in args.checkpoint or []:
+        if not Path(path).exists():
+            raise SystemExit(f"checkpoint not found: {path}")
 
     sig, fs = load_input(args)
     lead = args.lead if args.lead is not None else (10 if sig.shape[1] == 12 else 0)

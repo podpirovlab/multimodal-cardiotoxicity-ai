@@ -6,7 +6,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 
 ---
 
-## Where we are (version 1.2, October 2026)
+## Where we are (version 1.4, October 2026)
 
 | Done | Not done |
 |---|---|
@@ -21,12 +21,12 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 ## Next steps (autumn 2026)
 
 1. ~~Train on PTB-XL and run the ablation without age and sex~~ — done (README §5.4): 0.921 against 0.920, difference +0.0007 [−0.003, +0.004]. Each model was trained once.
-2. **Repeat both runs with five random seeds** (about 5 minutes each on a laptop) and report the mean and spread. One run cannot show how much of a 0.001 difference is luck.
+2. ~~Repeat both runs with five random seeds~~ — done (README §5.4): 0.9205 ± 0.0015 with age/sex, 0.9192 ± 0.0012 without; paired effect +0.0013 [−0.0005, +0.0032]. The five models' ensemble reaches 0.930 and is released.
 3. **Find recordings with a known answer** for TWA (paced or exercise tests with clinical TWA results), because the 2008 reference is a consensus of other algorithms, not measured truth.
 4. **Find a cardio-oncology mentor** with one concrete question, for example: "Is it realistic to obtain de-identified ECGs from patients before and after anthracyclines?"
 5. ~~Release v1.0 with a DOI~~ — done: [10.5281/zenodo.23090356](https://doi.org/10.5281/zenodo.23090356) (1.0.0); 1.1.0 with the trained model: [10.5281/zenodo.23094298](https://doi.org/10.5281/zenodo.23094298); 1.1.1: [10.5281/zenodo.23144064](https://doi.org/10.5281/zenodo.23144064); 1.2.0, the new R-peak detector: [10.5281/zenodo.23238175](https://doi.org/10.5281/zenodo.23238175); 1.3.0, coarse sampling: [10.5281/zenodo.23264684](https://doi.org/10.5281/zenodo.23264684).
 
-**Done when:** the seed spread is in the README and a TWA data source with a known answer is identified.
+**Done when:** a TWA data source with a known answer is identified.
 
 ---
 
@@ -39,9 +39,9 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 
 ### 1.2 Make the network stronger and more honest
 - **External validation:** train on PTB-XL, test on a different open 12-lead dataset (for example from the PhysioNet/CinC Challenge 2020). The drop in AUC on unseen data is the key measure of robustness.
-- **Calibration:** reliability diagram and temperature scaling, so that "probability 0.8" means 80%.
-- **Uncertainty:** an ensemble of 5 models or MC dropout; say "uncertain" when the models disagree.
-- **Explainability:** integrated gradients over time show which parts of the ECG drive a decision. For STTC we expect the ST-T window; if not, that is an error to understand.
+- **Calibration:** measured (README §5.4): ECE 0.04–0.06 as trained, 0.01–0.02 after Platt scaling on validation. Next: ship the recalibrated probabilities in `predict.py`.
+- **Uncertainty:** the 5-model ensemble is released (macro-AUC 0.930); next, report "uncertain" when its members disagree (their SD is 0.20 or more for 5% of predictions).
+- **Explainability:** integrated gradients on two test ECGs (README figure 08) put an STTC decision mostly on QRS edges, not on the ST-T window. Next: attributions averaged over every STTC test ECG, to tell a shortcut from a single example.
 - **In-browser inference:** onnxruntime-web on the website, so an ECG file never leaves the user's computer.
 
 ### 1.3 Features cardiologists already use
@@ -87,20 +87,22 @@ Without clinicians and real patients the project cannot answer its main question
 
 - [x] Run `train_ptbxl.py` and publish the metrics (macro-AUC 0.921, `models/ptbxl-1.0/`)
 - [x] Ablation without metadata (`--no-meta`): no measurable gain
-- [ ] Five seeds per configuration
+- [x] Five seeds per configuration, and their ensemble (0.930)
 - [x] Validate TWA on the T-Wave Alternans Challenge Database (τ = 0.43; real records not yet in agreement)
 - [x] R-peak detector scored on cardiologist-annotated databases (MIT-BIH, SVDB)
 - [ ] R-peak detector under controlled noise (MIT-BIH Noise Stress Test)
 - [ ] TWA recordings with a known answer (paced or exercise tests)
 - [ ] The clinical "sustained for a minute" rule instead of a single window
 - [ ] External validation of the network on a second dataset
-- [ ] Calibration and uncertainty estimates
-- [ ] Integrated gradients to explain decisions
+- [x] Calibration measured (Platt scaling: ECE 0.06 → 0.015)
+- [ ] Recalibrated probabilities and an "uncertain" flag in `predict.py`
+- [x] Integrated gradients on two test ECGs
+- [ ] Attributions over all STTC test ECGs (shortcut check)
 - [ ] onnxruntime-web: the real model in the browser
 - [ ] QTc, T-wave amplitude and QRS voltage features
 - [ ] "Patient versus own baseline" model (Siamese network)
 - [ ] FHIR validation on HAPI FHIR
-- [ ] Measure INT8 accuracy
+- [x] INT8 accuracy measured: −0.0002 [−0.0008, +0.0003], 3.4× smaller
 
 ---
 
