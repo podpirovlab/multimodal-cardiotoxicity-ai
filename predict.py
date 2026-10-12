@@ -9,7 +9,8 @@ Examples
     python predict.py --csv my_ecg.csv --fs 500 --lead 0      # comma-separated, one column per lead, mV
 
 TWA needs a long recording (>= 64 beats, ideally 128, i.e. about 2 minutes); a 10-second
-12-lead ECG has only ~12 beats, so for those only the neural-network output is reported.
+12-lead ECG has only ~12 beats, so for those TWA is not computed.  QT and QTc are measured
+when the recording has at least 6 leads (cardioonco/qt.py; from one lead QT was not accurate).
 """
 from __future__ import annotations
 
@@ -22,6 +23,7 @@ from scipy.signal import resample_poly
 
 from cardioonco import fhir
 from cardioonco.preprocess import consensus_r_peaks
+from cardioonco.qt import MIN_LEADS, measure_qt_segments
 from cardioonco.twa import analyze
 
 
@@ -104,6 +106,16 @@ def main(argv=None):
         twa = None
         report["twa"] = f"not computed: {exc}"
 
+    qt = None
+    if sig.shape[1] >= MIN_LEADS:
+        try:
+            qt = measure_qt_segments(sig.T, fs).as_dict()
+            report["qt"] = {k: v for k, v in qt.items() if k != "t_end_per_lead_ms"}
+        except ValueError as exc:
+            report["qt"] = f"not measured: {exc}"
+    else:
+        report["qt"] = f"not measured: {sig.shape[1]} lead(s), at least {MIN_LEADS} are needed"
+
     probs = None
     if args.checkpoint:
         probs, status = run_model(sig, fs, args.age, args.sex, args.checkpoint)
@@ -111,7 +123,7 @@ def main(argv=None):
 
     print(json.dumps(report, indent=2, ensure_ascii=False))
     if args.fhir_out:
-        doc = fhir.diagnostic_report(None, twa, probs)   # no subject: there is no patient record to point to
+        doc = fhir.diagnostic_report(None, twa, probs, qt=qt)   # no subject: there is no patient record to point to
         Path(args.fhir_out).write_text(json.dumps(doc, indent=2))
         print(f"FHIR DiagnosticReport -> {args.fhir_out}")
     return report

@@ -74,26 +74,27 @@
 
     // Physical values converted to mV. A channel whose unit is not a voltage we recognise
     // is read as if it were already in mV; signals[i].unitToMv === null tells the caller.
-    function getChannel(index) {
+    // from/to (sample indices, to exclusive) read only part of the channel, so that a long
+    // multi-lead recording never has to sit in memory whole.
+    function getChannel(index, from, to) {
       const s = signals[index];
       if (!s || s.samplesPerRecord <= 0) throw new Error("Channel has no samples.");
       const scale = (s.digMax - s.digMin) !== 0 ? (s.physMax - s.physMin) / (s.digMax - s.digMin) : 1;
       const toMv = s.unitToMv === null ? 1 : s.unitToMv;
-      const out = new Float64Array(nRec * s.samplesPerRecord);
-      let o = 0;
-      for (let r = 0; r < nRec; r++) {
-        let off = dataStart + r * recordBytes + recordOffsets[index];
-        for (let k = 0; k < s.samplesPerRecord; k++) {
-          let digital;
-          if (bdf) {
-            digital = bytes[off] | (bytes[off + 1] << 8) | (bytes[off + 2] << 16);
-            if (digital & 0x800000) digital -= 0x1000000;       // sign-extend 24-bit
-          } else {
-            digital = (bytes[off] | (bytes[off + 1] << 8)) << 16 >> 16;
-          }
-          out[o++] = (s.physMin + (digital - s.digMin) * scale) * toMv;
-          off += bytesPerSample;
+      const spr = s.samplesPerRecord, total = nRec * spr;
+      const a = Math.max(0, from || 0), b = Math.min(total, to == null ? total : to);
+      const out = new Float64Array(Math.max(0, b - a));
+      for (let n = a; n < b; n++) {
+        const r = Math.floor(n / spr);
+        const off = dataStart + r * recordBytes + recordOffsets[index] + (n - r * spr) * bytesPerSample;
+        let digital;
+        if (bdf) {
+          digital = bytes[off] | (bytes[off + 1] << 8) | (bytes[off + 2] << 16);
+          if (digital & 0x800000) digital -= 0x1000000;       // sign-extend 24-bit
+        } else {
+          digital = (bytes[off] | (bytes[off + 1] << 8)) << 16 >> 16;
         }
+        out[n - a] = (s.physMin + (digital - s.digMin) * scale) * toMv;
       }
       return out;
     }

@@ -40,6 +40,16 @@
       unitUnknown: (u) => ` Единицы канала «${u || "не указаны"}» не распознаны как напряжение: считаю, что значения в мВ.`,
       edfChannel: "Канал (отведение)", edfAnnotations: "(служебный канал, пропущен)",
       shortWarn: (n) => `Проанализировано ${n} ударов — меньше стандартных 128, поэтому к результату стоит относиться осторожнее.`,
+      ms: "мс",
+      qtBusy: "Измеряю QT по всем отведениям…",
+      qtNone: "QT измеряется по файлу EDF или BDF, где не меньше 6 стандартных отведений (I, II … V6). По одному отведению наш QT на ЭКГ PTB-XL ошибался примерно на 46 мс, а по двенадцати — на 9 мс, поэтому по одному отведению QT не показывается.",
+      qtFew: (n) => `В файле ${n} ${plural(n, "стандартное отведение", "стандартных отведения", "стандартных отведений")} ЭКГ с известными единицами, а для QT нужно не меньше 6: по одному отведению наш QT ошибался примерно на 46 мс. Отведение узнаётся по подписи канала, например «II» или «ECG V5».`,
+      qtErr: "QT измерить не удалось: в записи не нашлось ровных ударов с заметной волной T.",
+      qtWhere: (q) => q.nSegments > 1
+        ? `Показан отрезок ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} с — с медианным QTcF среди ${q.nSegmentsReliable ? `${q.nSegmentsReliable} ${plural(q.nSegmentsReliable, "надёжного", "надёжных", "надёжных")} десятисекундных отрезков (всего ${q.nSegments})` : `${q.nSegments} десятисекундных отрезков (надёжных нет)`}; ЧСС ${fmt(q.hr, 0)} уд/мин.`
+        : `По ${q.nBeats} ${plural(q.nBeats, "удару", "ударам", "ударам")}, ЧСС ${fmt(q.hr, 0)} уд/мин.`,
+      qtOk: (q, n) => `Отведения согласны: конец T найден в ${q.nLeadsUsed} из ${n}, разброс ${fmt(q.iqrMs, 0)} мс. На тестовых ЭКГ PTB-XL с такой пометкой наш QT отличался от алгоритма GE 12SL в среднем на 9 мс. Автоматический QT врач всё равно проверяет вручную.`,
+      qtCheck: (q, n) => `Проверьте вручную: ${q.nLeadsUsed < 6 ? `конец T найден только в ${q.nLeadsUsed} из ${n} отведений` : `отведения расходятся в том, где кончается T (разброс ${fmt(q.iqrMs, 0)} мс)`}. Так бывает при плоской или двугорбой волне T, трепетании и мерцании предсердий.`,
     },
     en: {
       pos: "Alternans criterion met", neg: "No significant alternans", ind: "Indeterminate", err: "Cannot analyse",
@@ -75,6 +85,16 @@
       unitUnknown: (u) => ` The channel's unit "${u || "none"}" is not a voltage I recognise, so the values are read as mV.`,
       edfChannel: "Channel (lead)", edfAnnotations: "(service channel, skipped)",
       shortWarn: (n) => `Analysed ${n} beats — fewer than the standard 128, so treat the result with more caution.`,
+      ms: "ms",
+      qtBusy: "Measuring QT on all leads…",
+      qtNone: "QT is measured from an EDF or BDF file with at least 6 standard leads (I, II … V6). From one lead our QT was off by about 46 ms on PTB-XL ECGs, against 9 ms from twelve, so no single-lead QT is shown.",
+      qtFew: (n) => `This file has ${n} standard ECG lead${n === 1 ? "" : "s"} with known units; QT needs at least 6: from one lead our QT was off by about 46 ms. A lead is recognised by its channel label, such as "II" or "ECG V5".`,
+      qtErr: "QT could not be measured: no regular beats with a visible T wave were found.",
+      qtWhere: (q) => q.nSegments > 1
+        ? `Shown: the ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} s segment, the one with the median QTcF of ${q.nSegmentsReliable ? `the ${q.nSegmentsReliable} reliable ten-second segments (${q.nSegments} in all)` : `${q.nSegments} ten-second segments (none reliable)`}; heart rate ${fmt(q.hr, 0)} bpm.`
+        : `From ${q.nBeats} beats, heart rate ${fmt(q.hr, 0)} bpm.`,
+      qtOk: (q, n) => `The leads agree: ${q.nLeadsUsed} of ${n} give a T end, spread ${fmt(q.iqrMs, 0)} ms. On PTB-XL test ECGs flagged like this, our QT differed from the GE 12SL algorithm by 9 ms on average. A doctor still checks an automatic QT by hand.`,
+      qtCheck: (q, n) => `Check by hand: ${q.nLeadsUsed < 6 ? `only ${q.nLeadsUsed} of ${n} leads give a T end` : `the leads disagree on where T ends (spread ${fmt(q.iqrMs, 0)} ms)`}. This happens with flat or notched T waves, atrial flutter and fibrillation.`,
     },
   }[LANG === "ru" ? "ru" : "en"];
 
@@ -167,7 +187,7 @@
   // ======================= TWA LAB =======================
   // source: "none" until the user uploads a file or opens a synthetic example — the page
   // never opens on a result about a person who does not exist.
-  const lab = { res: null, sig: null, seed: 7, source: "none", lead: "", fileSig: null, fileFs: 500, fileName: "", edf: null, csvRawText: null };
+  const lab = { res: null, sig: null, seed: 7, source: "none", lead: "", fileSig: null, fileFs: 500, fileName: "", edf: null, csvRawText: null, qt: null };
   const sliders = ["alt", "noise", "hr", "tamp", "mains"];
   function params() {
     const v = (id) => parseFloat($("#s-" + id).value);
@@ -196,6 +216,7 @@
     box.querySelector(".pill").textContent = T.none;
     box.querySelector("p").textContent = T.noneText;
     clearMetrics();
+    qtSeq++; lab.qt = null; renderQT();
     $("#b-fhir").disabled = true; $("#b-print").disabled = true;
     drawLab();
   }
@@ -235,14 +256,68 @@
     };
     worker.onerror = (e) => { e.preventDefault(); worker = null; for (const job of jobs.values()) job.inline(); jobs.clear(); };
   } catch (e) { worker = null; }
-  function analyse(x, fs) {
+  function runJob(msg, compute) {
     return new Promise((resolve, reject) => {
-      const inline = () => { try { resolve(D.analyzeTWA(x, fs)); } catch (err) { reject(err); } };
+      const inline = () => { try { resolve(compute()); } catch (err) { reject(err); } };
       if (!worker) { inline(); return; }
       const id = ++jobSeq;
       jobs.set(id, { resolve, reject, inline });
-      worker.postMessage({ id, x, fs });
+      worker.postMessage(Object.assign({ id }, msg));
     });
+  }
+  const analyse = (x, fs) => runJob({ kind: "twa", x, fs }, () => D.analyzeTWA(x, fs));
+  const measureQT = (segments, starts, fs) => runJob({ kind: "qt", segments, starts, fs },
+    () => D.measureQTOnSegments(segments, starts, fs));
+
+  // ---------- QT: all standard leads of an EDF file together (cardioonco/qt.py) ----------
+  // QT is shown only from at least 6 standard leads: from one lead it was off by ~46 ms on PTB-XL.
+  let qtSeq = 0;
+  const qtOk = () => !!(lab.qt && lab.qt.state === "ok");
+  function updateExport() { $("#b-fhir").disabled = !(lab.res || qtOk()); }
+  // the standard leads (one channel each, known voltage unit) sharing the most common sampling rate
+  function standardLeads(edf) {
+    const byFs = new Map();
+    edf.signals.forEach((s, i) => {
+      const lead = EDF.leadFromLabel(s.label);
+      if (s.annotations || s.unitToMv === null || !lead) return;
+      if (!byFs.has(s.fs)) byFs.set(s.fs, new Map());
+      if (!byFs.get(s.fs).has(lead)) byFs.get(s.fs).set(lead, i);
+    });
+    let best = { fs: 0, idx: [] };
+    for (const [fs, m] of byFs) if (m.size > best.idx.length) best = { fs, idx: [...m.values()] };
+    return best;
+  }
+  function setQT(state) { qtSeq++; lab.qt = state; renderQT(); updateExport(); }
+  function startQT(edf) {
+    const g = standardLeads(edf);
+    if (g.idx.length < D.QT.minLeads) { setQT({ state: "few", n: g.idx.length }); return; }
+    setQT({ state: "busy" });
+    const seq = qtSeq;
+    // only the 10-s segments that are measured are read from the file (at most 60 of them)
+    const total = edf.nRecords * edf.signals[g.idx[0]].samplesPerRecord;
+    const starts = D.qtSegmentStarts(total, g.fs);
+    const len = starts.length === 1 ? total : Math.round(D.QT.segmentS * g.fs);
+    const segments = starts.map((s) => g.idx.map((i) => edf.getChannel(i, s, s + len)));
+    measureQT(segments, starts, g.fs).then(
+      (q) => { if (seq === qtSeq) { lab.qt = { state: "ok", q, n: g.idx.length }; renderQT(); updateExport(); } },
+      () => { if (seq === qtSeq) { lab.qt = { state: "err" }; renderQT(); updateExport(); } });
+  }
+  function renderQT() {
+    const st = lab.qt, cells = [["#m-qt", "qtMs"], ["#m-qtcf", "qtcfMs"], ["#m-qtcb", "qtcbMs"]];
+    for (const [id] of cells) { $(id).textContent = st && st.state === "busy" ? "…" : "—"; $(id).classList.remove("met", "warn"); }
+    const note = $("#qt-note");
+    if (!st || st.state === "none") { note.textContent = T.qtNone; return; }
+    if (st.state === "busy") { note.textContent = T.qtBusy; return; }
+    if (st.state === "few") { note.textContent = T.qtFew(st.n); return; }
+    if (st.state === "err") { note.textContent = T.qtErr; return; }
+    const q = st.q;
+    for (const [id, k] of cells) {
+      $(id).innerHTML = `${fmt(q[k], 0)} <small>${T.ms}</small>`;
+      $(id).classList.toggle("warn", !q.reliable);
+    }
+    // red marks a finding only: a reliable QTcF above the ESC 2022 definition of prolonged
+    $("#m-qtcf").classList.toggle("met", q.reliable && q.qtcfMs > 500);
+    note.textContent = T.qtWhere(q) + " " + (q.reliable ? T.qtOk(q, st.n) : T.qtCheck(q, st.n));
   }
 
   function runLab() {
@@ -252,6 +327,7 @@
     else { const s = D.synth(Object.assign(params(), { seed: lab.seed })); x = s.x; fs = s.fs; }
     const box = $("#verdict"), run = ++runSeq;
     const record = lab.source === "file" ? lab.fileName : T.synthName;
+    if (lab.source !== "file" && lab.qt) setQT(null);         // the synthetic example is one lead
     if (lab.source === "file") {
       box.className = "verdict none"; box.querySelector(".pill").textContent = T.busy;
       box.querySelector("p").textContent = T.busyText;
@@ -281,7 +357,7 @@
       $("#m-valt").classList.toggle("met", r.positive);
       $("#m-k").classList.toggle("met", r.positive);
       $("#m-noise").classList.toggle("warn", r.outcome === "indeterminate" && r.reason === "noise");
-      $("#b-fhir").disabled = false; $("#b-print").disabled = false;
+      $("#b-print").disabled = false; updateExport();
       drawLab();
       if (lab.animate) { lab.animate = false; animateResult(); }
     }, (e) => {
@@ -291,7 +367,7 @@
       clearMetrics();
       box.querySelector("p").textContent = errorText(e);
       $("#f-rec").textContent = record;
-      $("#b-fhir").disabled = true; $("#b-print").disabled = true;
+      $("#b-print").disabled = true; updateExport();
       drawLab();
     });
   }
@@ -448,7 +524,8 @@
       const edf = EDF.parseEDF(buf);
       lab.edf = edf;
       $("#f-csv-wrap").hidden = true; $("#f-edf-wrap").hidden = false;
-      populateEdfChannels(edf);
+      populateEdfChannels(edf);           // the TWA job goes to the worker first, QT after it
+      startQT(edf);
     } catch (e) {
       $("#f-status").textContent = T.fileErrEdf(e.message);
     }
@@ -459,6 +536,7 @@
       if (isEdfBytes(new Uint8Array(buf, 0, Math.min(8, buf.byteLength)))) { openEdf(buf, file.name); return; }
       lab.fileName = file.name;
       $("#f-csv-wrap").hidden = false; $("#f-edf-wrap").hidden = true; lab.edf = null;
+      setQT({ state: "none" });
       lab.csvRawText = new TextDecoder().decode(buf);
       parseCsvText(lab.csvRawText);
     });
@@ -491,17 +569,19 @@
   const FHIR_CS = "https://github.com/podpirovlab/multimodal-cardiotoxicity-ai/fhir/CodeSystem/cardioonco";
   const UCUM = "http://unitsofmeasure.org";
   const LOINC = "http://loinc.org";
+  // loinc: [code, display], the display exactly as LOINC names the code (checked on tx.fhir.org)
   function fhirObs(id, code, display, value, unit, loinc) {
     const coding = [{ system: FHIR_CS, code, display }];
-    if (loinc) coding.unshift({ system: LOINC, code: loinc, display });
+    if (loinc) coding.unshift({ system: LOINC, code: loinc[0], display: loinc[1] });
     return { resourceType: "Observation", id, status: "preliminary",
       code: { coding, text: display }, device: { reference: "#software" },
       valueQuantity: { value: +value.toFixed(4), unit, system: UCUM, code: unit } };
   }
   function exportFHIR() {
-    const r = lab.res; if (!r) return;
-    const observations = [
-      fhirObs("hr", "heart-rate", "Heart rate (from R-R intervals)", r.hr, "/min", "8867-4"),
+    const r = lab.res, q = qtOk() ? lab.qt.q : null;
+    if (!r && !q) return;
+    const observations = r ? [
+      fhirObs("hr", "heart-rate", "Heart rate (from R-R intervals)", r.hr, "/min", ["8867-4", "Heart rate"]),
       fhirObs("valt", "twa-valt", "T-wave alternans voltage (Spectral Method)", r.vAlt, "uV"),
       fhirObs("kscore", "twa-k", "T-wave alternans K-score", r.k, "1"),
       fhirObs("mma", "twa-mma", "T-wave alternans (Modified Moving Average)", r.mma, "uV"),
@@ -510,9 +590,19 @@
                 text: "T-wave alternans outcome (Spectral Method rules)" },
         device: { reference: "#software" },
         valueCodeableConcept: { coding: [{ system: FHIR_CS, code: r.outcome, display: r.outcome }], text: r.reason } },
-    ];
+    ] : [];
+    if (q) observations.push(        // mirrors cardioonco/fhir.py
+      fhirObs("qt", "qt-interval", "QT interval (tangent method, 12SL scale)", q.qtMs, "ms", ["8634-8", "Q-T interval"]),
+      fhirObs("qtcf", "qtc-fridericia", "QTc, Fridericia correction", q.qtcfMs, "ms", ["8636-3", "Q-T interval corrected"]),
+      fhirObs("qtcb", "qtc-bazett", "QTc, Bazett correction", q.qtcbMs, "ms"),
+      { resourceType: "Observation", id: "qt-reliability", status: "preliminary",
+        code: { coding: [{ system: FHIR_CS, code: "qt-reliability", display: "QT measurement reliability (leads agree on the T end)" }],
+                text: "QT measurement reliability (leads agree on the T end)" },
+        device: { reference: "#software" },
+        valueCodeableConcept: { coding: [{ system: FHIR_CS, code: q.reliable ? "reliable" : "check-by-hand", display: q.reliable ? "reliable" : "check-by-hand" }],
+                                text: `${q.nLeadsUsed} leads, T-end spread ${Math.round(q.iqrMs)} ms` } });
     const device = { resourceType: "Device", id: "software",
-      deviceName: [{ name: "CardioOncoPredict TWA analysis (research software)", type: "model-name" }],
+      deviceName: [{ name: "CardioOncoPredict ECG analysis (research software)", type: "model-name" }],
       version: [{ value: D.version }] };
     const report = {
       resourceType: "DiagnosticReport", id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2),
@@ -520,10 +610,11 @@
       contained: [device, ...observations],
       status: "preliminary",
       category: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/v2-0074", code: "EC", display: "Electrocardiac (e.g., EKG, EEC, Holter)" }] }],
-      code: { coding: [{ system: LOINC, code: "11524-6", display: "EKG study" }], text: "CardioOncoPredict TWA analysis (research prototype)" },
+      code: { coding: [{ system: LOINC, code: "11524-6", display: "EKG study" }], text: "CardioOncoPredict ECG analysis (research prototype)" },
       issued: new Date().toISOString(),
       result: observations.map((o) => ({ reference: `#${o.id}` })),
-      conclusion: "RESEARCH USE ONLY — NOT FOR CLINICAL RECORDS. " + verdictText(r),
+      conclusion: "RESEARCH USE ONLY — NOT FOR CLINICAL RECORDS. " + [r ? verdictText(r) : "",
+        q ? `QT ${Math.round(q.qtMs)} ms, QTcF ${Math.round(q.qtcfMs)} ms (${q.reliable ? "leads agree" : "check by hand"}).` : ""].filter(Boolean).join(" "),
     };
     if ($("#p-include").checked) {           // research metadata only on explicit opt-in
       const m = metadata(), ext = [];

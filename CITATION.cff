@@ -4,14 +4,15 @@ type: software
 title: "CardioOncoPredict: research software for measuring microvolt T-wave alternans"
 abstract: >-
   Open research software that measures microvolt T-wave alternans in ECG recordings
-  with the Spectral Method and Modified Moving Average, in Python and in the browser,
-  to test whether alternans precedes anthracycline cardiotoxicity. The hypothesis is
+  with the Spectral Method and Modified Moving Average, and the QT interval with the
+  tangent method, in Python and in the browser, to test whether alternans precedes
+  anthracycline cardiotoxicity. The hypothesis is
   unproven; the software is not a medical device.
 authors:
   - given-names: Petr
     family-names: Podpirov
     alias: podpirovlab
-version: 1.4.0
+version: 1.5.0
 doi: 10.5281/zenodo.23090355
 identifiers:
   - type: doi

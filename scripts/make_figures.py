@@ -191,6 +191,24 @@ L = {
         mol="molecular\n(ROS, iron, TOP2B)", ele="electrical\n(QT, T-wave alternans)", mec="mechanical\n(LVEF ↓ on echo)",
         tgt="CardioOncoPredict\ntarget", std="standard\nmonitoring", time="time since start of chemotherapy (schematic)",
         visible="signal strength",
+        # 14
+        f14_title="QT interval: the tangent method on a real 12-lead ECG and agreement with the GE 12SL algorithm",
+        a14="a  One lead ({lead}): tangent to the descending T wave",
+        b14="b  T end in each lead: median {te} ms, spread (IQR) {iqr} ms",
+        c14="c  Test fold 10 of PTB-XL: our QT against 12SL ({n} ECGs)",
+        d14="d  What the accuracy depends on (development fold 9)",
+        median_beat="median beat", tangent_lbl="tangent at the steepest point", iso_line="isoelectric line (PR)",
+        qrs_on="QRS onset (all leads)", t_end_lbl="T end", qt_span="QT by tangent {v} ms",
+        no_t="no T end (flat T)", median_te="median", iqr_band="interquartile range",
+        qt_result="QT = {raw} + {off} = {qt} ms\nQTcF {qtcf} ms, QTcB {qtcb} ms",
+        twa36="twa36 (PhysioNet TWADB, from PTB), {a}–{b} s",
+        ba_x="mean of the two, ms", ba_y="ours − 12SL, ms",
+        reliable_lbl="leads agree ({p}%)", flagged_lbl="flagged: check by hand ({p}%)",
+        bias_lbl="mean difference {b} ms", loa_lbl="95% limits of agreement [{lo}, {hi}] ms",
+        ba_note="leads agree: mean |difference| {mae} ms,\n{w20}% within 20 ms; {k} points beyond ±150 ms not shown",
+        mae_ax="mean |difference| from 12SL, ms",
+        d_rel="12 leads, leads agree", d_100="12 leads at 100 Hz, interpolated; leads agree", d_all="12 leads, all ECGs",
+        d_I="lead I alone (as on a smartwatch)", d_II="lead II alone", box_ms="one small box on ECG paper = 40 ms",
     ),
     "ru": dict(
         t_s="время, с", mv="мВ", uv="мкВ", ms="мс", beat="номер удара", fromR="время от R-пика, с",
@@ -272,6 +290,24 @@ L = {
         mol="молекулярный\n(АФК, железо, TOP2B)", ele="электрический\n(QT, альтернация T)", mec="механический\n(ФВ ЛЖ ↓ на ЭхоКГ)",
         tgt="цель\nCardioOncoPredict", std="стандартный\nконтроль", time="время от начала химиотерапии (схема)",
         visible="сила сигнала",
+        # 14
+        f14_title="Интервал QT: метод касательной на настоящей ЭКГ в 12 отведениях и согласие с алгоритмом GE 12SL",
+        a14="a  Одно отведение ({lead}): касательная к спуску волны T",
+        b14="b  Конец T в каждом отведении: медиана {te} мс, разброс (IQR) {iqr} мс",
+        c14="c  Тестовый фолд 10 PTB-XL: наш QT против 12SL ({n} ЭКГ)",
+        d14="d  От чего зависит точность (фолд 9, для разработки)",
+        median_beat="медианный удар", tangent_lbl="касательная в самой крутой точке", iso_line="изолиния (PR)",
+        qrs_on="начало QRS (по всем отведениям)", t_end_lbl="конец T", qt_span="QT по касательной {v} мс",
+        no_t="нет конца T (плоская T)", median_te="медиана", iqr_band="межквартильный размах",
+        qt_result="QT = {raw} + {off} = {qt} мс\nQTcF {qtcf} мс, QTcB {qtcb} мс",
+        twa36="twa36 (PhysioNet TWADB, из PTB), {a}–{b} с",
+        ba_x="среднее двух измерений, мс", ba_y="наш − 12SL, мс",
+        reliable_lbl="отведения согласны ({p} %)", flagged_lbl="помечено: проверить вручную ({p} %)",
+        bias_lbl="средняя разница {b} мс", loa_lbl="95 % границы согласия [{lo}; {hi}] мс",
+        ba_note="отведения согласны: средняя |разница| {mae} мс,\n{w20} % в пределах 20 мс; {k} точек за ±150 мс не показаны",
+        mae_ax="средняя |разница| с 12SL, мс",
+        d_rel="12 отведений, отведения согласны", d_100="12 отведений, 100 Гц с интерполяцией; согласны", d_all="12 отведений, все ЭКГ",
+        d_I="одно отведение I (как в смарт-часах)", d_II="одно отведение II", box_ms="одна маленькая клетка ЭКГ-бумаги = 40 мс",
     ),
 }
 
@@ -279,6 +315,11 @@ L = {
 def dec(lang: str, s: str) -> str:
     """Decimal comma in Russian figures (0,5 rather than 0.5)."""
     return s.replace(".", ",") if lang == "ru" else s
+
+
+def signed(lang: str, v: float, digits: int) -> str:
+    """+1.5 / −1.5 with a true minus sign (and a decimal comma in Russian)."""
+    return dec(lang, f"{v:+.{digits}f}").replace("-", "−")
 
 
 def save(fig, out: Path, name: str):
@@ -1083,6 +1124,124 @@ def fig13(lang, out):
     save(fig, out, "13_rpeak_benchmark.png")
 
 
+LEADS12 = ("I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6")
+
+
+def fig14(lang, out):
+    """QT: the tangent method on the bundled real 12-lead ECG, and the agreement with GE 12SL on
+    PTB-XL (scripts/validate_qt.py; docs/results/qt_ptbxl_fold9*.json and qt_ptbxl_fold10.csv)."""
+    import csv
+    import json
+
+    import pyedflib
+
+    from cardioonco import qt as Q
+    from cardioonco.preprocess import consensus_r_peaks
+    T = L[lang]
+    res = ROOT / "docs" / "results"
+    f = pyedflib.EdfReader(str(ROOT / "assets" / "samples" / "twadb-twa36.edf"))
+    labels = [f.getLabel(i).strip() for i in range(f.signals_in_file)]
+    idx = [labels.index(n) for n in LEADS12]
+    fs = f.getSampleFrequency(idx[0])
+    X = np.array([f.readSignal(i) for i in idx])
+    f.close()
+    q = Q.measure_qt_segments(X, fs)                   # the segment the method reports
+    s0 = int(round(q.segment_start_s * fs))
+    seg = X[:, s0:s0 + int(Q.SEGMENT_S * fs)]
+    beats, t, _, rr = Q.median_beats(seg, fs, consensus_r_peaks(seg, fs))
+    on = Q.qrs_onset(beats, t, fs)
+    cons = [Q.tangent(b, t, fs, rr) for b in beats]
+    ends = np.array([c["t_end"] if c else np.nan for c in cons]) * 1000
+    te = np.nanmedian(ends)
+    fmt0 = lambda v: dec(lang, f"{v:.0f}")             # noqa: E731
+    fig, ax = plt.subplots(2, 2, figsize=(15.5, 10.4), layout="constrained")
+
+    # a: one lead, the tangent construction
+    a = ax[0, 0]
+    k = max((i for i, c in enumerate(cons) if c), key=lambda i: abs(cons[i]["slope"]))
+    c, tm = cons[k], t * 1000
+    a.axhline(0, color=MUTED, lw=0.8, ls=(0, (4, 3)), label=T["iso_line"])
+    a.plot(tm, beats[k], color=INK, lw=1.8, label=T["median_beat"])
+    tt = np.linspace(c["t_j"] - 0.05, c["t_end"] + 0.02, 50)
+    a.plot(tt * 1000, c["v_j"] + c["slope"] * (tt - c["t_j"]), color=BLUE, lw=1.4, label=T["tangent_lbl"])
+    a.plot(c["t_j"] * 1000, c["v_j"], "o", color=BLUE, ms=6)
+    a.axvline(on * 1000, color=MUTED, lw=1, label=T["qrs_on"])
+    a.plot(c["t_end"] * 1000, 0, "D", color=BLUE, ms=7, label=T["t_end_lbl"])
+    top = beats[k].max()
+    a.annotate("", xy=(c["t_end"] * 1000, 0.92 * top), xytext=(on * 1000, 0.92 * top),
+               arrowprops=dict(arrowstyle="<->", color=INK, lw=1))
+    a.text((on * 1000 + c["t_end"] * 1000) / 2, 0.95 * top, T["qt_span"].format(v=fmt0(1000 * (c["t_end"] - on))),
+           ha="center", va="bottom", fontsize=9.5)
+    a.set(xlabel=T["fromR"].replace(", s", ", ms").replace(", с", ", мс"), ylabel=T["mv"],
+          title=T["a14"].format(lead=LEADS12[k]), xlim=(-150, min(tm[-1], 650)))
+    a.legend(loc="lower right", fontsize=8.5)
+    a.text(0.01, 0.02, T["twa36"].format(a=fmt0(q.segment_start_s), b=fmt0(q.segment_start_s + Q.SEGMENT_S)),
+           transform=a.transAxes, fontsize=8.5, color=MUTED)
+
+    # b: the T end of every lead, their median and spread
+    b = ax[0, 1]
+    y = np.arange(len(LEADS12))[::-1]
+    lo, hi = np.nanpercentile(ends, [25, 75])
+    b.axvspan(lo, hi, color=BLUE, alpha=0.15, lw=0, label=T["iqr_band"])
+    b.axvline(te, color=INK, lw=1.2, label=T["median_te"])
+    ok = np.isfinite(ends)
+    b.plot(ends[ok], y[ok], "D", color=BLUE, ms=7)
+    for yy, e in zip(y, ends):
+        if not np.isfinite(e):
+            b.text(np.nanmin(ends) - 4, yy, T["no_t"], va="center", ha="right", fontsize=8.5, color=MUTED)
+    b.set_yticks(y, LEADS12)
+    pad = max(25.0, 0.6 * (np.nanmax(ends) - np.nanmin(ends)))
+    b.set(xlabel=T["fromR"].replace(", s", ", ms").replace(", с", ", мс"), xlim=(np.nanmin(ends) - pad - 60, np.nanmax(ends) + pad),
+          title=T["b14"].format(te=fmt0(te), iqr=fmt0(hi - lo)))
+    b.text(0.02, 0.03, T["qt_result"].format(raw=fmt0(q.qt_tangent_ms), off=dec(lang, f"{Q.QT_OFFSET_MS:.1f}"),
+                                               qt=fmt0(q.qt_ms), qtcf=fmt0(q.qtcf_ms), qtcb=fmt0(q.qtcb_ms)),
+           transform=b.transAxes, ha="left", va="bottom", fontsize=9.5,
+           bbox=dict(boxstyle="round,pad=0.4", fc=BG, ec=LINE))
+    b.legend(loc="upper left", fontsize=8.5)
+
+    # c: Bland-Altman on the test fold
+    cc = ax[1, 0]
+    rows = list(csv.DictReader(open(res / "qt_ptbxl_fold10.csv")))
+    ours = np.array([float(r["qt_ours_ms"]) for r in rows])
+    ref = np.array([float(r["qt_12sl_ms"]) for r in rows])
+    rel = np.array([r["reliable"] == "1" for r in rows])
+    m, d = (ours + ref) / 2, ours - ref
+    summ = json.load(open(res / "qt_ptbxl_fold10.json"))["reliable"]["qt"]
+    cc.scatter(m[rel], d[rel], s=7, color=BLUE, alpha=0.35, lw=0,
+               label=T["reliable_lbl"].format(p=fmt0(100 * rel.mean())))
+    cc.scatter(m[~rel], d[~rel], s=9, color=AMBER, alpha=0.7, lw=0,
+               label=T["flagged_lbl"].format(p=fmt0(100 * (~rel).mean())))
+    cc.axhline(summ["bias_ms"], color=INK, lw=1.2, label=T["bias_lbl"].format(b=signed(lang, summ["bias_ms"], 1)))
+    for v in summ["loa_ms"]:
+        cc.axhline(v, color=INK, lw=1, ls=(0, (5, 3)))
+    cc.plot([], [], color=INK, lw=1, ls=(0, (5, 3)),
+            label=T["loa_lbl"].format(lo=signed(lang, summ["loa_ms"][0], 0), hi=signed(lang, summ["loa_ms"][1], 0)))
+    cc.set(xlabel=T["ba_x"], ylabel=T["ba_y"], title=T["c14"].format(n=len(rows)), ylim=(-150, 150))
+    cc.text(0.98, 0.03, T["ba_note"].format(mae=dec(lang, f"{summ['mae_ms']:.1f}"), w20=dec(lang, f"{100 * summ['within_20_ms']:.1f}"),
+                                             k=int(np.sum(np.abs(d) > 150))),
+            transform=cc.transAxes, ha="right", va="bottom", fontsize=8.5, color=MUTED)
+    cc.legend(loc="upper left", fontsize=8.5)
+
+    # d: what the accuracy depends on (fold 9, development)
+    dd = ax[1, 1]
+    f9 = json.load(open(res / "qt_ptbxl_fold9.json"))
+    f9l = json.load(open(res / "qt_ptbxl_fold9_100hz.json"))
+    bars = [(T["d_rel"], f9["reliable"]["qt"]["mae_ms"], BLUE), (T["d_100"], f9l["reliable"]["qt"]["mae_ms"], BLUE),
+            (T["d_all"], f9["all"]["qt"]["mae_ms"], BLUE), (T["d_II"], f9["single_lead_II"]["mae_ms"], LINE),
+            (T["d_I"], f9["single_lead_I"]["mae_ms"], LINE)]
+    yy = np.arange(len(bars))[::-1]
+    dd.barh(yy, [v for _, v, _ in bars], color=[col for *_, col in bars], height=0.6)
+    for yv, (_, v, _) in zip(yy, bars):
+        dd.text(v + 0.8, yv, dec(lang, f"{v:.1f}"), va="center", fontsize=9.5)
+    dd.axvline(40, color=MUTED, lw=1, ls=(0, (4, 3)))
+    dd.text(40.8, yy[0] + 0.45, T["box_ms"], fontsize=8.5, color=MUTED, va="center")
+    dd.set_yticks(yy, [lbl for lbl, *_ in bars])
+    dd.set(xlabel=T["mae_ax"], title=T["d14"], xlim=(0, 62))
+    dd.grid(axis="y", visible=False)
+    fig.suptitle(T["f14_title"], x=0.01, ha="left", fontsize=14, fontweight="bold")
+    save(fig, out, "14_qt_interval.png")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lang", nargs="+", default=["en", "ru"])
@@ -1094,7 +1253,7 @@ def main():
     args = ap.parse_args()
     apply_style(args.style)
     figs = {"01": fig01, "02": fig02, "03": fig03, "04": fig04, "05": fig05, "06": fig06,
-            "07": fig07, "08": fig08, "09": fig09, "10": fig10, "11": fig11, "12": fig12, "13": fig13}
+            "07": fig07, "08": fig08, "09": fig09, "10": fig10, "11": fig11, "12": fig12, "13": fig13, "14": fig14}
     for lang in args.lang:
         out = Path(args.out) / lang
         print(f"[{lang}]")

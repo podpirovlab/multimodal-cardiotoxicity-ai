@@ -462,8 +462,133 @@
              window: [aSt / fs, bSt / fs], windows };
   }
 
-  root.CardioDSP = { version: "1.4.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
+  // ---------- QT and QTc (port of cardioonco/qt.py; constants chosen on PTB-XL fold 9) ----------
+  const QT = { offsetMs: 35.2, maxIqrMs: 40, minTAmp: 0.05, minLeads: 6, segmentS: 10 };
+  function qtMedianBeats(leads, fs, r) {
+    const rr = diffs(r), med = median(rr);
+    const a = Math.round(0.30 * fs), b = Math.round(Math.min(0.75, 0.95 * med / fs) * fs);
+    const use = [];
+    for (let i = 1; i < r.length - 1; i++)
+      if (Math.abs(rr[i - 1] - med) < 0.2 * med && Math.abs(rr[i] - med) < 0.2 * med && r[i] - a >= 0 && r[i] + b <= leads[0].length) use.push(r[i]);
+    if (use.length < 3) throw analysisError("qt_beats", `too few regular beats for QT: ${use.length}`);
+    const L = a + b, t = Float64Array.from({ length: L }, (_, k) => (k - a) / fs);
+    const pr = [];
+    for (let k = 0; k < L; k++) if (t[k] >= -0.10 && t[k] <= -0.04) pr.push(k);
+    const beats = leads.map((x) => {
+      const m = new Float64Array(L), col = new Float64Array(use.length);
+      for (let k = 0; k < L; k++) { for (let j = 0; j < use.length; j++) col[j] = x[use[j] - a + k]; m[k] = median(col); }
+      const base = median(pr.map((k) => m[k]));
+      return m.map((v) => v - base);
+    });
+    return { beats, t, n: use.length, rr: med / fs };
+  }
+  const grad = (y) => Float64Array.from(y, (_, i) => i === 0 ? y[1] - y[0] : i === y.length - 1 ? y[i] - y[i - 1] : (y[i + 1] - y[i - 1]) / 2);
+  const firstAtLeast = (t, v) => { let i = 0; while (i < t.length && t[i] < v) i++; return i; };
+  function qtQrsOnset(beats, t, fs) {
+    const v = new Float64Array(t.length);
+    for (const b of beats) { const d = grad(b); for (let k = 0; k < t.length; k++) v[k] += Math.abs(d[k]) * fs; }
+    let mx = 0;
+    for (let k = 0; k < t.length; k++) if (t[k] >= -0.06 && t[k] <= 0.06) mx = Math.max(mx, v[k]);
+    let i = 0, best = Infinity;
+    for (let k = 0; k < t.length; k++) if (Math.abs(t[k]) < best) { best = Math.abs(t[k]); i = k; }
+    const lo = firstAtLeast(t, -0.15);
+    while (i > lo && v[i] >= 0.10 * mx) i--;
+    return t[i];
+  }
+  function qtTEnd(beat, t, fs, rr) {
+    const tMax = Math.min(rr - 0.12, t[t.length - 1]);
+    const lo = firstAtLeast(t, 0.10 * Math.sqrt(rr / 0.8) + 0.05), hi = firstAtLeast(t, Math.min(0.65 * rr + 0.05, tMax));
+    if (hi - lo < Math.trunc(0.08 * fs)) return NaN;
+    let peak = lo;
+    for (let k = lo; k < hi; k++) if (Math.abs(beat[k]) > Math.abs(beat[peak])) peak = k;
+    const amp = beat[peak];
+    if (Math.abs(amp) < QT.minTAmp) return NaN;
+    const s = beat.map((v) => Math.sign(amp) * v), d = grad(s).map((v) => v * fs);
+    const stopLim = firstAtLeast(t, tMax);
+    let stop = -1;
+    for (let k = peak; k < stopLim; k++) if (s[k] < 0.15 * Math.abs(amp)) { stop = k; break; }
+    if (stop < 0 || stop <= peak + 2) return NaN;
+    let j = peak;
+    for (let k = peak; k <= stop; k++) if (d[k] < d[j]) j = k;
+    if (d[j] >= 0) return NaN;
+    const te = t[j] - s[j] / d[j];
+    return te > t[peak] && te <= tMax ? te : NaN;
+  }
+  // R peaks shared by all leads: the detections of the lead the others agree with most
+  // (port of cardioonco.preprocess.consensus_r_peaks)
+  function consensusRPeaks(leads, fs, tolS = 0.05) {
+    const cands = leads.map((x) => detectRPeaks(x, fs).r);
+    if (cands.length === 1) return cands[0];
+    const tol = tolS * fs;
+    const share = (a, b) => {
+      if (!a.length || b.length < 2) return 0;
+      let hit = 0;
+      for (const v of a) {
+        let lo = 0, hi = b.length;                  // first index with b[i] >= v
+        while (lo < hi) { const m = (lo + hi) >> 1; if (b[m] < v) lo = m + 1; else hi = m; }
+        const i = Math.min(b.length - 1, Math.max(1, lo));
+        if (Math.min(Math.abs(b[i] - v), Math.abs(b[i - 1] - v)) <= tol) hit++;
+      }
+      return hit / a.length;
+    };
+    let best = 0, bestScore = -Infinity;
+    cands.forEach((a, i) => {
+      const s = median(cands.filter((_, j) => j !== i).map((b) => Math.min(share(a, b), share(b, a))));
+      if (s > bestScore) { bestScore = s; best = i; }
+    });
+    return cands[best];
+  }
+  // leads: array of Float64Array in mV (one or more); rPeaks: sample indices of R (found if omitted)
+  function measureQT(leads, fs, rPeaks) {
+    const up = analysisRate(fs);          // below 400 Hz: interpolate first, as for TWA
+    if (up > 1) {
+      leads = leads.map((x) => resamplePoly(x, up)); fs *= up;
+      if (rPeaks) rPeaks = Array.from(rPeaks, (v) => v * up);
+    }
+    const r = rPeaks || consensusRPeaks(leads, fs);
+    if (r.length < 5) throw analysisError("qt_beats", "too few beats for QT");
+    const { beats, t, n, rr } = qtMedianBeats(leads.map((x) => bandpass(x, fs, 0.5, 40)), fs, r);
+    const on = qtQrsOnset(beats, t, fs);
+    const ends = beats.map((b) => qtTEnd(b, t, fs, rr));
+    const good = ends.filter(Number.isFinite).map((e) => e * 1000);
+    if (!good.length) throw analysisError("qt_no_t", "no lead with a measurable T wave");
+    const raw = median(good) - on * 1000, qt = raw + QT.offsetMs;
+    const iqr = good.length >= 2 ? percentile(good, 75) - percentile(good, 25) : NaN;
+    const reliable = good.length >= QT.minLeads && iqr <= QT.maxIqrMs;
+    return { qtMs: qt, qtcfMs: qt / Math.cbrt(rr), qtcbMs: qt / Math.sqrt(rr), qtTangentMs: raw, rrMs: rr * 1000,
+             hr: 60 / rr, reliable, nLeadsUsed: good.length, iqrMs: iqr, nBeats: n,
+             segmentStart: 0, nSegments: 1, nSegmentsReliable: +reliable };
+  }
+  // consecutive 10-s segments (at most maxSegments, evenly spread); the whole recording if shorter than 20 s
+  function qtSegmentStarts(nSamples, fs, segS = QT.segmentS, maxSegments = 60) {
+    const seg = Math.round(segS * fs), k = Math.floor(nSamples / seg);
+    if (k < 2) return [0];
+    const m = Math.min(k, maxSegments), idx = new Set();
+    for (let i = 0; i < m; i++) idx.add(Math.round(m === 1 ? 0 : i * (k - 1) / (m - 1)));
+    return [...idx].sort((a, b) => a - b).map((i) => i * seg);
+  }
+  // QT of a recording of any length: the segment with the median QTcF among the reliable ones
+  // (port of cardioonco.qt.measure_qt_segments). segments[k] holds the leads of the segment that
+  // starts at sample starts[k], so a caller can read just those stretches of a long file.
+  function measureQTOnSegments(segments, starts, fs) {
+    const found = [];
+    segments.forEach((leads, k) => {
+      try { found.push([starts[k], measureQT(leads, fs)]); } catch (e) { /* next segment */ }
+    });
+    if (!found.length) throw analysisError("qt_none", "QT could not be measured in any segment");
+    const good = found.filter((f) => f[1].reliable);
+    const pool = (good.length ? good : found).slice().sort((a, b) => a[1].qtcfMs - b[1].qtcfMs);
+    const [s, res] = pool[Math.floor((pool.length - 1) / 2)];
+    return Object.assign(res, { segmentStart: s / fs, nSegments: found.length, nSegmentsReliable: good.length });
+  }
+  function measureQTSegments(leads, fs, segS = QT.segmentS, maxSegments = 60) {
+    const starts = qtSegmentStarts(leads[0].length, fs, segS, maxSegments);
+    const seg = starts.length === 1 ? leads[0].length : Math.round(segS * fs);
+    return measureQTOnSegments(starts.map((s) => leads.map((x) => x.subarray(s, s + seg))), starts, fs);
+  }
+
+  root.CardioDSP = { version: "1.5.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
     HR_ONSET_MAX, HR_NEGATIVE_MIN, MAX_ECTOPIC, rng, synth, bandpass, detectRPeaks, removeExtraBeats,
-    fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile, resamplePoly, MIN_ANALYSIS_FS };
+    fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile, resamplePoly, MIN_ANALYSIS_FS, QT, consensusRPeaks, measureQT, qtSegmentStarts, measureQTOnSegments, measureQTSegments };
   if (typeof module !== "undefined") module.exports = root.CardioDSP;
 })(typeof window !== "undefined" ? window : globalThis);

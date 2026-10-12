@@ -6,7 +6,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 
 ---
 
-## Where we are (version 1.4, October 2026)
+## Where we are (version 1.5, October 2026)
 
 | Done | Not done |
 |---|---|
@@ -14,6 +14,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 | The same maths in the browser, parity with Python tested in CI | Validation of the network on a second, independent dataset |
 | Checked on the PhysioNet 2008 challenge with a held-out protocol: τ = 0.43 overall, 0.08 on held-out real records (README §7.1) | Data from patients receiving chemotherapy |
 | Network trained on PTB-XL: test macro-AUC 0.921, the published level; age/sex fusion gives no measurable gain (README §5.4) | Clinical partner, ethics approval |
+| QT and QTc from six or more leads, checked against GE 12SL on the PTB-XL test fold: 9.0 ms where the leads agree (README §4.9) | An accurate QT from one lead, as a smartwatch records it |
 | Valid research FHIR export, installable package, CI, DOI, offline web tool with a real sample recording | |
 
 ---
@@ -45,7 +46,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 - **In-browser inference:** onnxruntime-web on the website, so an ECG file never leaves the user's computer.
 
 ### 1.3 Features cardiologists already use
-- QTc (Bazett, Fridericia), T-wave amplitude and area, summed QRS voltage. Reduced QRS voltage has been described in anthracycline cardiomyopathy.
+- **QTc (Bazett, Fridericia): done** in 1.5 (README §4.9). Still to add: T-wave amplitude and area, summed QRS voltage. Reduced QRS voltage has been described in anthracycline cardiomyopathy.
 - Add them as a third branch of the model and repeat the ablation.
 
 ---
@@ -99,7 +100,8 @@ Without clinicians and real patients the project cannot answer its main question
 - [x] Integrated gradients on two test ECGs
 - [ ] Attributions over all STTC test ECGs (shortcut check)
 - [ ] onnxruntime-web: the real model in the browser
-- [ ] QTc, T-wave amplitude and QRS voltage features
+- [x] QT and QTc with a reliability flag (README §4.9)
+- [ ] T-wave amplitude and QRS voltage features; QTc as a model input
 - [ ] "Patient versus own baseline" model (Siamese network)
 - [ ] FHIR validation on HAPI FHIR
 - [x] INT8 accuracy measured: −0.0002 [−0.0008, +0.0003], 3.4× smaller

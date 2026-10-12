@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,3 +52,19 @@ def test_gradio_lab_reports_all_three_outcomes():
     assert app.run_lab(20, 15, 75, 0.35)[0].startswith("TWA criterion met")
     assert app.run_lab(0, 15, 108, 0.35)[0].startswith("No significant TWA")
     assert app.run_lab(0, 15, 75, 0.35)[0].startswith("Indeterminate (hr too low)")
+
+
+def test_predict_measures_qt_on_a_12_lead_csv(tmp_path):
+    """A 12-lead file gets QT/QTcF/QTcB and the matching FHIR observations; one lead gets none."""
+    from cardioonco.synth import SynthConfig, generate_12lead
+    _, X, _ = generate_12lead(SynthConfig(fs=500, n_beats=16, noise_uv=5, wander_mv=0.02, hrv_std=0.0, seed=4))
+    csv, out = tmp_path / "ecg.csv", tmp_path / "report.json"
+    np.savetxt(csv, X, delimiter=",", fmt="%.5f")
+    rep = json.loads(run([ROOT / "predict.py", "--csv", csv, "--fhir-out", out], cwd=ROOT).stdout.split("FHIR")[0])
+    assert rep["qt"]["reliable"] and 300 < rep["qt"]["qtcf_ms"] < 500
+    ids = {c["id"]: c for c in json.loads(out.read_text())["contained"]}
+    assert ids["qt"]["code"]["coding"][0] == {"system": "http://loinc.org", "code": "8634-8", "display": "Q-T interval"}
+    assert ids["qt-reliability"]["valueCodeableConcept"]["coding"][0]["code"] == "reliable"
+    np.savetxt(csv, X[:, :1], delimiter=",", fmt="%.5f")
+    rep = json.loads(run([ROOT / "predict.py", "--csv", csv], cwd=ROOT).stdout)
+    assert rep["qt"].startswith("not measured")

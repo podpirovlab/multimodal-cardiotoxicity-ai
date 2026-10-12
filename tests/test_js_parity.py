@@ -81,3 +81,64 @@ def test_js_interpolation_matches_scipy(tmp_path, up):
               f"console.log(JSON.stringify(Array.from(D.resamplePoly(x,{up}))));")
     js = np.array(json.loads(subprocess.check_output([NODE, "-e", script], text=True)))
     np.testing.assert_allclose(js, resample_poly(x, up, 1), atol=1e-12)
+
+
+@pytest.mark.skipif(NODE is None and not os.environ.get("CI"), reason="node.js not installed")
+@pytest.mark.parametrize("hr,width", [(60, 0.05), (95, 0.06)])
+def test_js_qt_matches_python(tmp_path, hr, width):
+    """QT, QTcF and the reliability flag agree between the browser and Python (same R peaks)."""
+    from cardioonco.preprocess import consensus_r_peaks
+    from cardioonco.qt import measure_qt
+    from cardioonco.synth import generate_12lead
+    _, X, _ = generate_12lead(SynthConfig(fs=500, n_beats=16, heart_rate=hr, t_width=width, noise_uv=5,
+                                          wander_mv=0.02, hrv_std=0.0, seed=4))
+    leads = X.T
+    r = consensus_r_peaks(leads, 500)
+    py = measure_qt(leads, 500, r_peaks=r)
+    (tmp_path / "x.json").write_text(json.dumps({"leads": leads.tolist(), "r": r.tolist()}))
+    script = (f"const D=require({json.dumps(str(ROOT / 'assets/js/dsp.js'))});"
+              f"const d=require({json.dumps(str(tmp_path / 'x.json'))});"
+              "const q=D.measureQT(d.leads.map(l=>Float64Array.from(l)),500,d.r);"
+              "console.log(JSON.stringify(q));")
+    js = json.loads(subprocess.check_output([NODE, "-e", script], text=True))
+    assert js["qtMs"] == pytest.approx(py.qt_ms, abs=6)
+    assert js["qtcfMs"] == pytest.approx(py.qtcf_ms, abs=7)
+    assert js["reliable"] == py.reliable
+
+
+@pytest.mark.skipif(NODE is None and not os.environ.get("CI"), reason="node.js not installed")
+def test_js_qt_segments_and_consensus_match_python(tmp_path):
+    """On a 48-s 12-lead recording both pick the same shared R peaks and agree on the QT."""
+    from cardioonco.preprocess import consensus_r_peaks
+    from cardioonco.qt import measure_qt_segments
+    from cardioonco.synth import generate_12lead
+    _, X, _ = generate_12lead(SynthConfig(fs=500, n_beats=60, heart_rate=75, noise_uv=8, wander_mv=0.05,
+                                          hrv_std=0.02, seed=11))
+    leads = X.T
+    py_r, py = consensus_r_peaks(leads, 500), measure_qt_segments(leads, 500)
+    (tmp_path / "x.json").write_text(json.dumps({"leads": leads.tolist()}))
+    script = (f"const D=require({json.dumps(str(ROOT / 'assets/js/dsp.js'))});"
+              f"const d=require({json.dumps(str(tmp_path / 'x.json'))});"
+              "const L=d.leads.map(l=>Float64Array.from(l));"
+              "console.log(JSON.stringify({r:D.consensusRPeaks(L,500),q:D.measureQTSegments(L,500)}));")
+    js = json.loads(subprocess.check_output([NODE, "-e", script], text=True))
+    assert len(js["r"]) == len(py_r) and np.all(np.abs(np.array(js["r"]) - py_r) <= 2)
+    q = js["q"]
+    # segments differ by about a millisecond here, so the median one may be a different segment
+    assert (q["nSegments"], q["nSegmentsReliable"]) == (py.n_segments, py.n_segments_reliable)
+    assert q["qtMs"] == pytest.approx(py.qt_ms, abs=6) and q["qtcfMs"] == pytest.approx(py.qtcf_ms, abs=7)
+    assert q["reliable"] == py.reliable
+
+
+@pytest.mark.skipif(NODE is None and not os.environ.get("CI"), reason="node.js not installed")
+def test_js_qt_at_100_hz_matches_python(tmp_path):
+    from cardioonco.qt import measure_qt
+    from cardioonco.synth import generate_12lead
+    _, X, _ = generate_12lead(SynthConfig(fs=100, n_beats=16, noise_uv=5, wander_mv=0.02, hrv_std=0.0, seed=4))
+    py = measure_qt(X.T, 100)
+    (tmp_path / "x.json").write_text(json.dumps({"leads": X.T.tolist()}))
+    script = (f"const D=require({json.dumps(str(ROOT / 'assets/js/dsp.js'))});"
+              f"const d=require({json.dumps(str(tmp_path / 'x.json'))});"
+              "console.log(JSON.stringify(D.measureQT(d.leads.map(l=>Float64Array.from(l)),100)));")
+    js = json.loads(subprocess.check_output([NODE, "-e", script], text=True))
+    assert js["qtMs"] == pytest.approx(py.qt_ms, abs=6) and js["reliable"] == py.reliable

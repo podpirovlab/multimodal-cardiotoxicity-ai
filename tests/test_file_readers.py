@@ -41,11 +41,13 @@ def test_edf_and_bdf_values_in_mv(tmp_path, kind, file_type, digital, tol_mv):
     r = run_js(f"const b=fs.readFileSync({json.dumps(str(path))});"
                "const e=E.parseEDF(b.buffer.slice(b.byteOffset,b.byteOffset+b.length));"
                "const ch=e.signals.map((s,i)=>s.annotations?null:Array.from(e.getChannel(i)));"
-               "console.log(JSON.stringify({format:e.format,fs:e.signals.map(s=>s.fs),ch}));")
+               "const part=Array.from(e.getChannel(0,777,1777));"     # crosses data-record boundaries
+               "console.log(JSON.stringify({format:e.format,fs:e.signals.map(s=>s.fs),ch,part}));")
     assert r["format"] == kind.upper()
     assert r["fs"][:2] == [500, 500]
     np.testing.assert_allclose(r["ch"][0], sig[0] / 1000, atol=tol_mv)   # uV channel -> mV
     np.testing.assert_allclose(r["ch"][1], sig[1], atol=tol_mv)          # mV channel unchanged
+    np.testing.assert_array_equal(r["part"], r["ch"][0][777:1777])       # a stretch reads the same
 
 
 @needs_node

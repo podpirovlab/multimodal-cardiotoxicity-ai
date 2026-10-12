@@ -1,9 +1,12 @@
-/* CardioOncoPredict — runs CardioDSP.analyzeTWA off the page's main thread. */
+/* CardioOncoPredict — runs the analyses of CardioDSP off the page's main thread:
+   analyzeTWA on one lead, or the QT of the 10-s segments of all the standard leads. */
 importScripts("dsp.js");
 self.onmessage = (e) => {
-  const { id, x, fs } = e.data;
+  const { id, kind, x, segments, starts, fs } = e.data;
   try {
-    self.postMessage({ id, ok: true, r: self.CardioDSP.analyzeTWA(x, fs) });
+    const D = self.CardioDSP;
+    const r = kind === "qt" ? D.measureQTOnSegments(segments, starts, fs) : D.analyzeTWA(x, fs);
+    self.postMessage({ id, ok: true, r });
   } catch (err) {
     self.postMessage({ id, ok: false, err: { code: err.code, message: err.message, nBeats: err.nBeats, minBeats: err.minBeats } });
   }
