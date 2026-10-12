@@ -391,12 +391,16 @@ The QT interval runs from the start of ventricular depolarisation (QRS onset) to
 1. The leads are filtered (0.5–40 Hz), share one set of R peaks (§4.3), and each gets a *median beat* built from the regular beats: those whose R-R intervals before and after lie within 20% of the median. Each median beat is measured from its own PR segment.
 2. **QRS onset**, one for all leads, comes from the spatial velocity $`v(t) = \sum_\ell |dx_\ell/dt|`$, which rises steeply when depolarisation starts. Going back from the R peak, the onset is the first point where $`v`$ falls below 10% of its peak.
 3. **T end** in each lead uses the tangent method of Lepeschkin and Surawicz [43]. With the T wave made positive, take its steepest point $`t_j`$ on the way down, with value $`x(t_j)`$ and slope $`x'(t_j) < 0`$. The tangent there, $`x(t_j) + x'(t_j)\,(t - t_j)`$, reaches the isoelectric line at
+
    $$t_{end} = t_j - \frac{x(t_j)}{x'(t_j)}.$$
+
    Leads whose T wave is smaller than 0.05 mV are skipped. The search stops where the T wave has fallen to 15% of its peak, so the tangent cannot catch the next P wave.
 4. The global T end is the **median** over the leads, and $`\mathrm{QT} = t_{end} - t_{onset} + 35.2`$ ms. The constant puts the tangent method on the scale of the GE 12SL algorithm, which places the T end later than a tangent does. It is the median difference on the development fold.
 5. **Rate correction.** QT shortens as the heart beats faster, so it is divided by a power of the R-R interval in seconds (the median one). At 60 bpm, $`RR = 1`$ s and the corrections change nothing. Fridericia [45] divides by the cube root, Bazett [46] by the square root:
+
    $$\mathrm{QTc_F} = \frac{\mathrm{QT}}{RR^{1/3}}, \qquad \mathrm{QTc_B} = \frac{\mathrm{QT}}{RR^{1/2}}.$$
-   At 100 bpm ($`RR = 0.6`$ s) Bazett divides by 0.77 and Fridericia by 0.84; Bazett over-corrects at fast rates; the guidelines recommend Fridericia [3].
+
+   At 100 bpm ($`RR = 0.6`$ s) Bazett divides by 0.77 and Fridericia by 0.84, so at fast rates Bazett's QTc comes out longer. The guidelines recommend Fridericia [3].
 6. **A reliability flag.** The result is marked *check by hand* when fewer than 6 leads give a T end, or when their T ends spread over more than 40 ms (interquartile range). That is what flat or notched T waves, atrial flutter and fibrillation do.
 7. A recording longer than 20 s is measured in 10-second segments, the length of the ECGs it was checked on. The tool reports the segment with the median QTcF among the reliable ones. Below 400 Hz the leads are interpolated first, as for TWA (§4.5).
 
