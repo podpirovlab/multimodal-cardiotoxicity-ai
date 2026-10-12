@@ -142,3 +142,23 @@ def test_js_qt_at_100_hz_matches_python(tmp_path):
               "console.log(JSON.stringify(D.measureQT(d.leads.map(l=>Float64Array.from(l)),100)));")
     js = json.loads(subprocess.check_output([NODE, "-e", script], text=True))
     assert js["qtMs"] == pytest.approx(py.qt_ms, abs=6) and js["reliable"] == py.reliable
+
+
+@pytest.mark.skipif(NODE is None and not os.environ.get("CI"), reason="node.js not installed")
+@pytest.mark.parametrize("alt,hr", [(15, 100), (0, 108)])
+def test_js_multilead_rule_matches_python(tmp_path, alt, hr):
+    """All 12 leads and the two-adjacent-precordial rule give the same verdict in both."""
+    from cardioonco.synth import generate_12lead
+    from cardioonco.twa import analyze_leads
+    names = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
+    _, X, _ = generate_12lead(SynthConfig(fs=500, n_beats=160, heart_rate=hr, alternans_uv=alt, noise_uv=8, seed=5))
+    py = analyze_leads(X.T, 500, names)
+    (tmp_path / "x.json").write_text(json.dumps({"leads": X.T.tolist(), "names": names}))
+    script = (f"const D=require({json.dumps(str(ROOT / 'assets/js/dsp.js'))});"
+              f"const d=require({json.dumps(str(tmp_path / 'x.json'))});"
+              "console.log(JSON.stringify(D.analyzeLeads(d.leads.map(l=>Float64Array.from(l)),d.names,500)));")
+    js = json.loads(subprocess.check_output([NODE, "-e", script], text=True))
+    assert (js["outcome"], js["reason"]) == (py.outcome, py.reason)
+    same = sum(js["leads"][n]["outcome"] == py.leads[n]["outcome"] for n in names)
+    assert same >= 11                                  # a borderline lead may differ (filters differ, §7)
+    assert js["pairEstimate"] == pytest.approx(py.pair_estimate_uv, rel=0.15, abs=0.3)

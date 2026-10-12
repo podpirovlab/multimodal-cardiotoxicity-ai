@@ -331,3 +331,75 @@ def analyze(x_mv: np.ndarray, fs: float, r_peaks: np.ndarray | None = None,
         windows=[{k: round(v, 4) if isinstance(v, float) else v for k, v in w.items() if not k.startswith("_")}
                  for w in windows],
     )
+
+
+# ---------------------------------------------------------------------------------------
+# Several leads of one recording.  The clinical definition of microvolt TWA counts alternans
+# that "is present in leads X, Y, Z, VM or two adjacent precordial leads" (FDA 510(k) K012206,
+# Cambridge Heart Alternans Processing System, 2001); a standard 12-lead ECG has no Frank
+# X, Y, Z leads, so the rule applied here is the precordial one.
+PRECORDIAL = ("V1", "V2", "V3", "V4", "V5", "V6")
+_REASON_ORDER = ("noise", "ectopy", "hr_too_high", "hr_too_low")
+
+
+@dataclass
+class MultiLeadResult:
+    outcome: str              # "positive" | "negative" | "indeterminate"
+    reason: str               # adjacent_precordial | isolated | criterion_not_met | no_precordial | not_analysable | a lead reason
+    positive_pairs: list      # adjacent precordial pairs where both leads are positive, e.g. [["V2", "V3"]]
+    pair_estimate_uv: float   # max over adjacent precordial pairs of the smaller of the two estimates
+    heart_rate_bpm: float
+    leads: dict               # lead name -> per-lead summary, or {"error": message}
+
+    def as_dict(self) -> dict:
+        return asdict(self)
+
+
+def analyze_leads(leads_mv: np.ndarray, fs: float, names: list[str], r_peaks: np.ndarray | None = None,
+                  n_beats: int = STANDARD_BEATS, hop: int = WINDOW_HOP) -> MultiLeadResult:
+    """TWA in every lead with one shared set of R peaks, and the two-adjacent-precordial-leads rule.
+
+    positive       significant alternans (as in `analyze`) in two adjacent precordial leads;
+    indeterminate  ("isolated") alternans in other leads only, which the rule does not count;
+    negative       every analysed precordial lead is negative;
+    indeterminate  otherwise, with the commonest reason among the precordial leads;
+                   "no_precordial" when the recording has fewer than two precordial leads,
+                   "not_analysable" when it has them but fewer than two could be analysed."""
+    from .preprocess import consensus_r_peaks, heart_rate_bpm
+    leads = np.atleast_2d(np.asarray(leads_mv, dtype=float))
+    if r_peaks is None:
+        r_peaks = consensus_r_peaks(leads, fs)
+    per = {}
+    for name, x in zip(names, leads):
+        try:
+            r = analyze(x, fs, r_peaks=r_peaks, n_beats=n_beats, hop=hop)
+        except ValueError as exc:
+            per[name] = {"error": str(exc)}
+            continue
+        per[name] = {"outcome": r.outcome, "reason": r.reason, "v_alt_uv": r.v_alt_uv, "k_score": r.k_score,
+                     "noise_uv": r.noise_uv, "window_hr_bpm": r.window_hr_bpm, "estimate_uv": r.estimate_uv}
+    outcome, reason, pairs, pair_est = combine_leads(per)
+    return MultiLeadResult(outcome=outcome, reason=reason, positive_pairs=pairs, pair_estimate_uv=pair_est,
+                           heart_rate_bpm=float(heart_rate_bpm(np.asarray(r_peaks), fs)), leads=per)
+
+
+def combine_leads(per: dict) -> tuple[str, str, list, float]:
+    """The two-adjacent-precordial-leads rule over per-lead results {name: {"outcome", "reason",
+    "estimate_uv"} or {"error": ...}}.  Returns (outcome, reason, positive pairs, pair estimate)."""
+    done = {n: r for n, r in per.items() if "error" not in r}
+    adj = [(a, b) for a, b in zip(PRECORDIAL, PRECORDIAL[1:]) if a in done and b in done]
+    pairs = [[a, b] for a, b in adj if done[a]["outcome"] == "positive" and done[b]["outcome"] == "positive"]
+    pair_est = float(max((min(done[a]["estimate_uv"], done[b]["estimate_uv"]) for a, b in adj), default=0.0))
+    prec = [done[n] for n in PRECORDIAL if n in done]
+    if pairs:
+        return "positive", "adjacent_precordial", pairs, pair_est
+    if sum(n in PRECORDIAL for n in per) < 2:
+        return "indeterminate", "no_precordial", pairs, pair_est
+    if len(prec) < 2:
+        return "indeterminate", "not_analysable", pairs, pair_est
+    if any(r["outcome"] == "positive" for r in done.values()):
+        return "indeterminate", "isolated", pairs, pair_est
+    if all(r["outcome"] == "negative" for r in prec):
+        return "negative", "criterion_not_met", pairs, pair_est
+    reasons = [r["reason"] for r in prec if r["outcome"] != "negative"]
+    return "indeterminate", max(_REASON_ORDER, key=lambda q: (reasons.count(q), -_REASON_ORDER.index(q))), pairs, pair_est

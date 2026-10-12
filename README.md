@@ -63,7 +63,7 @@
 |---|---|---|
 | Physics model | Synthetic 12-lead ECG from a moving cardiac dipole, with controllable microvolt alternans, white noise, baseline wander and mains hum | `cardioonco/synth.py` |
 | Signal processing | Zero-phase filtering, R-peak detection checked on 126 cardiologist-annotated records, removal of false beats, shared R peaks across leads | `cardioonco/preprocess.py` |
-| TWA mathematics | Beat alignment, ectopy control, Spectral Method (V_alt, K-score) over the whole recording, Modified Moving Average, three outcomes; checked on the PhysioNet challenge ([§7.1](#71-check-against-the-physionet-twa-challenge)) | `cardioonco/twa.py` |
+| TWA mathematics | Beat alignment, ectopy control, Spectral Method (V_alt, K-score) over the whole recording, Modified Moving Average, three outcomes, and the two-adjacent-chest-leads rule over all leads ([§4.10](#410-alternans-in-every-lead-the-two-adjacent-chest-leads-rule)); checked on the PhysioNet challenge ([§7.1](#71-check-against-the-physionet-twa-challenge)) | `cardioonco/twa.py` |
 | QT interval | Tangent method on the median beats of all leads, QTcF and QTcB, a flag when the leads disagree; compared with GE 12SL on PTB-XL ([§4.9](#49-the-qt-interval-and-qtc)) | `cardioonco/qt.py` |
 | Neural network | 1D ResNet over 12 leads + age/sex branch, fused by an outer (tensor) product | `cardioonco/model.py` |
 | Training pipeline | Trained on PTB-XL (21,799 clinical ECGs): patient-wise split, five seeds and their ensemble (macro-AUC 0.930), calibration, attributions, INT8 export checked on the test fold ([§5.4](#54-data-ptb-xl)) | `train_ptbxl.py`, `models/ptbxl-1.0/` |
@@ -86,7 +86,7 @@ The [live tool](https://podpirovlab.github.io/multimodal-cardiotoxicity-ai/) run
 **Three possible answers**, following the Spectral Method's clinical rules [11]: *alternans criterion met* (≥ 1.9 µV, K ≥ 3, heart rate ≤ 110, noise ≤ 1.8 µV in some window), *no significant alternans* (nothing significant, and at least one clean window at ≥ 105 bpm), and *indeterminate* with the reason — too noisy, too many ectopic beats, alternans only above 110 bpm, or a heart rate that never reached 105. Those rules were written for exercise tests, so a resting recording without alternans comes out indeterminate, not negative. One simplification: the clinical rule asks for alternans *sustained* for at least a minute; here one significant 128-beat window stands in for that (below 110 bpm such a window lasts more than a minute).
 
 **File formats:**
-- **EDF / EDF+ and BDF / BDF+** — read directly in the browser (`assets/js/edf.js`, no server). If the file has more than one channel, a dropdown lets you pick the lead; a channel labelled with a standard lead name ("ECG II", "V3") is recognised. Discontinuous EDF+D files are refused, because beats on either side of a gap would break the even/odd order.
+- **EDF / EDF+ and BDF / BDF+** — read directly in the browser (`assets/js/edf.js`, no server). If the file has more than one channel, a dropdown lets you pick the lead; a channel labelled with a standard lead name ("ECG II", "V3") is recognised. With two or more chest leads, every lead is also analysed together under the clinical two-adjacent-chest-leads rule ([§4.10](#410-alternans-in-every-lead-the-two-adjacent-chest-leads-rule)). Discontinuous EDF+D files are refused, because beats on either side of a gap would break the even/odd order.
 - **CSV / TXT** — one column of numbers, in mV or µV, with the sampling rate typed in by hand. Both "0.123,0.456" and the Russian/European "0,123;0,456" are read.
 
 **Getting a real recording from PhysioNet:**
@@ -422,6 +422,27 @@ Two findings from the development fold shaped the tool:
 
 The limits of this check: 12SL is itself an algorithm, and an expert measuring by hand would be a stronger reference. Wide QRS complexes, U waves and arrhythmias were not studied separately. No ECG from patients receiving anthracyclines was among them.
 
+### 4.10 Alternans in every lead: the two-adjacent-chest-leads rule
+
+One lead can alternate for reasons that have nothing to do with the heart, such as an electrode that moves with every other breath, or interference. The clinical definition guards against that. In the summary that cleared a commercial alternans analyser, microvolt TWA is alternans that "is present in leads X, Y, Z, VM or two adjacent precordial leads", reaches 1.9 µV after the background noise is subtracted, is at least three standard deviations above that noise, and starts at a heart rate of 110 or below [48]. A standard 12-lead ECG has no Frank X, Y, Z leads, so the tool applies the precordial part of the rule (`cardioonco.twa.analyze_leads`; the same in the browser):
+
+- every lead is analysed as in §4.4, with one shared set of R peaks;
+- **positive** when two adjacent chest leads (V1–V2, V2–V3 … V5–V6) are both positive;
+- **indeterminate, isolated** when significant alternans appears only in leads that do not form such a pair;
+- **negative** when every analysed chest lead is negative;
+- **indeterminate** otherwise, with the commonest reason among the chest leads.
+
+The web tool shows this for any EDF or BDF file with at least two chest leads, as a grid in the layout of a printed 12-lead ECG (I aVR V1 V4 / II aVL V2 V5 / III aVF V3 V6); it reads at most the first 10 minutes of each lead, and choosing a lead opens it in detail. `predict.py` reports the result as `twa_all_leads`, and the research JSON carries it.
+
+On the development records of the TWA challenge (§7.1) the rule gave these outcomes (`docs/results/twadb_two_adjacent_rule_dev.json`):
+
+| 12-lead development records | Records | Positive | Isolated | Negative | Indeterminate |
+|---|---|---|---|---|---|
+| Synthetic | 32 | 1 | 0 | 11 | 20: alternans only above 110 bpm (18), ectopy (2) |
+| Real, development half | 20 | 0 | 6 | 0 | 14: heart rate below 105 (9), noise (5) |
+
+In 6 of the 20 real recordings some single lead met the criterion, but never two adjacent chest leads, so the rule does not count them. As a ranking for the challenge, the smaller estimate of the best adjacent chest pair ordered the synthetic records better than the median over leads, but not significantly: Kendall τ 0.562 against 0.477, difference 95% CI −0.03 to +0.21. On the real development records the two rankings are identical, because only 2 of the 20 have a non-zero estimate either way. The challenge score in §7.1 therefore keeps the median over leads, and the held-out half was not scored again.
+
 ---
 
 ## 5. Computer science: the multimodal neural network
@@ -556,6 +577,8 @@ FHIR is the format hospital systems use to exchange results, so the tool can exp
 | No false TWA without alternans (K < 3) | `test_no_alternans_is_not_called_positive` | ✅ |
 | $`V_{alt}`$ grows monotonically; peak estimator recovers 40 µV within 15% | `test_strong_alternans_is_positive_and_monotonic` | ✅ |
 | Browser (JS) and Python give the same heart rate, V_alt (±10%), outcome and reason | `tests/test_js_parity.py` | ✅ |
+| Alternans of the whole heart is positive in adjacent chest leads; alternans in one lead only is not counted; a 10-second ECG is "not analysable", not "no chest leads" | `tests/test_multilead.py` | ✅ |
+| Browser and Python give the same verdict over all 12 leads | `test_js_multilead_rule_matches_python` | ✅ |
 | QT follows the tangent geometry exactly on synthetic ECGs; one lead is never flagged reliable; long and 100 Hz recordings are handled | `tests/test_qt.py` | ✅ |
 | Browser and Python give the same QT (±6 ms), QTcF and flag, with the same shared R peaks | `test_js_qt_matches_python`, `test_js_qt_segments_and_consensus_match_python` | ✅ |
 | QT agrees with GE 12SL on PTB-XL test ECGs: mean \|difference\| 9.0 ms where the leads agree | `scripts/validate_qt.py`, [§4.9](#49-the-qt-interval-and-qtc) | ✅ |
@@ -630,7 +653,8 @@ python scripts/validate_twadb.py
 cardioonco/            core library (tested; `pip install .` needs only numpy and scipy)
   synth.py             synthetic single-lead and 12-lead (dipole) ECG with alternans
   preprocess.py        Butterworth filtfilt, notch, R-peak detection (Elgendi), false-beat removal, shared R peaks
-  twa.py               Spectral Method, MMA, whole-recording windows, three outcomes
+  twa.py               Spectral Method, MMA, whole-recording windows, three outcomes; all leads
+                       and the two-adjacent-chest-leads rule
   qt.py                QT, QTcF, QTcB by the tangent method on median beats; reliability flag
   model.py             CardioOncoNet: 1D ResNet + MLP + tensor fusion
   fhir.py              HL7 FHIR R4 DiagnosticReport
@@ -663,7 +687,7 @@ assets/samples/        one real TWA challenge recording for the "Open a real ECG
 sw.js, manifest*.webmanifest, assets/icons/
                        offline cache and app install (service worker, web app manifests, icons)
 docs/figures/{en,ru}/  every figure in this README, in English and Russian (scripts/make_figures.py)
-docs/results/          per-record results behind §4.3, §4.5, §4.9, §7.1 and figure 12
+docs/results/          per-record results behind §4.3, §4.5, §4.9, §4.10, §7.1 and figure 12
 pyproject.toml         package metadata and optional dependency groups
 CITATION.cff           how to cite this software
 legacy/                early teaching prototypes kept for history (see legacy/README.md)
@@ -746,6 +770,8 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
 
 **1.5.0.** The tool measures the QT interval for the first time: the tangent method [43] on the median beats of all leads, with Fridericia's and Bazett's corrections and a flag when the leads disagree (§4.9). It was checked once on the PTB-XL test fold against the GE 12SL algorithm of PTB-XL+ [44]: where the leads agree (83% of ECGs) the mean absolute difference is 9.0 ms, and 92.7% of ECGs are within 20 ms. From one lead the difference was about five times larger, so QT is shown only for six or more leads. The browser runs the same method on EDF and BDF files; the research JSON carries QT and QTcF (LOINC 8634-8 and 8636-3) with the flag, and `predict.py` reports them for multi-lead files. Figure 14 shows the method and the comparison. The TWA algorithm is unchanged.
 
+**1.6.0.** Alternans is analysed in every lead of a recording at once, with one shared set of R peaks, and the result follows the clinical rule that microvolt TWA must appear in two adjacent chest leads [48] (§4.10). Alternans in a single lead, which an electrode or interference can produce, is reported as isolated rather than positive. The web tool shows every lead in the layout of a printed 12-lead ECG, and a lead opens in detail with one click; `predict.py` and the research JSON carry the verdict. On the challenge's real development recordings the rule held back 6 of 20 records in which some single lead met the criterion. The single-lead TWA algorithm and the challenge score are unchanged.
+
 ---
 
 ## 11. Limitations and ethics
@@ -813,6 +839,7 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
 45. Fridericia LS. Die Systolendauer im Elektrokardiogramm bei normalen Menschen und bei Herzkranken. *Acta Med Scand*. 1920;53(1):469–486. [doi:10.1111/j.0954-6820.1920.tb18266.x](https://doi.org/10.1111/j.0954-6820.1920.tb18266.x).
 46. Bazett HC. An analysis of the time-relations of electrocardiograms. *Heart*. 1920;7:353–370. Reprinted in *Ann Noninvasive Electrocardiol*. 1997;2(2):177–194. [doi:10.1111/j.1542-474X.1997.tb00325.x](https://doi.org/10.1111/j.1542-474X.1997.tb00325.x).
 47. Bland JM, Altman DG. Statistical methods for assessing agreement between two methods of clinical measurement. *Lancet*. 1986;327(8476):307–310. [doi:10.1016/S0140-6736(86)90837-8](https://doi.org/10.1016/S0140-6736%2886%2990837-8).
+48. U.S. Food and Drug Administration. 510(k) summary K012206: Cambridge Heart Alternans Processing System. Bedford, MA: Cambridge Heart, Inc.; cleared 12 October 2001. [accessdata.fda.gov/cdrh_docs/pdf/K012206.pdf](https://www.accessdata.fda.gov/cdrh_docs/pdf/K012206.pdf).
 
 ---
 
@@ -825,7 +852,7 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
   author  = {Podpirov, Petr},
   title   = {CardioOncoPredict: research software for measuring microvolt T-wave alternans},
   year    = {2026},
-  version = {1.5.0},
+  version = {1.6.0},
   doi     = {10.5281/zenodo.23090355},
   url     = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
 }

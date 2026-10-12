@@ -68,3 +68,14 @@ def test_predict_measures_qt_on_a_12_lead_csv(tmp_path):
     np.savetxt(csv, X[:, :1], delimiter=",", fmt="%.5f")
     rep = json.loads(run([ROOT / "predict.py", "--csv", csv], cwd=ROOT).stdout)
     assert rep["qt"].startswith("not measured")
+
+
+def test_predict_applies_the_adjacent_precordial_rule_to_a_12_lead_csv(tmp_path):
+    from cardioonco.synth import SynthConfig, generate_12lead
+    _, X, _ = generate_12lead(SynthConfig(fs=500, n_beats=160, heart_rate=100, alternans_uv=15, noise_uv=8, seed=5))
+    csv, out = tmp_path / "ecg.csv", tmp_path / "report.json"
+    np.savetxt(csv, X, delimiter=",", fmt="%.5f")
+    rep = json.loads(run([ROOT / "predict.py", "--csv", csv, "--fhir-out", out], cwd=ROOT).stdout.split("FHIR")[0])
+    assert rep["twa_all_leads"]["outcome"] == "positive" and rep["twa_all_leads"]["positive_pairs"]
+    ids = {c["id"]: c for c in json.loads(out.read_text())["contained"]}
+    assert ids["twa-leads"]["valueCodeableConcept"]["coding"][0]["code"] == "positive"

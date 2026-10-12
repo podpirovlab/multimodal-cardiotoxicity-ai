@@ -24,6 +24,7 @@ from scipy.signal import resample_poly
 from cardioonco import fhir
 from cardioonco.preprocess import consensus_r_peaks
 from cardioonco.qt import MIN_LEADS, measure_qt_segments
+from cardioonco.twa import PRECORDIAL, analyze_leads
 from cardioonco.twa import analyze
 
 
@@ -44,6 +45,17 @@ def load_input(args):
 
 ENSEMBLE = [Path(__file__).resolve().parent / "models" / "ptbxl-1.0" / "model.pt"] + sorted(
     (Path(__file__).resolve().parent / "models" / "ptbxl-1.0" / "ensemble").glob("seed*.pt"))
+
+
+STANDARD_12 = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
+
+
+def load_names(args, n_leads: int) -> list:
+    """Lead names: from the WFDB header, or the standard order for a 12-column CSV."""
+    if args.wfdb:
+        import wfdb
+        return list(wfdb.rdheader(args.wfdb).sig_name)
+    return STANDARD_12 if n_leads == 12 else [f"lead{i}" for i in range(n_leads)]
 
 
 def run_model(sig, fs, age, sex, ckpt_paths):
@@ -97,14 +109,21 @@ def main(argv=None):
     lead = args.lead if args.lead is not None else (10 if sig.shape[1] == 12 else 0)
     report = {"fs": fs, "n_samples": int(sig.shape[0]), "n_leads": int(sig.shape[1]), "twa_lead": lead}
 
+    # several leads of one recording share one set of R peaks, as in scripts/validate_twadb.py
+    r_peaks = consensus_r_peaks(sig.T, fs) if sig.shape[1] > 1 else None
     try:
-        # several leads of one recording share one set of R peaks, as in scripts/validate_twadb.py
-        r_peaks = consensus_r_peaks(sig.T, fs) if sig.shape[1] > 1 else None
         twa = analyze(sig[:, lead], fs, r_peaks=r_peaks).as_dict()
         report["twa"] = {k: v for k, v in twa.items() if not k.startswith("spectrum")}
     except ValueError as exc:
         twa = None
         report["twa"] = f"not computed: {exc}"
+
+    # every lead, and the two-adjacent-precordial-leads rule, when the lead names are known
+    names = load_names(args, sig.shape[1])
+    multilead = None
+    if twa is not None and sum(n in PRECORDIAL for n in names) >= 2:
+        multilead = analyze_leads(sig.T, fs, names, r_peaks=r_peaks).as_dict()
+        report["twa_all_leads"] = multilead
 
     qt = None
     if sig.shape[1] >= MIN_LEADS:
@@ -123,7 +142,7 @@ def main(argv=None):
 
     print(json.dumps(report, indent=2, ensure_ascii=False))
     if args.fhir_out:
-        doc = fhir.diagnostic_report(None, twa, probs, qt=qt)   # no subject: there is no patient record to point to
+        doc = fhir.diagnostic_report(None, twa, probs, qt=qt, multilead=multilead)   # no subject: there is no patient record to point to
         Path(args.fhir_out).write_text(json.dumps(doc, indent=2))
         print(f"FHIR DiagnosticReport -> {args.fhir_out}")
     return report

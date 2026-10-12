@@ -49,6 +49,16 @@
         ? `Показан отрезок ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} с — с медианным QTcF среди ${q.nSegmentsReliable ? `${q.nSegmentsReliable} ${plural(q.nSegmentsReliable, "надёжного", "надёжных", "надёжных")} десятисекундных отрезков (всего ${q.nSegments})` : `${q.nSegments} десятисекундных отрезков (надёжных нет)`}; ЧСС ${fmt(q.hr, 0)} уд/мин.`
         : `По ${q.nBeats} ${plural(q.nBeats, "удару", "ударам", "ударам")}, ЧСС ${fmt(q.hr, 0)} уд/мин.`,
       qtOk: (q, n) => `Отведения согласны: конец T найден в ${q.nLeadsUsed} из ${n}, разброс ${fmt(q.iqrMs, 0)} мс. На тестовых ЭКГ PTB-XL с такой пометкой наш QT отличался от алгоритма GE 12SL в среднем на 9 мс. Автоматический QT врач всё равно проверяет вручную.`,
+      leadsBusy: "Считаю все отведения…",
+      leadsSub: (n, capped) => `${n} ${plural(n, "отведение", "отведения", "отведений")}, общие R-пики${capped ? ", первые 10 минут записи" : ""}. Нажмите на отведение, чтобы открыть его подробно.`,
+      leadsPos: (pairs) => `Альтернация есть в соседних грудных отведениях ${pairs}. Так микровольтную альтернацию определяют в клинике: в двух соседних грудных отведениях или в ортогональных отведениях X, Y, Z (FDA, 2001).`,
+      leadsIsolated: (leads) => `Значимая альтернация есть только в ${leads}, но не в двух соседних грудных отведениях. По клиническому правилу этого мало: одно отведение может «качаться» из-за электрода или помехи.`,
+      leadsNeg: "Ни в одном грудном отведении нет значимой альтернации, а пульс доходил до 105: по правилу двух соседних грудных отведений результат отрицательный.",
+      leadsInd: (why) => `По всем отведениям сказать «да» или «нет» нельзя: в грудных отведениях чаще всего ${why}.`,
+      leadsWhy: { noise: "слишком сильный шум", ectopy: "много экстрасистол или артефактов", hr_too_high: "альтернация только при пульсе выше 110", hr_too_low: "пульс не доходил до 105", not_analysable: "запись слишком короткая для альтернации" },
+      leadsErr: "Отведения вместе посчитать не удалось.",
+      and: (a, b) => `${a} и ${b}`, cellNone: "нет в файле",
+      cellState: { pos: "критерий выполнен", neg: "альтернации нет", ind: "не определено", err: "не удалось посчитать", none: "нет в файле" },
       qtCheck: (q, n) => `Проверьте вручную: ${q.nLeadsUsed < 6 ? `конец T найден только в ${q.nLeadsUsed} из ${n} отведений` : `отведения расходятся в том, где кончается T (разброс ${fmt(q.iqrMs, 0)} мс)`}. Так бывает при плоской или двугорбой волне T, трепетании и мерцании предсердий.`,
     },
     en: {
@@ -94,6 +104,16 @@
         ? `Shown: the ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} s segment, the one with the median QTcF of ${q.nSegmentsReliable ? `the ${q.nSegmentsReliable} reliable ten-second segments (${q.nSegments} in all)` : `${q.nSegments} ten-second segments (none reliable)`}; heart rate ${fmt(q.hr, 0)} bpm.`
         : `From ${q.nBeats} beats, heart rate ${fmt(q.hr, 0)} bpm.`,
       qtOk: (q, n) => `The leads agree: ${q.nLeadsUsed} of ${n} give a T end, spread ${fmt(q.iqrMs, 0)} ms. On PTB-XL test ECGs flagged like this, our QT differed from the GE 12SL algorithm by 9 ms on average. A doctor still checks an automatic QT by hand.`,
+      leadsBusy: "Analysing every lead…",
+      leadsSub: (n, capped) => `${n} leads, shared R peaks${capped ? ", the first 10 minutes" : ""}. Choose a lead to open it in detail.`,
+      leadsPos: (pairs) => `Alternans in the adjacent chest leads ${pairs}. That is how microvolt alternans is defined in the clinic: in two adjacent chest leads or in the orthogonal leads X, Y, Z (FDA, 2001).`,
+      leadsIsolated: (leads) => `Significant alternans only in ${leads}, not in two adjacent chest leads. Under the clinical rule that is not enough: one lead can alternate because of an electrode or interference.`,
+      leadsNeg: "No chest lead shows significant alternans and the heart rate reached 105: under the two-adjacent-chest-leads rule the result is negative.",
+      leadsInd: (why) => `Across all leads neither yes nor no can be said: in the chest leads the commonest reason is ${why}.`,
+      leadsWhy: { noise: "too much noise", ectopy: "many ectopic beats or artefacts", hr_too_high: "alternans only above 110 bpm", hr_too_low: "a heart rate that never reached 105", not_analysable: "a recording too short for alternans" },
+      leadsErr: "The leads could not be analysed together.",
+      and: (a, b) => `${a} and ${b}`, cellNone: "not in file",
+      cellState: { pos: "criterion met", neg: "no alternans", ind: "indeterminate", err: "could not be analysed", none: "not in file" },
       qtCheck: (q, n) => `Check by hand: ${q.nLeadsUsed < 6 ? `only ${q.nLeadsUsed} of ${n} leads give a T end` : `the leads disagree on where T ends (spread ${fmt(q.iqrMs, 0)} ms)`}. This happens with flat or notched T waves, atrial flutter and fibrillation.`,
     },
   }[LANG === "ru" ? "ru" : "en"];
@@ -187,7 +207,7 @@
   // ======================= TWA LAB =======================
   // source: "none" until the user uploads a file or opens a synthetic example — the page
   // never opens on a result about a person who does not exist.
-  const lab = { res: null, sig: null, seed: 7, source: "none", lead: "", fileSig: null, fileFs: 500, fileName: "", edf: null, csvRawText: null, qt: null };
+  const lab = { res: null, sig: null, seed: 7, source: "none", lead: "", fileSig: null, fileFs: 500, fileName: "", edf: null, csvRawText: null, qt: null, multi: null };
   const sliders = ["alt", "noise", "hr", "tamp", "mains"];
   function params() {
     const v = (id) => parseFloat($("#s-" + id).value);
@@ -217,6 +237,7 @@
     box.querySelector("p").textContent = T.noneText;
     clearMetrics();
     qtSeq++; lab.qt = null; renderQT();
+    setLeads(null);
     $("#b-fhir").disabled = true; $("#b-print").disabled = true;
     drawLab();
   }
@@ -273,7 +294,7 @@
   // QT is shown only from at least 6 standard leads: from one lead it was off by ~46 ms on PTB-XL.
   let qtSeq = 0;
   const qtOk = () => !!(lab.qt && lab.qt.state === "ok");
-  function updateExport() { $("#b-fhir").disabled = !(lab.res || qtOk()); }
+  function updateExport() { $("#b-fhir").disabled = !(lab.res || qtOk() || multiOk()); }
   // the standard leads (one channel each, known voltage unit) sharing the most common sampling rate
   function standardLeads(edf) {
     const byFs = new Map();
@@ -283,9 +304,62 @@
       if (!byFs.has(s.fs)) byFs.set(s.fs, new Map());
       if (!byFs.get(s.fs).has(lead)) byFs.get(s.fs).set(lead, i);
     });
-    let best = { fs: 0, idx: [] };
-    for (const [fs, m] of byFs) if (m.size > best.idx.length) best = { fs, idx: [...m.values()] };
+    let best = { fs: 0, idx: [], names: [] };
+    for (const [fs, m] of byFs) if (m.size > best.idx.length) best = { fs, idx: [...m.values()], names: [...m.keys()] };
     return best;
+  }
+
+  // ---------- TWA in every lead and the two-adjacent-chest-leads rule (cardioonco.twa.analyze_leads) ----------
+  // Shown when the file has at least two chest leads; at most the first 10 minutes are read.
+  const GRID = ["I", "aVR", "V1", "V4", "II", "aVL", "V2", "V5", "III", "aVF", "V3", "V6"];   // printed 12-lead layout
+  const MULTI_MAX_S = 600;
+  let multiSeq = 0;
+  const multiOk = () => !!(lab.multi && lab.multi.state === "ok");
+  function setLeads(state) { multiSeq++; lab.multi = state; renderLeads(); updateExport(); }
+  function startLeads(edf) {
+    const g = standardLeads(edf);
+    if (g.names.filter((n) => D.PRECORDIAL.includes(n)).length < 2) { setLeads(null); return; }
+    const total = edf.nRecords * edf.signals[g.idx[0]].samplesPerRecord, len = Math.min(total, Math.round(MULTI_MAX_S * g.fs));
+    setLeads({ state: "busy" });
+    const seq = multiSeq, leads = g.idx.map((i) => edf.getChannel(i, 0, len));
+    runJob({ kind: "leads", leads, names: g.names, fs: g.fs }, () => D.analyzeLeads(leads, g.names, g.fs)).then(
+      (res) => { if (seq === multiSeq) { lab.multi = { state: "ok", res, names: g.names, idx: g.idx, capped: len < total }; renderLeads(); updateExport(); } },
+      () => { if (seq === multiSeq) { lab.multi = { state: "err" }; renderLeads(); updateExport(); } });
+  }
+  const CELL_CLASS = { positive: "pos", negative: "neg", indeterminate: "ind" };
+  function renderLeads() {
+    const st = lab.multi, block = $("#leads-block");
+    block.hidden = !st;
+    if (!st) return;
+    const grid = $("#lead-grid"), note = $("#leads-note");
+    grid.innerHTML = "";
+    $("#leads-sub").textContent = st.state === "ok" ? T.leadsSub(st.names.length, st.capped) : "";
+    for (const name of GRID) {
+      const b = document.createElement("button");
+      b.type = "button"; b.dataset.lead = name;
+      const r = st.state === "ok" ? st.res.leads[name] : null;
+      const cls = !r ? "none" : r.error ? "err" : CELL_CLASS[r.outcome];
+      b.className = "lead-cell " + cls;
+      const v = r && !r.error ? `${fmt(r.vAlt, 1)} ${T.uv}` : st.state === "busy" ? "…" : "—";
+      const k = r && !r.error ? `K ${fmtK(r.k)}` : "";
+      b.innerHTML = `<b></b><span class="v"></span><span class="k"></span>`;
+      b.querySelector("b").textContent = name; b.querySelector(".v").textContent = v; b.querySelector(".k").textContent = k;
+      b.setAttribute("aria-label", `${name}: ${v}${k ? ", " + k : ""}, ${T.cellState[cls]}`);
+      b.disabled = !r || !!r.error;
+      b.setAttribute("aria-pressed", String(lab.source === "file" && lab.lead === name));
+      b.addEventListener("click", () => {
+        const i = st.idx[st.names.indexOf(name)];
+        $("#f-edf-channel").value = String(i); selectEdfChannel(i);
+      });
+      grid.appendChild(b);
+    }
+    if (st.state === "busy") { note.textContent = T.leadsBusy; return; }
+    if (st.state === "err") { note.textContent = T.leadsErr; return; }
+    const res = st.res, list = (xs) => xs.length > 1 ? T.and(xs.slice(0, -1).join(", "), xs[xs.length - 1]) : xs[0] || "";
+    if (res.outcome === "positive") note.textContent = T.leadsPos(list(res.positivePairs.map(([a, b]) => `${a}–${b}`)));
+    else if (res.reason === "isolated") note.textContent = T.leadsIsolated(list(GRID.filter((n) => res.leads[n] && res.leads[n].outcome === "positive")));
+    else if (res.outcome === "negative") note.textContent = T.leadsNeg;
+    else note.textContent = T.leadsInd(T.leadsWhy[res.reason] || res.reason);
   }
   function setQT(state) { qtSeq++; lab.qt = state; renderQT(); updateExport(); }
   function startQT(edf) {
@@ -328,6 +402,7 @@
     const box = $("#verdict"), run = ++runSeq;
     const record = lab.source === "file" ? lab.fileName : T.synthName;
     if (lab.source !== "file" && lab.qt) setQT(null);         // the synthetic example is one lead
+    if (lab.source !== "file" && lab.multi) setLeads(null);
     if (lab.source === "file") {
       box.className = "verdict none"; box.querySelector(".pill").textContent = T.busy;
       box.querySelector("p").textContent = T.busyText;
@@ -505,6 +580,7 @@
     const sig = edf.getChannel(idx);
     $("#f-status").textContent = T.edfOk(sig.length, Math.round(s.fs), s.label, edf.format) + (s.unitToMv === null ? T.unitUnknown(s.unit) : "");
     lab.lead = EDF.leadFromLabel(s.label); $("#f-lead").value = lab.lead;
+    document.querySelectorAll(".lead-cell").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lead === lab.lead)));
     loadFromChannel(sig, s.fs, lab.fileName);
   }
   function parseCsvText(text) {
@@ -524,7 +600,8 @@
       const edf = EDF.parseEDF(buf);
       lab.edf = edf;
       $("#f-csv-wrap").hidden = true; $("#f-edf-wrap").hidden = false;
-      populateEdfChannels(edf);           // the TWA job goes to the worker first, QT after it
+      populateEdfChannels(edf);           // the TWA job goes to the worker first, then all leads, then QT
+      startLeads(edf);
       startQT(edf);
     } catch (e) {
       $("#f-status").textContent = T.fileErrEdf(e.message);
@@ -536,7 +613,7 @@
       if (isEdfBytes(new Uint8Array(buf, 0, Math.min(8, buf.byteLength)))) { openEdf(buf, file.name); return; }
       lab.fileName = file.name;
       $("#f-csv-wrap").hidden = false; $("#f-edf-wrap").hidden = true; lab.edf = null;
-      setQT({ state: "none" });
+      setQT({ state: "none" }); setLeads(null);
       lab.csvRawText = new TextDecoder().decode(buf);
       parseCsvText(lab.csvRawText);
     });
@@ -578,8 +655,8 @@
       valueQuantity: { value: +value.toFixed(4), unit, system: UCUM, code: unit } };
   }
   function exportFHIR() {
-    const r = lab.res, q = qtOk() ? lab.qt.q : null;
-    if (!r && !q) return;
+    const r = lab.res, q = qtOk() ? lab.qt.q : null, m = multiOk() ? lab.multi.res : null;
+    if (!r && !q && !m) return;
     const observations = r ? [
       fhirObs("hr", "heart-rate", "Heart rate (from R-R intervals)", r.hr, "/min", ["8867-4", "Heart rate"]),
       fhirObs("valt", "twa-valt", "T-wave alternans voltage (Spectral Method)", r.vAlt, "uV"),
@@ -591,6 +668,12 @@
         device: { reference: "#software" },
         valueCodeableConcept: { coding: [{ system: FHIR_CS, code: r.outcome, display: r.outcome }], text: r.reason } },
     ] : [];
+    if (m) observations.push({ resourceType: "Observation", id: "twa-leads", status: "preliminary",   // mirrors cardioonco/fhir.py
+      code: { coding: [{ system: FHIR_CS, code: "twa-multilead-outcome", display: "T-wave alternans outcome, two adjacent precordial leads rule" }],
+              text: "T-wave alternans outcome, two adjacent precordial leads rule" },
+      device: { reference: "#software" },
+      valueCodeableConcept: { coding: [{ system: FHIR_CS, code: m.outcome, display: m.outcome }],
+                              text: m.reason + (m.positivePairs.length ? ": " + m.positivePairs.map((p) => p.join("-")).join(", ") : "") } });
     if (q) observations.push(        // mirrors cardioonco/fhir.py
       fhirObs("qt", "qt-interval", "QT interval (tangent method, 12SL scale)", q.qtMs, "ms", ["8634-8", "Q-T interval"]),
       fhirObs("qtcf", "qtc-fridericia", "QTc, Fridericia correction", q.qtcfMs, "ms", ["8636-3", "Q-T interval corrected"]),

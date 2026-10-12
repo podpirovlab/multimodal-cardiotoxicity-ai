@@ -62,7 +62,8 @@ def software_device() -> dict:
 
 
 def diagnostic_report(patient_ref: str | None = None, twa: dict | None = None, probs: dict | None = None,
-                      conclusion: str = "", recorded_at: str | None = None, qt: dict | None = None) -> dict:
+                      conclusion: str = "", recorded_at: str | None = None, qt: dict | None = None,
+                      multilead: dict | None = None) -> dict:
     """Build the report.  `recorded_at` is the ECG recording time (ISO 8601) if known --
     never the export time; when unknown, effective[x] is simply left out."""
     now = datetime.now(timezone.utc).isoformat()
@@ -81,6 +82,10 @@ def diagnostic_report(patient_ref: str | None = None, twa: dict | None = None, p
         if "outcome" in twa:
             add(_coded_obs("outcome", "twa-outcome", "T-wave alternans outcome (Spectral Method rules)",
                            twa["outcome"], twa.get("reason", "")))
+    if multilead:                             # cardioonco.twa.MultiLeadResult.as_dict()
+        pairs = ", ".join("-".join(p) for p in multilead["positive_pairs"])
+        add(_coded_obs("twa-leads", "twa-multilead-outcome", "T-wave alternans outcome, two adjacent precordial leads rule",
+                       multilead["outcome"], multilead["reason"] + (f": {pairs}" if pairs else "")))
     if qt:                                    # cardioonco.qt.QTResult.as_dict()
         add(_obs("qt", "qt-interval", "QT interval (tangent method, 12SL scale)", qt["qt_ms"], "ms", "ms",
                  loinc=("8634-8", "Q-T interval")))

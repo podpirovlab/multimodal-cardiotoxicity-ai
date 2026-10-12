@@ -462,6 +462,42 @@
              window: [aSt / fs, bSt / fs], windows };
   }
 
+  // ---------- several leads: the two-adjacent-precordial-leads rule (port of cardioonco.twa.analyze_leads) ----------
+  // Microvolt TWA counts when it "is present in leads X, Y, Z, VM or two adjacent precordial leads"
+  // (FDA 510(k) K012206, 2001); a standard 12-lead ECG has no Frank leads, so the precordial rule is used.
+  const PRECORDIAL = ["V1", "V2", "V3", "V4", "V5", "V6"];
+  const REASON_ORDER = ["noise", "ectopy", "hr_too_high", "hr_too_low"];
+  function analyzeLeads(leads, names, fs, rPeaks) {
+    const r = rPeaks || consensusRPeaks(leads, fs);
+    const per = {}, done = {};
+    leads.forEach((x, i) => {
+      try {
+        const a = analyzeTWA(x, fs, { rPeaks: r });
+        done[names[i]] = a;
+        per[names[i]] = { outcome: a.outcome, reason: a.reason, vAlt: a.vAlt, k: a.k, noise: a.noise,
+                          windowHr: a.windowHr, estimate: a.estimate };
+      } catch (e) { per[names[i]] = { error: e.message, code: e.code }; }
+    });
+    const adj = PRECORDIAL.slice(0, -1).map((a, i) => [a, PRECORDIAL[i + 1]]).filter(([a, b]) => done[a] && done[b]);
+    const pairs = adj.filter(([a, b]) => done[a].positive && done[b].positive);
+    const pairEstimate = Math.max(0, ...adj.map(([a, b]) => Math.min(done[a].estimate, done[b].estimate)));
+    const prec = PRECORDIAL.filter((n) => done[n]).map((n) => done[n]);
+    let outcome, reason;
+    if (pairs.length) [outcome, reason] = ["positive", "adjacent_precordial"];
+    else if (names.filter((n) => PRECORDIAL.includes(n)).length < 2) [outcome, reason] = ["indeterminate", "no_precordial"];
+    else if (prec.length < 2) [outcome, reason] = ["indeterminate", "not_analysable"];
+    else if (Object.values(done).some((a) => a.positive)) [outcome, reason] = ["indeterminate", "isolated"];
+    else if (prec.every((a) => a.outcome === "negative")) [outcome, reason] = ["negative", "criterion_not_met"];
+    else {
+      const rs = prec.filter((a) => a.outcome !== "negative").map((a) => a.reason);
+      const count = (q) => rs.filter((v) => v === q).length;
+      outcome = "indeterminate";
+      reason = REASON_ORDER.reduce((best, q) => (count(q) > count(best) ? q : best), REASON_ORDER[0]);
+    }
+    const rr = median(diffs(r));
+    return { outcome, reason, positivePairs: pairs, pairEstimate, hr: 60 * fs / rr, leads: per };
+  }
+
   // ---------- QT and QTc (port of cardioonco/qt.py; constants chosen on PTB-XL fold 9) ----------
   const QT = { offsetMs: 35.2, maxIqrMs: 40, minTAmp: 0.05, minLeads: 6, segmentS: 10 };
   function qtMedianBeats(leads, fs, r) {
@@ -587,8 +623,8 @@
     return measureQTOnSegments(starts.map((s) => leads.map((x) => x.subarray(s, s + seg))), starts, fs);
   }
 
-  root.CardioDSP = { version: "1.5.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
+  root.CardioDSP = { version: "1.6.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
     HR_ONSET_MAX, HR_NEGATIVE_MIN, MAX_ECTOPIC, rng, synth, bandpass, detectRPeaks, removeExtraBeats,
-    fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile, resamplePoly, MIN_ANALYSIS_FS, QT, consensusRPeaks, measureQT, qtSegmentStarts, measureQTOnSegments, measureQTSegments };
+    fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile, resamplePoly, MIN_ANALYSIS_FS, PRECORDIAL, analyzeLeads, QT, consensusRPeaks, measureQT, qtSegmentStarts, measureQTOnSegments, measureQTSegments };
   if (typeof module !== "undefined") module.exports = root.CardioDSP;
 })(typeof window !== "undefined" ? window : globalThis);

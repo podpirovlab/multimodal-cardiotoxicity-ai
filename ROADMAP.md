@@ -6,7 +6,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 
 ---
 
-## Where we are (version 1.5, October 2026)
+## Where we are (version 1.6, October 2026)
 
 | Done | Not done |
 |---|---|
@@ -15,6 +15,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 | Checked on the PhysioNet 2008 challenge with a held-out protocol: τ = 0.43 overall, 0.08 on held-out real records (README §7.1) | Data from patients receiving chemotherapy |
 | Network trained on PTB-XL: test macro-AUC 0.921, the published level; age/sex fusion gives no measurable gain (README §5.4) | Clinical partner, ethics approval |
 | QT and QTc from six or more leads, checked against GE 12SL on the PTB-XL test fold: 9.0 ms where the leads agree (README §4.9) | An accurate QT from one lead, as a smartwatch records it |
+| TWA in all leads with the clinical two-adjacent-chest-leads rule (README §4.10) | Frank X, Y, Z leads for the rest of that rule |
 | Valid research FHIR export, installable package, CI, DOI, offline web tool with a real sample recording | |
 
 ---

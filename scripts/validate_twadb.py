@@ -54,7 +54,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from cardioonco import __version__  # noqa: E402
 from cardioonco.preprocess import consensus_r_peaks  # noqa: E402
-from cardioonco.twa import analyze  # noqa: E402
+from cardioonco.twa import analyze, combine_leads  # noqa: E402
 
 METRICS = ("estimate_uv", "v_alt_uv", "mma_uv")
 SYNTHETIC = {"syn", "sync"}
@@ -109,7 +109,41 @@ def analyse_record(path: Path) -> dict:
         leads.append({"lead": name, "n_beats": r.n_beats, "hr": r.heart_rate_bpm, "k": r.k_score,
                       "outcome": r.outcome, "reason": r.reason, **{m: getattr(r, m) for m in METRICS}})
     best = {m: (float(np.median([l[m] for l in leads])) if leads else 0.0) for m in METRICS}
-    return {"fs": rec.fs, "n_leads": rec.n_sig, "leads": leads, "failures": failures, "best": best}
+    per = {l["lead"]: l for l in leads} | {f["lead"]: {"error": f["reason"]} for f in failures}
+    outcome, reason, pairs, pair_est = combine_leads(per)
+    multilead = {"outcome": outcome, "reason": reason, "positive_pairs": pairs, "pair_estimate_uv": pair_est}
+    return {"fs": rec.fs, "n_leads": rec.n_sig, "leads": leads, "failures": failures, "best": best,
+            "multilead": multilead}
+
+
+def multilead_summary(records: dict, groups: dict, ranks: dict, n_boot: int = 2000) -> dict:
+    """The two-adjacent-precordial-leads rule on the 12-lead records of each group: how many
+    records end in each outcome, and Kendall tau of the pair estimate against the median over
+    leads (the challenge metric), with a paired bootstrap 95% CI of the difference."""
+    rng = np.random.default_rng(0)
+    out = {}
+    for g, ns in groups.items():
+        ns = [n for n in ns if records[n]["n_leads"] == 12]
+        if len(ns) < 3:
+            continue
+        counts = {}
+        for n in ns:
+            m = records[n]["multilead"]
+            key = m["outcome"] if m["outcome"] != "indeterminate" else f"indeterminate:{m['reason']}"
+            counts[key] = counts.get(key, 0) + 1
+        y = np.array([ranks[n] for n in ns])
+        a = np.array([records[n]["multilead"]["pair_estimate_uv"] for n in ns])
+        b = np.array([records[n]["best"]["estimate_uv"] for n in ns])
+        diff = []
+        for _ in range(n_boot):
+            i = rng.integers(0, len(ns), len(ns))
+            d = tau(list(a[i]), list(y[i])) - tau(list(b[i]), list(y[i]))
+            if np.isfinite(d):
+                diff.append(d)
+        out[g] = {"n_12_lead": len(ns), "outcomes": dict(sorted(counts.items())),
+                  "tau_pair_estimate": tau(list(a), list(y)), "tau_median_over_leads": tau(list(b), list(y)),
+                  "tau_difference_ci95": [float(np.percentile(diff, 2.5)), float(np.percentile(diff, 97.5))]}
+    return out
 
 
 def write_scores_csv(path: Path, records: dict, ranks: dict, sources: dict, half: dict) -> None:
@@ -166,6 +200,7 @@ def main(argv=None) -> dict:
         "n_records": {g: len(ns) for g, ns in groups.items()},
         "records_without_any_analysable_lead": [n for n in names if not records[n]["leads"]],
         "lead_failures": sum(len(r["failures"]) for r in records.values()),
+        "two_adjacent_precordial_rule": multilead_summary(records, groups, ranks),
         "caveats": ["reference ranks are a consensus of 2008 challenge entries, not true amplitudes",
                     "32 of 100 records are synthetic"],
     }

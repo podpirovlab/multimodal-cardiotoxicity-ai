@@ -1,0 +1,35 @@
+{
+  "source": "scripts/validate_twadb.py --only synthetic, then --only real-dev (CardioOncoPredict 1.5.0 per-lead analysis)",
+  "note": "development records only; the held-out real-test half is not scored",
+  "rule": "cardioonco.twa.combine_leads: positive in two adjacent precordial leads (FDA 510(k) K012206, clause b)",
+  "synthetic": {
+    "n_12_lead": 32,
+    "outcomes": {
+      "indeterminate:ectopy": 2,
+      "indeterminate:hr_too_high": 18,
+      "negative": 11,
+      "positive": 1
+    },
+    "tau_pair_estimate": 0.562147274248521,
+    "tau_median_over_leads": 0.4766031238193983,
+    "tau_difference_ci95": [
+      -0.02880842281982914,
+      0.2107551720909335
+    ]
+  },
+  "real-dev": {
+    "n_12_lead": 20,
+    "outcomes": {
+      "indeterminate:hr_too_low": 9,
+      "indeterminate:isolated": 6,
+      "indeterminate:noise": 5
+    },
+    "tau_pair_estimate": 0.17890134124826104,
+    "tau_median_over_leads": 0.17890134124826104,
+    "tau_difference_ci95": [
+      0.0,
+      0.0
+    ],
+    "records_with_nonzero_estimate": 2
+  }
+}
