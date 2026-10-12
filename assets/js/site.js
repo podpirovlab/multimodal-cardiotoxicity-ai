@@ -49,6 +49,9 @@
         ? `Показан отрезок ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} с — с медианным QTcF среди ${q.nSegmentsReliable ? `${q.nSegmentsReliable} ${plural(q.nSegmentsReliable, "надёжного", "надёжных", "надёжных")} десятисекундных отрезков (всего ${q.nSegments})` : `${q.nSegments} десятисекундных отрезков (надёжных нет)`}; ЧСС ${fmt(q.hr, 0)} уд/мин.`
         : `По ${q.nBeats} ${plural(q.nBeats, "удару", "ударам", "ударам")}, ЧСС ${fmt(q.hr, 0)} уд/мин.`,
       qtOk: (q, n) => `Отведения согласны: конец T найден в ${q.nLeadsUsed} из ${n}, разброс ${fmt(q.iqrMs, 0)} мс. На тестовых ЭКГ PTB-XL с такой пометкой наш QT отличался от алгоритма GE 12SL в среднем на 9 мс. Автоматический QT врач всё равно проверяет вручную.`,
+      trendX: "пульс, которого окно достигло, уд/мин",
+      trendOnset: (hr, share) => `Альтернация начинается при пульсе ${fmt(hr, 0)} уд/мин${hr <= 110 ? "" : " — выше 110, а по клиническому правилу такое начало положительным не считается"}; при пульсе выше она была в ${fmt(100 * share, 0)}% чистых окон${share >= 0.999 ? ", то есть держится" : ""}.`,
+      trendNone: (hr) => `Значимой альтернации в чистых окнах нет; самый высокий пульс в записи — ${fmt(hr, 0)} уд/мин.`,
       hfaLevel: { low: "Низкий риск", medium: "Средний риск", high: "Высокий риск", very_high: "Очень высокий риск" },
       hfaPoints: (n) => `Баллы средних факторов: ${n} (Medium1 — 1 балл, Medium2 — 2).`,
       hfaDeciding: (names) => `Уровень определяют: ${names}.`,
@@ -117,6 +120,9 @@
         ? `Shown: the ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} s segment, the one with the median QTcF of ${q.nSegmentsReliable ? `the ${q.nSegmentsReliable} reliable ten-second segments (${q.nSegments} in all)` : `${q.nSegments} ten-second segments (none reliable)`}; heart rate ${fmt(q.hr, 0)} bpm.`
         : `From ${q.nBeats} beats, heart rate ${fmt(q.hr, 0)} bpm.`,
       qtOk: (q, n) => `The leads agree: ${q.nLeadsUsed} of ${n} give a T end, spread ${fmt(q.iqrMs, 0)} ms. On PTB-XL test ECGs flagged like this, our QT differed from the GE 12SL algorithm by 9 ms on average. A doctor still checks an automatic QT by hand.`,
+      trendX: "heart rate the window reached, bpm",
+      trendOnset: (hr, share) => `Alternans begins at ${fmt(hr, 0)} bpm${hr <= 110 ? "" : ", above 110, which the clinical rule does not count as a positive onset"}; at faster rates it was present in ${fmt(100 * share, 0)}% of clean windows${share >= 0.999 ? ", so it is sustained" : ""}.`,
+      trendNone: (hr) => `No significant alternans in any clean window; the highest rate reached is ${fmt(hr, 0)} bpm.`,
       hfaLevel: { low: "Low risk", medium: "Medium risk", high: "High risk", very_high: "Very high risk" },
       hfaPoints: (n) => `Points from medium factors: ${n} (medium1 counts 1, medium2 counts 2).`,
       hfaDeciding: (names) => `The level is set by: ${names}.`,
@@ -163,7 +169,7 @@
   let C = {};
   function readColors() {
     const cs = getComputedStyle(document.documentElement);
-    for (const k of ["paper", "surface", "ink", "muted", "line", "grid-minor", "grid-major", "trace", "rpeak", "window", "band", "even", "odd", "finding"])
+    for (const k of ["paper", "surface", "ink", "muted", "line", "grid-minor", "grid-major", "trace", "rpeak", "window", "band", "even", "odd", "finding", "amber"])
       C[k] = cs.getPropertyValue("--" + k).trim();
   }
   readColors();
@@ -221,8 +227,8 @@
     return out;
   }
   // ======================= RESEARCH METADATA (age / sex / dose) =======================
-  // Never used by the analysis and never turned into a risk figure; it only goes into the
-  // downloaded JSON, and only when the user ticks "include".
+  // Never used by the ECG analysis; it goes into the downloaded JSON only when the user ticks
+  // "include", and the age only pre-ticks the age factor of the HFA-ICOS checklist below.
   function metadata() {
     const age = parseFloat($("#p-age").value);
     const sex = $("#p-sex").value;
@@ -483,13 +489,13 @@
 
   function drawLab() {
     if (!lab.sig) {                       // empty state: blank panels, no invented trace
-      for (const [id, h] of [["#c-strip", 200], ["#c-overlay", 230], ["#c-series", 200], ["#c-spec", 200]]) {
+      for (const [id, h] of [["#c-strip", 200], ["#c-overlay", 230], ["#c-series", 200], ["#c-spec", 200], ["#c-trend", 232]]) {
         const { ctx, w, h: hh } = setupCanvas($(id), h);
         ctx.fillStyle = C.surface; ctx.fillRect(0, 0, w, hh);
       }
       return;
     }
-    drawStrip(); drawOverlay(); drawSeries(); drawSpectrum();
+    drawStrip(); drawOverlay(); drawSeries(); drawSpectrum(); drawTrend();
   }
 
   function drawStrip() {
@@ -581,6 +587,35 @@
     ctx.stroke();
     const pa = P[P.length - 1];
     ctx.fillStyle = r.positive ? C.finding : C.ink; ctx.beginPath(); ctx.arc(X(0.5) - 2, Y(Math.log10(pa)), 4.5, 0, 7); ctx.fill();
+  }
+
+  // alternans of every window against the heart rate it reached (Holter-style, cardioonco.twa onset_hr_bpm)
+  function drawTrend() {
+    const cv = $("#c-trend"); const { ctx, w, h } = setupCanvas(cv, 232);
+    const r = lab.res, note = $("#trend-note");
+    if (!r) { ctx.clearRect(0, 0, w, h); note.textContent = ""; return; }
+    const ws = r.windows, hrs = ws.map((q) => q.hrP90), vs = ws.map((q) => q.vAlt);
+    const x0 = Math.min(60, Math.floor(Math.min(...hrs) / 10) * 10), x1 = Math.max(120, Math.ceil(Math.max(...hrs) / 10) * 10);
+    const y1 = Math.max(4, Math.max(...vs) * 1.15), pad = { l: 44, r: 14, t: 20, b: 40 };
+    const { X, Y } = axes(ctx, w, h, pad, [x0, x1], [0, y1], { xt: niceTicks(x0, x1, 7), yt: niceTicks(0, y1, 4),
+      yf: (v) => fmt(v, 0), xl: T.trendX, yl: T.uv });
+    ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = C.muted; ctx.lineWidth = 1;
+    const vline = (v) => { ctx.beginPath(); ctx.moveTo(X(v), pad.t); ctx.lineTo(X(v), h - pad.b); ctx.stroke(); };
+    vline(D.HR_NEGATIVE_MIN); vline(D.HR_ONSET_MAX);
+    ctx.beginPath(); ctx.moveTo(pad.l, Y(D.V_ALT_MIN)); ctx.lineTo(w - pad.r, Y(D.V_ALT_MIN)); ctx.stroke(); ctx.restore();
+    ctx.font = MONO; ctx.fillStyle = C.muted; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+    ctx.fillText(`${fmt(D.V_ALT_MIN, 1)} ${T.uv}`, pad.l + 4, Y(D.V_ALT_MIN) - 2);
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText("105", X(D.HR_NEGATIVE_MIN), pad.t - 16); ctx.fillText("110", X(D.HR_ONSET_MAX), pad.t - 16);
+    for (const q of ws) {
+      const sig = q.ectopic <= D.MAX_ECTOPIC && q.k >= D.K_MIN && q.vAlt >= D.V_ALT_MIN;
+      const met = sig && q.noise <= D.NOISE_MAX && q.hr <= D.HR_ONSET_MAX;
+      ctx.fillStyle = met ? C.finding : sig ? C.amber : C.muted;
+      ctx.globalAlpha = sig ? 0.95 : 0.6;
+      ctx.beginPath(); ctx.arc(X(q.hrP90), Y(q.vAlt), 4, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    note.textContent = isFinite(r.onsetHr) ? T.trendOnset(r.onsetHr, r.sustainedShare) : T.trendNone(Math.max(...hrs));
   }
 
   // ---------- file upload: plain CSV/TXT, or binary EDF/EDF+ with a channel picker ----------

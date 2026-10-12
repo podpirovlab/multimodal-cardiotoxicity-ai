@@ -104,6 +104,14 @@ class TWAResult:
     spectrum_f: list          # cycles/beat, reported window
     spectrum_p_uv2: list      # aggregate power, uV^2, reported window
     windows: list = field(default_factory=list)   # per-window summary for trend plots
+    # Alternans against heart rate, for recordings whose rate rises by itself (Holter, daily life):
+    # the lowest rate reached by a clean window with significant alternans, and the share of clean
+    # windows reaching that rate or above that are significant ("sustained for all heart rates
+    # above the onset heart rate" in the clinical definition).  A window's rate here is the 90th
+    # percentile of its beat-to-beat rates, so that a window straddling a rise in rate is not
+    # credited to the slower part of it.  NaN when no window qualifies.
+    onset_hr_bpm: float = float("nan")
+    sustained_share: float = float("nan")
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -290,8 +298,10 @@ def analyze(x_mv: np.ndarray, fs: float, r_peaks: np.ndarray | None = None,
         wflags = flags[s0:s0 + size]
         beats = _replace_flagged(st[s0:s0 + size], wflags)
         f, P, v_alt, k, noise, v_peak = spectral_twa(beats)
-        w_rr = np.median(np.diff(keep[s0:s0 + size])) / fs
-        windows.append({"start_beat": int(s0), "hr": float(60.0 / w_rr), "v_alt": v_alt, "k": k,
+        rr_w = np.diff(keep[s0:s0 + size]) / fs
+        w_rr = np.median(rr_w)
+        windows.append({"start_beat": int(s0), "hr": float(60.0 / w_rr), "hr_p90": float(np.percentile(60.0 / rr_w, 90)),
+                        "v_alt": v_alt, "k": k,
                         "noise": noise, "v_peak": v_peak, "ectopic": float(wflags.mean()),
                         "mma": mma_twa(beats), "_f": f, "_P": P})
     if not all(np.isfinite(w["k"]) for w in windows):
@@ -319,6 +329,11 @@ def analyze(x_mv: np.ndarray, fs: float, r_peaks: np.ndarray | None = None,
         else:
             outcome, reason = "indeterminate", "hr_too_low"
 
+    sig_clean = [w for w in significant if w["noise"] <= NOISE_MAX_UV]
+    onset = min((w["hr_p90"] for w in sig_clean), default=float("nan"))
+    above = [w for w in valid if w["noise"] <= NOISE_MAX_UV and w["hr_p90"] >= onset]
+    sustained = float(np.mean([w in significant for w in above])) if above else float("nan")
+
     pool = significant or valid or windows
     best = max(pool, key=lambda w: w["v_alt"])
     return TWAResult(
@@ -330,6 +345,7 @@ def analyze(x_mv: np.ndarray, fs: float, r_peaks: np.ndarray | None = None,
         spectrum_f=best["_f"].round(5).tolist(), spectrum_p_uv2=best["_P"].round(6).tolist(),
         windows=[{k: round(v, 4) if isinstance(v, float) else v for k, v in w.items() if not k.startswith("_")}
                  for w in windows],
+        onset_hr_bpm=float(onset), sustained_share=sustained,
     )
 
 

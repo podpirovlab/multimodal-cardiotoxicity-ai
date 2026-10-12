@@ -199,6 +199,11 @@
             <canvas id="c-spec" height="200"></canvas>
             <p class="explain">Чередование через удар — это колебание с частотой ровно 0,5 цикла на удар. Если точка справа поднимается над серой полосой шума, альтернация есть.</p>
           </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Альтернация и пульс по окнам</h3><span class="legend"><span><i style="background:var(--finding)"></i>критерий выполнен</span><span><i style="background:var(--amber)"></i>значима, но пульс выше 110 или шум</span><span><i style="background:var(--muted)"></i>не значима</span></span></div>
+            <canvas id="c-trend" height="232"></canvas>
+            <p class="explain"><span>Каждая точка — окно из 128 ударов: по горизонтали пульс, которого окно достигло, по вертикали альтернация. На беговой дорожке пульс поднимают нарочно, а в холтеровской записи он поднимается сам — при ходьбе, на лестнице, — и здесь видно, с какого пульса альтернация начинается.</span> <span id="trend-note"></span></p>
+          </div>
           <div class="fhir-row">
             <button type="button" class="btn ghost" id="b-print" disabled>Печать или PDF</button>
             <button type="button" class="btn ghost" id="b-fhir" disabled>Скачать исследовательский JSON (формат FHIR)</button>

@@ -162,3 +162,16 @@ def test_js_multilead_rule_matches_python(tmp_path, alt, hr):
     same = sum(js["leads"][n]["outcome"] == py.leads[n]["outcome"] for n in names)
     assert same >= 11                                  # a borderline lead may differ (filters differ, §7)
     assert js["pairEstimate"] == pytest.approx(py.pair_estimate_uv, rel=0.15, abs=0.3)
+
+
+@pytest.mark.skipif(NODE is None and not os.environ.get("CI"), reason="node.js not installed")
+def test_js_onset_heart_rate_matches_python(tmp_path):
+    from test_twa import rising_rate_recording
+    x = rising_rate_recording()
+    py = analyze(x, 500)
+    (tmp_path / "x.json").write_text(json.dumps(x.tolist()))
+    script = (f"const D=require({json.dumps(str(ROOT / 'assets/js/dsp.js'))});"
+              f"const x=Float64Array.from(require({json.dumps(str(tmp_path / 'x.json'))}));"
+              "const r=D.analyzeTWA(x,500);console.log(JSON.stringify({o:r.onsetHr,s:r.sustainedShare}));")
+    js = json.loads(subprocess.check_output([NODE, "-e", script], text=True))
+    assert js["o"] == pytest.approx(py.onset_hr_bpm, abs=2) and js["s"] == pytest.approx(py.sustained_share, abs=0.15)

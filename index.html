@@ -199,6 +199,11 @@
             <canvas id="c-spec" height="200"></canvas>
             <p class="explain">Alternating every other beat is an oscillation at exactly 0.5 cycles per beat. If the right-most point rises above the grey noise band, alternans is present.</p>
           </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Alternans and heart rate, window by window</h3><span class="legend"><span><i style="background:var(--finding)"></i>criterion met</span><span><i style="background:var(--amber)"></i>significant, but above 110 bpm or noisy</span><span><i style="background:var(--muted)"></i>not significant</span></span></div>
+            <canvas id="c-trend" height="232"></canvas>
+            <p class="explain"><span>Each dot is a 128-beat window: across, the heart rate the window reached; up, its alternans. On a treadmill the rate is raised on purpose; in a Holter recording it rises by itself, walking or climbing stairs, and this shows the rate at which alternans begins.</span> <span id="trend-note"></span></p>
+          </div>
           <div class="fhir-row">
             <button type="button" class="btn ghost" id="b-print" disabled>Print or save as PDF</button>
             <button type="button" class="btn ghost" id="b-fhir" disabled>Download research JSON (FHIR format)</button>

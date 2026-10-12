@@ -427,7 +427,8 @@
     const windows = windowStarts(r.length, size, o.hop).map((s0) => {
       const wf = flags.slice(s0, s0 + size), beats = replaceFlagged(st.slice(s0, s0 + size), wf);
       const s = spectral(beats, undefined, false);
-      return { start: s0, hr: 60 / (median(diffs(r.slice(s0, s0 + size))) / fs), vAlt: s.vAlt, k: s.k,
+      const rates = diffs(r.slice(s0, s0 + size)).map((d) => 60 * fs / d);
+      return { start: s0, hr: 60 / (median(diffs(r.slice(s0, s0 + size))) / fs), hrP90: percentile(rates, 90), vAlt: s.vAlt, k: s.k,
                noise: s.noise, vPeak: s.vPeak, ectopic: wf.filter(Boolean).length / size, mma: mma(beats) };
     });
     if (!windows.every((w) => isFinite(w.k))) throw analysisError("no_noise_estimate", "noise band estimate unavailable");
@@ -446,6 +447,11 @@
     else if (hrMaxClean >= HR_NEGATIVE_MIN) [outcome, reason] = ["negative", "criterion_not_met"];
     else [outcome, reason] = ["indeterminate", "hr_too_low"];
 
+    // alternans against heart rate (Holter, daily life): onset rate and how sustained it is above it
+    const sigClean = significant.filter((w) => w.noise <= NOISE_MAX);
+    const onsetHr = sigClean.length ? Math.min(...sigClean.map((w) => w.hrP90)) : NaN;   // the rate a window reached
+    const above = valid.filter((w) => w.noise <= NOISE_MAX && w.hrP90 >= onsetHr);
+    const sustainedShare = above.length ? above.filter((w) => significant.includes(w)).length / above.length : NaN;
     const pool = significant.length ? significant : valid.length ? valid : windows;
     const best = pool.reduce((a, b) => (b.vAlt > a.vAlt ? b : a));
     const bi = best.start, wflags = flags.slice(bi, bi + size);
@@ -459,7 +465,7 @@
              noise: best.noise, mma: Math.max(...(valid.length ? valid : [best]).map((w) => w.mma)),
              estimate, hrMaxClean, outcome, reason, positive: outcome === "positive",
              freqs: spec.freqs, P: spec.P, fullBeats: replaceFlagged(shown, wflags),
-             window: [aSt / fs, bSt / fs], windows };
+             window: [aSt / fs, bSt / fs], windows, onsetHr, sustainedShare };
   }
 
   // ---------- several leads: the two-adjacent-precordial-leads rule (port of cardioonco.twa.analyze_leads) ----------
@@ -623,7 +629,7 @@
     return measureQTOnSegments(starts.map((s) => leads.map((x) => x.subarray(s, s + seg))), starts, fs);
   }
 
-  root.CardioDSP = { version: "1.8.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
+  root.CardioDSP = { version: "1.9.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
     HR_ONSET_MAX, HR_NEGATIVE_MIN, MAX_ECTOPIC, rng, synth, bandpass, detectRPeaks, removeExtraBeats,
     fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile, resamplePoly, MIN_ANALYSIS_FS, PRECORDIAL, analyzeLeads, QT, consensusRPeaks, measureQT, qtSegmentStarts, measureQTOnSegments, measureQTSegments };
   if (typeof module !== "undefined") module.exports = root.CardioDSP;

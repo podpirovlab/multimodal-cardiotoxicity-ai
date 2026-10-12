@@ -449,6 +449,15 @@ On the development records of the TWA challenge (§7.1) the rule gave these outc
 
 In 6 of the 20 real recordings some single lead met the criterion, but never two adjacent chest leads, so the rule does not count them. As a ranking for the challenge, the smaller estimate of the best adjacent chest pair ordered the synthetic records better than the median over leads, but not significantly: Kendall τ 0.562 against 0.477, difference 95% CI −0.03 to +0.21. On the real development records the two rankings are identical, because only 2 of the 20 have a non-zero estimate either way. The challenge score in §7.1 therefore keeps the median over leads, and the held-out half was not scored again.
 
+### 4.11 Alternans against heart rate: the onset rate
+
+The clinical definition also asks for alternans that "has an onset heart rate at or below 110 beats per minute, and is sustained for all heart rates above the onset heart rate" [48]. On a treadmill the rate is raised on purpose; in a long recording from daily life, such as a Holter recording, it rises by itself when the person walks or climbs stairs. The tool therefore plots every 128-beat window against the heart rate it reached and reports two numbers (`onset_hr_bpm` and `sustained_share` from `cardioonco.twa.analyze`; the same in the browser):
+
+- the **onset heart rate**: the lowest rate reached by a clean window with significant alternans;
+- the **share sustained**: of the clean windows that reach that rate or more, the share with significant alternans.
+
+A window's rate here is the 90th percentile of its beat-to-beat rates, not their median. In a test recording whose rate rose from 80 to 100 bpm, with 20 µV of alternans only in the faster part, a window straddling the rise had a median rate of 80 bpm although its alternans came from the beats at 100. The median would have put the onset at 80 bpm; the 90th percentile puts it at 101 (`test_onset_heart_rate_of_alternans_in_a_rising_rate_recording`). The three outcomes of §4.4 are unchanged, and the onset rate is reported beside them.
+
 ---
 
 ## 5. Computer science: the multimodal neural network
@@ -590,6 +599,7 @@ FHIR is the format hospital systems use to exchange results, so the tool can exp
 | QT agrees with GE 12SL on PTB-XL test ECGs: mean \|difference\| 9.0 ms where the leads agree | `scripts/validate_qt.py`, [§4.9](#49-the-qt-interval-and-qtc) | ✅ |
 | A T wave mistaken for a beat is removed; a missed beat does not flip the ABAB phase | `test_extra_detection_on_t_wave_is_removed`, `test_missed_beat_keeps_abab_parity` | ✅ |
 | HFA-ICOS: every level rule of Table 2, the 18 published weights, contradictory answers refused; the browser gives the same level for all 2¹⁸ combinations | `tests/test_hfa_icos.py` | ✅ |
+| In a recording whose rate rises from 80 to 100 bpm, alternans that starts with the faster part gets an onset of about 100 bpm and is sustained; Python and the browser agree | `test_onset_heart_rate_of_alternans_in_a_rising_rate_recording`, `test_js_onset_heart_rate_matches_python` | ✅ |
 | A folder of mixed files becomes one table with the web tool's columns; an unreadable file gets a row of its own, without the local folder name | `tests/test_batch.py` | ✅ |
 | A de-identified EDF/BDF keeps every sample bit for bit, has no name, birth date or annotation text left, opens in a standard reader, and the browser writes the same bytes as Python | `tests/test_edf_anon.py` | ✅ |
 | Too-short recordings are refused, not called negative | `test_short_recording_is_refused_not_called_negative` | ✅ |
@@ -792,6 +802,8 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
 
 **1.8.0.** A baseline risk checklist for the clinician before anthracyclines: the HFA-ICOS proforma of the ESC Heart Failure Association and the International Cardio-Oncology Society [49], copied factor by factor from its Table 2 with its weights, levels of evidence and rule. The page gives the level, the factors that set it and the authors' expert-opinion guide to the risk at that level; it fills the age factor from the age field, and the research JSON carries the level when the metadata are included. The Python and browser versions agree on every one of the 2¹⁸ combinations of answers. The ECG analysis is unchanged.
 
+**1.9.0.** Alternans against heart rate, for recordings whose rate rises by itself, such as Holter monitoring in daily life (§4.11): a chart of every window against the heart rate it reached, and the onset heart rate of alternans with the share of faster windows in which it is sustained, in Python, the browser and `predict.py`. A window's rate is taken as the 90th percentile of its beat-to-beat rates, because otherwise a window straddling a rise in rate credits its alternans to the slower part. The three outcomes are unchanged.
+
 ---
 
 ## 11. Limitations and ethics
@@ -873,7 +885,7 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
   author  = {Podpirov, Petr},
   title   = {CardioOncoPredict: research software for measuring microvolt T-wave alternans},
   year    = {2026},
-  version = {1.8.0},
+  version = {1.9.0},
   doi     = {10.5281/zenodo.23090355},
   url     = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
 }

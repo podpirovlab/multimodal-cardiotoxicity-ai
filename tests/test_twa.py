@@ -125,3 +125,20 @@ def test_mma_is_full_even_odd_difference():
     # even and odd T waves differ by 2 * alternans_uv; clinical MMA reports that full difference
     _, x, _ = generate_ecg(SynthConfig(alternans_uv=20, noise_uv=5, seed=7))
     assert analyze(x, 500).mma_uv == pytest.approx(40, rel=0.2)
+
+
+def rising_rate_recording():
+    """160 beats at 80 bpm without alternans, then 160 at 100 bpm with 20 uV: like a Holter
+    recording whose rate rises with activity."""
+    _, a, _ = generate_ecg(SynthConfig(alternans_uv=0, noise_uv=8, heart_rate=80, n_beats=160, seed=21))
+    _, b, _ = generate_ecg(SynthConfig(alternans_uv=20, noise_uv=8, heart_rate=100, n_beats=160, seed=22))
+    return np.concatenate([a, b])
+
+
+def test_onset_heart_rate_of_alternans_in_a_rising_rate_recording():
+    r = analyze(rising_rate_recording(), 500)
+    assert r.outcome == "positive"
+    assert r.onset_hr_bpm == pytest.approx(100, abs=4)        # alternans begins with the faster segment
+    assert r.sustained_share >= 0.8                           # and stays at every rate above it
+    assert np.isnan(analyze(generate_ecg(SynthConfig(alternans_uv=0, noise_uv=8, heart_rate=108, n_beats=160,
+                                                      seed=3))[1], 500).onset_hr_bpm)
