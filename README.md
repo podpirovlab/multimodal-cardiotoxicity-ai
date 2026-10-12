@@ -102,6 +102,8 @@ python scripts/wfdb_to_csv.py records100/00000/00001_lr --lead II --out ecg.csv
 
 Then upload `ecg.csv` and type the sampling rate that the script prints into the form.
 
+**Many files at once.** "Choose several files" analyses each file as a single one would be (TWA in the default lead, every lead under the two-adjacent-chest-leads rule, QT) and gives one CSV table, one row per file, with the outcome and the reason it was reached; a file that cannot be read gets its own row with the error rather than stopping the rest. `scripts/batch_analyse.py` writes the same columns from Python, and also reads PhysioNet WFDB records.
+
 **De-identified copy.** An EDF or BDF header can hold the patient's name, code, sex and birth date, details of the recording and its date, and EDF+ annotations can hold free text. The page lists which of these a file holds, without showing them, and "Download a de-identified copy" writes the file again with those fields replaced by "X" as the EDF+ specification prescribes, the start date and time set to 01.01.85 00.00.00 (the earliest date the field can hold), and the annotation text cleared; the signal is copied bit for bit. `scripts/anonymize_edf.py` does the same for a whole folder, and writes byte-for-byte the same files. The ECG itself is biometric data, so a de-identified file is still not anonymous in the legal sense.
 
 **Research metadata and the JSON export.** Age, sex and cumulative doxorubicin dose next to the upload are optional and never enter the analysis, which looks only at the ECG. They are added to the downloadable research JSON (FHIR `DiagnosticReport` format, same structure as `cardioonco/fhir.py`, [§6.3](#63-hl7-fhir-r4)) only when the "add these fields" box is ticked. Next to the dose field the page quotes the population figures from [§2.1](#21-the-clinical-scale-of-the-problem) as a reference; it does not place the patient on that curve or predict anything for them.
@@ -585,6 +587,7 @@ FHIR is the format hospital systems use to exchange results, so the tool can exp
 | Browser and Python give the same QT (±6 ms), QTcF and flag, with the same shared R peaks | `test_js_qt_matches_python`, `test_js_qt_segments_and_consensus_match_python` | ✅ |
 | QT agrees with GE 12SL on PTB-XL test ECGs: mean \|difference\| 9.0 ms where the leads agree | `scripts/validate_qt.py`, [§4.9](#49-the-qt-interval-and-qtc) | ✅ |
 | A T wave mistaken for a beat is removed; a missed beat does not flip the ABAB phase | `test_extra_detection_on_t_wave_is_removed`, `test_missed_beat_keeps_abab_parity` | ✅ |
+| A folder of mixed files becomes one table with the web tool's columns; an unreadable file gets a row of its own, without the local folder name | `tests/test_batch.py` | ✅ |
 | A de-identified EDF/BDF keeps every sample bit for bit, has no name, birth date or annotation text left, opens in a standard reader, and the browser writes the same bytes as Python | `tests/test_edf_anon.py` | ✅ |
 | Too-short recordings are refused, not called negative | `test_short_recording_is_refused_not_called_negative` | ✅ |
 | Agreement with the PhysioNet 2008 TWA challenge reference | `scripts/validate_twadb.py`, [§7.1](#71-check-against-the-physionet-twa-challenge) | ⚠️ partial |
@@ -678,6 +681,7 @@ scripts/
   baseline_ptbxl.py    hand-made features + logistic regression and boosted trees (§5.4)
   wfdb_to_csv.py       convert one lead of a PhysioNet WFDB record to CSV for the web tool
   anonymize_edf.py     de-identified copies of one EDF/BDF file or a folder of them
+  batch_analyse.py     a folder of EDF/BDF/WFDB/CSV files -> one CSV table (the web tool's batch mode)
   make_figures.py      regenerate every figure in docs/figures/{en,ru}
   validate_twadb.py    score the pipeline on the PhysioNet TWA challenge (§7.1)
   validate_rpeaks.py   score the R-peak detector on annotated databases (§4.3)
@@ -715,6 +719,7 @@ python app.py                             # interactive lab at http://localhost:
 python scripts/make_figures.py            # regenerate all figures
 python scripts/simulate_sampling_rate.py  # TWA found at 500, 250 and 130 Hz sampling (§4.5)
 python scripts/anonymize_edf.py my_ecgs/ --out my_ecgs_anon/   # de-identified copies of EDF/BDF files
+python scripts/batch_analyse.py my_ecgs/ --out results.csv      # every file in a folder -> one table
 
 # R-peak detector on cardiologist-annotated ECGs (~150 MB from PhysioNet)
 python -c "import wfdb; wfdb.dl_database('mitdb', dl_dir='data/mitdb'); wfdb.dl_database('svdb', dl_dir='data/svdb')"
@@ -777,6 +782,8 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
 **1.5.0.** The tool measures the QT interval for the first time: the tangent method [43] on the median beats of all leads, with Fridericia's and Bazett's corrections and a flag when the leads disagree (§4.9). It was checked once on the PTB-XL test fold against the GE 12SL algorithm of PTB-XL+ [44]: where the leads agree (83% of ECGs) the mean absolute difference is 9.0 ms, and 92.7% of ECGs are within 20 ms. From one lead the difference was about five times larger, so QT is shown only for six or more leads. The browser runs the same method on EDF and BDF files; the research JSON carries QT and QTcF (LOINC 8634-8 and 8636-3) with the flag, and `predict.py` reports them for multi-lead files. Figure 14 shows the method and the comparison. The TWA algorithm is unchanged.
 
 **1.6.0.** Alternans is analysed in every lead of a recording at once, with one shared set of R peaks, and the result follows the clinical rule that microvolt TWA must appear in two adjacent chest leads [48] (§4.10). Alternans in a single lead, which an electrode or interference can produce, is reported as isolated rather than positive. The web tool shows every lead in the layout of a printed 12-lead ECG, and a lead opens in detail with one click; `predict.py` and the research JSON carry the verdict. On the challenge's real development recordings the rule held back 6 of 20 records in which some single lead met the criterion. The single-lead TWA algorithm and the challenge score are unchanged.
+
+**1.7.0.** Two tools for working with many recordings safely. "Choose several files" analyses a whole set at once, alternans, every lead and QT, into one CSV table, and `scripts/batch_analyse.py` writes the same table from Python. "Download a de-identified copy" rewrites an EDF or BDF file with the patient and recording fields replaced by "X" as the EDF+ specification prescribes, the date set to 01.01.85 and annotation text cleared, while every sample is copied bit for bit; the page tells which kinds of personal data a file holds without showing them, and the browser and `scripts/anonymize_edf.py` write byte-for-byte the same file. The analysis itself is unchanged.
 
 ---
 
@@ -858,7 +865,7 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
   author  = {Podpirov, Petr},
   title   = {CardioOncoPredict: research software for measuring microvolt T-wave alternans},
   year    = {2026},
-  version = {1.6.0},
+  version = {1.7.0},
   doi     = {10.5281/zenodo.23090355},
   url     = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
 }

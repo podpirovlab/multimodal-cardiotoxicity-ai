@@ -74,3 +74,21 @@ def anonymize_edf(data: bytes) -> tuple[bytes, dict]:
             removed["annotations"] += _count_texts(bytes(b[keep:z]))
             b[keep:z] = bytes(z - keep)
     return bytes(b), removed
+
+
+def lead_from_label(label: str) -> str:
+    """The standard lead a channel label names ("ECG II", "EKG V5", "Lead aVL", "v3"), or "" when it
+    names none of the twelve ("ECG1", "MLII", "Resp"); the same as leadFromLabel in edf.js."""
+    import re
+    s = re.sub(r"^(ecg|ekg|экг|lead|отв\.?)[\s_:-]*", "", str(label or "").strip(), flags=re.I)
+    m = re.fullmatch(r"(I{1,3}|aVR|aVL|aVF|V[1-6])", s, flags=re.I)
+    if not m:
+        return ""
+    t = m.group(1).upper()
+    return "a" + t[1:] if t.startswith("AV") else t
+
+
+def unit_to_mv(unit: str) -> float | None:
+    """Factor from a channel's physical dimension to mV, or None if it is not a voltage."""
+    u = (unit or "").strip().lower().replace("µ", "u").replace("μ", "u")
+    return {"uv": 1e-3, "mv": 1.0, "v": 1e3, "nv": 1e-6}.get(u)

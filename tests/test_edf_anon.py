@@ -67,3 +67,15 @@ def test_browser_writes_the_same_bytes(tmp_path, file_type, ext):
     js_removed = json.loads(subprocess.check_output([NODE, "-e", script], text=True))
     assert (tmp_path / "js.bin").read_bytes() == py
     assert js_removed == removed
+
+
+@pytest.mark.skipif(NODE is None and not os.environ.get("CI"), reason="node.js not installed")
+def test_lead_names_and_units_are_read_the_same_way():
+    from cardioonco.edf import lead_from_label, unit_to_mv
+    labels = ["ECG II", "EKG V5", "Lead aVL", "v3", "ECG1", "MLII", "Resp", "III", "avf", "ЭКГ V1", "V7", " I "]
+    units = ["uV", "µV", "mV", "V", "nV", "mmHg", ""]
+    script = (f"const E=require({json.dumps(str(ROOT / 'assets/js/edf.js'))});"
+              f"console.log(JSON.stringify({{l:{json.dumps(labels)}.map(E.leadFromLabel),u:{json.dumps(units)}.map(E.unitToMv)}}));")
+    js = json.loads(subprocess.check_output([NODE, "-e", script], text=True))
+    assert js["l"] == [lead_from_label(x) for x in labels]
+    assert js["u"] == [unit_to_mv(u) for u in units]

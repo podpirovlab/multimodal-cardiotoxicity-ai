@@ -12,7 +12,7 @@ authors:
   - given-names: Petr
     family-names: Podpirov
     alias: podpirovlab
-version: 1.6.0
+version: 1.7.0
 doi: 10.5281/zenodo.23090355
 identifiers:
   - type: doi

@@ -623,7 +623,7 @@
     return measureQTOnSegments(starts.map((s) => leads.map((x) => x.subarray(s, s + seg))), starts, fs);
   }
 
-  root.CardioDSP = { version: "1.6.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
+  root.CardioDSP = { version: "1.7.0", MIN_BEATS, STANDARD_BEATS, V_ALT_MIN, K_MIN, NOISE_MAX,
     HR_ONSET_MAX, HR_NEGATIVE_MIN, MAX_ECTOPIC, rng, synth, bandpass, detectRPeaks, removeExtraBeats,
     fillMissedBeats, alignBeats, flagEctopic, spectral, mma, analyzeTWA, percentile, resamplePoly, MIN_ANALYSIS_FS, PRECORDIAL, analyzeLeads, QT, consensusRPeaks, measureQT, qtSegmentStarts, measureQTOnSegments, measureQTSegments };
   if (typeof module !== "undefined") module.exports = root.CardioDSP;

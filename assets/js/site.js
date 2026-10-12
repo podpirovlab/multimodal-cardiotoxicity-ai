@@ -49,6 +49,8 @@
         ? `Показан отрезок ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} с — с медианным QTcF среди ${q.nSegmentsReliable ? `${q.nSegmentsReliable} ${plural(q.nSegmentsReliable, "надёжного", "надёжных", "надёжных")} десятисекундных отрезков (всего ${q.nSegments})` : `${q.nSegments} десятисекундных отрезков (надёжных нет)`}; ЧСС ${fmt(q.hr, 0)} уд/мин.`
         : `По ${q.nBeats} ${plural(q.nBeats, "удару", "ударам", "ударам")}, ЧСС ${fmt(q.hr, 0)} уд/мин.`,
       qtOk: (q, n) => `Отведения согласны: конец T найден в ${q.nLeadsUsed} из ${n}, разброс ${fmt(q.iqrMs, 0)} мс. На тестовых ЭКГ PTB-XL с такой пометкой наш QT отличался от алгоритма GE 12SL в среднем на 9 мс. Автоматический QT врач всё равно проверяет вручную.`,
+      batchBusy: (k, n, name) => `Файл ${k} из ${n}: ${name}…`,
+      batchDone: (n, pos, neg, ind, err) => `Готово: ${n} ${plural(n, "файл", "файла", "файлов")}. Критерий выполнен: ${pos}, альтернации нет: ${neg}, не определено: ${ind}, не удалось проанализировать: ${err}. Таблица ждёт скачивания.`,
       anonHas: (items) => `В заголовке файла есть: ${items}. Обезличенная копия заменит их на «X» и сотрёт текст аннотаций; сигнал не меняется.`,
       anonNone: "Имени и кода пациента в заголовке нет. Копия всё равно сотрёт дату и время записи и текст аннотаций.",
       anonItems: { patient: "имя или код пациента", recording: "сведения о записи (врач, аппарат)", date: "дата и время записи" },
@@ -108,6 +110,8 @@
         ? `Shown: the ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} s segment, the one with the median QTcF of ${q.nSegmentsReliable ? `the ${q.nSegmentsReliable} reliable ten-second segments (${q.nSegments} in all)` : `${q.nSegments} ten-second segments (none reliable)`}; heart rate ${fmt(q.hr, 0)} bpm.`
         : `From ${q.nBeats} beats, heart rate ${fmt(q.hr, 0)} bpm.`,
       qtOk: (q, n) => `The leads agree: ${q.nLeadsUsed} of ${n} give a T end, spread ${fmt(q.iqrMs, 0)} ms. On PTB-XL test ECGs flagged like this, our QT differed from the GE 12SL algorithm by 9 ms on average. A doctor still checks an automatic QT by hand.`,
+      batchBusy: (k, n, name) => `File ${k} of ${n}: ${name}…`,
+      batchDone: (n, pos, neg, ind, err) => `Done: ${n} file${n === 1 ? "" : "s"}. Criterion met: ${pos}, no alternans: ${neg}, indeterminate: ${ind}, could not be analysed: ${err}. The table is ready to download.`,
       anonHas: (items) => `The file header holds: ${items}. The de-identified copy replaces them with "X" and clears the annotation text; the signal is unchanged.`,
       anonNone: "The header holds no patient name or code. The copy still clears the recording date and time and the annotation text.",
       anonItems: { patient: "the patient's name or code", recording: "recording details (staff, equipment)", date: "the recording date and time" },
@@ -327,12 +331,17 @@
   function startLeads(edf) {
     const g = standardLeads(edf);
     if (g.names.filter((n) => D.PRECORDIAL.includes(n)).length < 2) { setLeads(null); return; }
-    const total = edf.nRecords * edf.signals[g.idx[0]].samplesPerRecord, len = Math.min(total, Math.round(MULTI_MAX_S * g.fs));
+    const { leads, capped } = leadsInput(edf, g);
     setLeads({ state: "busy" });
-    const seq = multiSeq, leads = g.idx.map((i) => edf.getChannel(i, 0, len));
+    const seq = multiSeq;
     runJob({ kind: "leads", leads, names: g.names, fs: g.fs }, () => D.analyzeLeads(leads, g.names, g.fs)).then(
-      (res) => { if (seq === multiSeq) { lab.multi = { state: "ok", res, names: g.names, idx: g.idx, capped: len < total }; renderLeads(); updateExport(); } },
+      (res) => { if (seq === multiSeq) { lab.multi = { state: "ok", res, names: g.names, idx: g.idx, capped }; renderLeads(); updateExport(); } },
       () => { if (seq === multiSeq) { lab.multi = { state: "err" }; renderLeads(); updateExport(); } });
+  }
+  // all standard leads, at most the first MULTI_MAX_S seconds
+  function leadsInput(edf, g) {
+    const total = edf.nRecords * edf.signals[g.idx[0]].samplesPerRecord, len = Math.min(total, Math.round(MULTI_MAX_S * g.fs));
+    return { leads: g.idx.map((i) => edf.getChannel(i, 0, len)), capped: len < total };
   }
   const CELL_CLASS = { positive: "pos", negative: "neg", indeterminate: "ind" };
   function renderLeads() {
@@ -375,14 +384,17 @@
     if (g.idx.length < D.QT.minLeads) { setQT({ state: "few", n: g.idx.length }); return; }
     setQT({ state: "busy" });
     const seq = qtSeq;
-    // only the 10-s segments that are measured are read from the file (at most 60 of them)
-    const total = edf.nRecords * edf.signals[g.idx[0]].samplesPerRecord;
-    const starts = D.qtSegmentStarts(total, g.fs);
-    const len = starts.length === 1 ? total : Math.round(D.QT.segmentS * g.fs);
-    const segments = starts.map((s) => g.idx.map((i) => edf.getChannel(i, s, s + len)));
+    const { segments, starts } = qtInput(edf, g);
     measureQT(segments, starts, g.fs).then(
       (q) => { if (seq === qtSeq) { lab.qt = { state: "ok", q, n: g.idx.length }; renderQT(); updateExport(); } },
       () => { if (seq === qtSeq) { lab.qt = { state: "err" }; renderQT(); updateExport(); } });
+  }
+  // only the 10-s segments that are measured are read from the file (at most 60 of them)
+  function qtInput(edf, g) {
+    const total = edf.nRecords * edf.signals[g.idx[0]].samplesPerRecord;
+    const starts = D.qtSegmentStarts(total, g.fs);
+    const len = starts.length === 1 ? total : Math.round(D.QT.segmentS * g.fs);
+    return { starts, segments: starts.map((s) => g.idx.map((i) => edf.getChannel(i, s, s + len))) };
   }
   function renderQT() {
     const st = lab.qt, cells = [["#m-qt", "qtMs"], ["#m-qtcf", "qtcfMs"], ["#m-qtcb", "qtcbMs"]];
@@ -577,10 +589,14 @@
       opt.disabled = s.annotations;
       sel.appendChild(opt);
     });
+    sel.value = String(guessChannel(edf));
+    selectEdfChannel(parseInt(sel.value, 10));
+  }
+  // the channel analysed by default: the first labelled as ECG or lead II, else the first signal
+  function guessChannel(edf) {
     const guess = edf.signals.findIndex((s) => !s.annotations && /ecg|ekg|\bii\b|lead/i.test(s.label));
     const first = edf.signals.findIndex((s) => !s.annotations);
-    sel.value = String(guess >= 0 ? guess : Math.max(0, first));
-    selectEdfChannel(parseInt(sel.value, 10));
+    return guess >= 0 ? guess : Math.max(0, first);
   }
   function selectEdfChannel(idx) {
     const edf = lab.edf; if (!edf) return;
@@ -591,6 +607,72 @@
     document.querySelectorAll(".lead-cell").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lead === lab.lead)));
     loadFromChannel(sig, s.fs, lab.fileName);
   }
+  // ---------- batch: many files -> one CSV table (the same columns as scripts/batch_analyse.py) ----------
+  const BATCH_COLS = ["file", "format", "fs_hz", "duration_s", "n_leads", "lead", "n_beats", "heart_rate_bpm",
+    "v_alt_uv", "k_score", "noise_uv", "twa_outcome", "twa_reason", "all_leads_outcome", "all_leads_reason",
+    "positive_pairs", "qt_ms", "qtcf_ms", "qtcb_ms", "qt_reliable", "error"];
+  let batchRows = [];
+  const num = (v, d) => (typeof v === "number" && isFinite(v) ? v.toFixed(d) : "");
+  async function batchRow(file) {
+    const row = { file: file.name };
+    const buf = await file.arrayBuffer();
+    const twa = async (x, fs) => {
+      try {
+        const r = await analyse(x, fs);
+        Object.assign(row, { n_beats: r.nBeats, heart_rate_bpm: num(r.hr, 1), v_alt_uv: num(r.vAlt, 2), k_score: num(r.k, 2),
+          noise_uv: num(r.noise, 2), twa_outcome: r.outcome, twa_reason: r.reason });
+        return true;
+      } catch (e) { Object.assign(row, { twa_outcome: "not_analysed", twa_reason: e.code || "error", error: e.message }); return false; }
+    };
+    if (!isEdfBytes(new Uint8Array(buf, 0, Math.min(8, buf.byteLength)))) {
+      const col = Math.max(0, parseInt($("#f-col").value || "0", 10)), fs = Math.max(50, parseFloat($("#f-fs").value) || 500);
+      const x = EDF.parseCSV(new TextDecoder().decode(buf), col);
+      if ($("#f-unit").value === "uv") for (let i = 0; i < x.length; i++) x[i] /= 1000;
+      Object.assign(row, { format: "CSV", fs_hz: num(fs, 1), duration_s: num(x.length / fs, 1), n_leads: 1, lead: `column ${col}` });
+      await twa(x, fs);
+      return row;
+    }
+    const edf = EDF.parseEDF(buf), ci = guessChannel(edf), s = edf.signals[ci];
+    Object.assign(row, { format: edf.format, fs_hz: num(s.fs, 1), duration_s: num(edf.nRecords * edf.recordDuration, 1),
+      n_leads: edf.signals.filter((q) => !q.annotations).length, lead: s.label });
+    const ok = await twa(edf.getChannel(ci), s.fs);
+    const g = standardLeads(edf);
+    if (ok && g.names.filter((n) => D.PRECORDIAL.includes(n)).length >= 2) {
+      const { leads } = leadsInput(edf, g);
+      const m = await runJob({ kind: "leads", leads, names: g.names, fs: g.fs }, () => D.analyzeLeads(leads, g.names, g.fs));
+      Object.assign(row, { all_leads_outcome: m.outcome, all_leads_reason: m.reason,
+        positive_pairs: m.positivePairs.map((p) => p.join("-")).join(" ") });
+    }
+    if (g.idx.length >= D.QT.minLeads) {
+      try {
+        const { segments, starts } = qtInput(edf, g);
+        const q = await measureQT(segments, starts, g.fs);
+        Object.assign(row, { qt_ms: num(q.qtMs, 1), qtcf_ms: num(q.qtcfMs, 1), qtcb_ms: num(q.qtcbMs, 1), qt_reliable: q.reliable ? 1 : 0 });
+      } catch (e) { /* QT left empty */ }
+    }
+    return row;
+  }
+  async function runBatch(files) {
+    const btn = $("#b-batch-csv"), status = $("#f-batch-status");
+    btn.disabled = true; batchRows = [];
+    for (const [k, file] of files.entries()) {
+      status.textContent = T.batchBusy(k + 1, files.length, file.name);
+      try { batchRows.push(await batchRow(file)); }
+      catch (e) { batchRows.push({ file: file.name, twa_outcome: "not_analysed", error: e.message }); }
+    }
+    const count = (o) => batchRows.filter((r) => r.twa_outcome === o).length;
+    status.textContent = T.batchDone(batchRows.length, count("positive"), count("negative"), count("indeterminate"), count("not_analysed"));
+    btn.disabled = !batchRows.length;
+  }
+  function downloadBatch() {
+    const cell = (v) => { const t = v === undefined || v === null ? "" : String(v); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    const text = [BATCH_COLS.join(","), ...batchRows.map((r) => BATCH_COLS.map((c) => cell(r[c])).join(","))].join("\n") + "\n";
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = "cardioonco_batch.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
+
   // ---------- de-identified copy of the loaded EDF/BDF (cardioonco/edf.py) ----------
   // The page lists what kinds of personal data the header holds without showing them, so that
   // a printed or shared screen never carries a name.
@@ -759,6 +841,8 @@
     ["#f-fs", "#f-col", "#f-unit"].forEach((sel) => $(sel).addEventListener("input", () => { if (lab.csvRawText) parseCsvText(lab.csvRawText); }));
     $("#f-edf-channel").addEventListener("change", (e) => selectEdfChannel(parseInt(e.target.value, 10)));
     $("#b-anon").addEventListener("click", downloadAnonymized);
+    $("#f-batch").addEventListener("change", (e) => { const fl = Array.from(e.target.files || []); if (fl.length) runBatch(fl); });
+    $("#b-batch-csv").addEventListener("click", downloadBatch);
     $("#f-lead").addEventListener("change", (e) => {
       lab.lead = e.target.value;
       if (lab.res && lab.source === "file") { leadField(lab.lead); linkHeart(lab.lead); }

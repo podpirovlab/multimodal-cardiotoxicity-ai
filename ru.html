@@ -77,6 +77,12 @@
             </div>
             <div class="ctl"><label for="f-lead">Отведение (если известно)</label><select id="f-lead"><option value="">не указано</option><option value="I">I</option><option value="II">II</option><option value="III">III</option><option value="aVR">aVR</option><option value="aVL">aVL</option><option value="aVF">aVF</option><option value="V1">V1</option><option value="V2">V2</option><option value="V3">V3</option><option value="V4">V4</option><option value="V5">V5</option><option value="V6">V6</option></select></div>
             <span class="hint" id="f-status">Нужно не меньше 1–2 минут записи. Файл остаётся в браузере и никуда не отправляется.</span>
+            <div class="batch">
+              <b class="group" id="f-batch-title">Много файлов сразу</b>
+              <input type="file" id="f-batch" class="sr-only" multiple accept=".edf,.bdf,.csv,.txt,text/csv,text/plain" aria-describedby="f-batch-title">
+              <div class="pick-row"><label for="f-batch" class="btn ghost pick">Выбрать несколько файлов</label><button type="button" class="btn ghost" id="b-batch-csv" disabled>Скачать таблицу CSV</button></div>
+              <span class="hint" id="f-batch-status" aria-live="polite">Каждый файл анализируется так же, как один: альтернация, все отведения, QT. Для CSV берутся частота, столбец и единицы из полей выше. Получится одна таблица.</span>
+            </div>
           </div>
 
           <details class="demo">
