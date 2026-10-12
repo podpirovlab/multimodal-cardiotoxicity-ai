@@ -12,12 +12,15 @@ authors:
   - given-names: Petr
     family-names: Podpirov
     alias: podpirovlab
-version: 1.9.0
+version: 1.10.0
 doi: 10.5281/zenodo.23090355
 identifiers:
   - type: doi
     value: 10.5281/zenodo.23090355
     description: All versions (resolves to the latest)
+  - type: doi
+    value: 10.5281/zenodo.23321321
+    description: Version 1.9.0
   - type: doi
     value: 10.5281/zenodo.23321214
     description: Version 1.8.0

@@ -458,6 +458,29 @@ The clinical definition also asks for alternans that "has an onset heart rate at
 
 A window's rate here is the 90th percentile of its beat-to-beat rates, not their median. In a test recording whose rate rose from 80 to 100 bpm, with 20 µV of alternans only in the faster part, a window straddling the rise had a median rate of 80 bpm although its alternans came from the beats at 100. The median would have put the onset at 80 bpm; the 90th percentile puts it at 101 (`test_onset_heart_rate_of_alternans_in_a_rising_rate_recording`). The three outcomes of §4.4 are unchanged, and the onset rate is reported beside them.
 
+### 4.12 A known answer: alternans injected into real ECGs
+
+The TWA challenge reference (§7.1) is a consensus of other algorithms, and the synthetic ECGs of §4.5 have white noise and a perfectly regular rhythm. A benchmark with a known answer on real signals sits between the two. The 52 healthy controls of the PTB Diagnostic ECG Database [50] (about 2 minutes each, 1000 Hz, heart rate 68 bpm, range 49–103) keep their own noise, wander, heart-rate variability and beat-to-beat T-wave variation. Into lead II and lead V5 of each, alternans of a set size is added: on even beats a Gaussian bump (σ = 40 ms) centred on the T-wave peak of the recording's median beat, on odd beats the same bump inverted, so that $`|A - B|/2`$ at the T peak is the injected amplitude. The analysis then starts from scratch on the changed signal (`scripts/benchmark_injected.py`, `docs/results/benchmark_injected.csv`).
+
+| Injected | II: positive | II: significant alternans found | V5: positive | V5: significant alternans found |
+|---|---|---|---|---|
+| 0 µV | 1/52 | 3/52 | 1/52 | 1/52 |
+| 1 µV | 1/52 | 3/52 | 2/52 | 2/52 |
+| 2 µV | 2/52 | 4/52 | 2/52 | 3/52 |
+| 3 µV | 3/52 | 5/52 | 2/52 | 3/52 |
+| 5 µV | 17/52 | 20/52 | 28/52 | 30/52 |
+| 10 µV | 34/52 | 42/52 | 45/52 | 48/52 |
+| 20 µV | 34/52 | 49/52 | 45/52 | 50/52 |
+
+![Alternans injected into real ECGs of healthy people](docs/figures/en/15_injected_benchmark.png)
+
+- **False positives are rare:** without injected alternans one recording of 52 was called positive in each lead (95% CI 0–10%).
+- **The method works at its own threshold.** For alternans as wide as a T wave, the clinical cut-off of 1.9 µV, an RMS over the whole ST-T, corresponds to a peak of about 4 µV, so 5 µV is found in about a third to half of the recordings and 10 µV in most.
+- **Above that, only noise stops it.** At 20 µV significant alternans was found in 49 and 50 of 52 recordings, but 17 recordings in lead II and 6 in V5 were noisier than the method allows (1.8 µV), and the answer there is indeterminate rather than positive, as the rules demand.
+- **The size is recovered:** from 5 µV upwards, the peak estimate $`V_{alt,peak}`$ is 95–97% of the injected amplitude (median); below about 2 µV it stays at the noise floor of the recording instead.
+
+At rest the heart rate never reached 105 bpm, so a negative answer cannot occur here: a recording that is not positive is indeterminate.
+
 ---
 
 ## 5. Computer science: the multimodal neural network
@@ -599,6 +622,7 @@ FHIR is the format hospital systems use to exchange results, so the tool can exp
 | QT agrees with GE 12SL on PTB-XL test ECGs: mean \|difference\| 9.0 ms where the leads agree | `scripts/validate_qt.py`, [§4.9](#49-the-qt-interval-and-qtc) | ✅ |
 | A T wave mistaken for a beat is removed; a missed beat does not flip the ABAB phase | `test_extra_detection_on_t_wave_is_removed`, `test_missed_beat_keeps_abab_parity` | ✅ |
 | HFA-ICOS: every level rule of Table 2, the 18 published weights, contradictory answers refused; the browser gives the same level for all 2¹⁸ combinations | `tests/test_hfa_icos.py` | ✅ |
+| Alternans injected into real ECGs of 52 healthy people is found at 10 µV in most and recovered within 5%; one false positive per lead without it | `scripts/benchmark_injected.py`, [§4.12](#412-a-known-answer-alternans-injected-into-real-ecgs) | ✅ |
 | In a recording whose rate rises from 80 to 100 bpm, alternans that starts with the faster part gets an onset of about 100 bpm and is sustained; Python and the browser agree | `test_onset_heart_rate_of_alternans_in_a_rising_rate_recording`, `test_js_onset_heart_rate_matches_python` | ✅ |
 | A folder of mixed files becomes one table with the web tool's columns; an unreadable file gets a row of its own, without the local folder name | `tests/test_batch.py` | ✅ |
 | A de-identified EDF/BDF keeps every sample bit for bit, has no name, birth date or annotation text left, opens in a standard reader, and the browser writes the same bytes as Python | `tests/test_edf_anon.py` | ✅ |
@@ -701,6 +725,7 @@ scripts/
   validate_rpeaks.py   score the R-peak detector on annotated databases (§4.3)
   simulate_sampling_rate.py what the analysis finds at 500, 250 and 130 Hz (§4.5)
   validate_qt.py       QT against GE 12SL on PTB-XL folds 9 and 10 (§4.9)
+  fetch_ptbdb_controls.py, benchmark_injected.py  alternans injected into 52 healthy ECGs (§4.12)
 tests/                 pytest: TWA maths, detector, JS/Python parity, EDF/BDF/CSV readers,
                        entry points, training smoke test, released model (Node runs the browser code)
 index.html, ru.html    the web tool (GitHub Pages)
@@ -760,6 +785,9 @@ python scripts/validate_qt.py --fold 9                 # development: rules, off
 python scripts/validate_qt.py --fold 9 --hz100         # the same ECGs at 100 Hz
 python scripts/validate_qt.py --fold 10                # the test fold (scored once for the release)
 python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTcB of one 12-lead ECG
+
+# a known answer (§4.12): alternans injected into 52 healthy ECGs of the PTB Diagnostic database, ~220 MB
+python scripts/fetch_ptbdb_controls.py && python scripts/benchmark_injected.py
 ```
 
 ---
@@ -804,6 +832,8 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
 
 **1.9.0.** Alternans against heart rate, for recordings whose rate rises by itself, such as Holter monitoring in daily life (§4.11): a chart of every window against the heart rate it reached, and the onset heart rate of alternans with the share of faster windows in which it is sustained, in Python, the browser and `predict.py`. A window's rate is taken as the 90th percentile of its beat-to-beat rates, because otherwise a window straddling a rise in rate credits its alternans to the slower part. The three outcomes are unchanged.
 
+**1.10.0.** A benchmark with a known answer on real signals (§4.12): alternans of 0–20 µV injected into leads II and V5 of the 52 healthy controls of the PTB Diagnostic ECG Database [50], then analysed from scratch. One recording of 52 per lead was called positive without injected alternans; 10 µV was called positive in 34 (II) and 45 (V5) of 52 and found in 42 and 48; the size was recovered at 95–97%; the rest were held back as too noisy, as the rules demand. Figure 15. The analysis is unchanged.
+
 ---
 
 ## 11. Limitations and ethics
@@ -818,7 +848,7 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
 - **Not a medical device.** No ethics approval, clinical validation or regulatory clearance. Any clinical study would require ethics-committee approval, informed consent and de-identified data.
 - **Fairness.** PTB-XL comes from one German centre. A model trained on it may perform worse on other populations and devices; external validation is required.
 
-**Licences and attribution.** The code is under the [MIT licence](LICENSE). The datasets are not included in the repository and keep their own licences: PTB-XL [12] is CC BY 4.0, and the PhysioNet/CinC Challenge 2008 T-Wave Alternans Database [26] is under the Open Data Commons Attribution License v1.0; both are distributed by PhysioNet (Goldberger et al., *Circulation* 2000;101:e215–e220). Things derived from them are included under the same terms: the trained weights in `models/ptbxl-1.0/` and, in `docs/results/`, two PTB-XL test ECGs with their attributions and the test-fold labels and predictions (CC BY 4.0, from PTB-XL); the 12SL QT measurements in `docs/results/qt_ptbxl_*.csv` (CC BY 4.0, from PTB-XL+ [44]); one challenge recording in `assets/samples/` and the challenge reference ranks in `docs/results/` (ODC-By). The web fonts in `assets/fonts/` (PT Serif, PT Sans, PT Mono by ParaType; Fraunces; Literata) are under the SIL Open Font License 1.1, with the licence texts in `assets/fonts/OFL.txt`.
+**Licences and attribution.** The code is under the [MIT licence](LICENSE). The datasets are not included in the repository and keep their own licences: PTB-XL [12] is CC BY 4.0, and the PhysioNet/CinC Challenge 2008 T-Wave Alternans Database [26] is under the Open Data Commons Attribution License v1.0; both are distributed by PhysioNet (Goldberger et al., *Circulation* 2000;101:e215–e220). Things derived from them are included under the same terms: the trained weights in `models/ptbxl-1.0/` and, in `docs/results/`, two PTB-XL test ECGs with their attributions and the test-fold labels and predictions (CC BY 4.0, from PTB-XL); the 12SL QT measurements in `docs/results/qt_ptbxl_*.csv` (CC BY 4.0, from PTB-XL+ [44]); one challenge recording in `assets/samples/` and the challenge reference ranks in `docs/results/` (ODC-By); the per-recording results on the PTB Diagnostic ECG Database [50] in `docs/results/benchmark_injected.csv` (ODC-By). The web fonts in `assets/fonts/` (PT Serif, PT Sans, PT Mono by ParaType; Fraunces; Literata) are under the SIL Open Font License 1.1, with the licence texts in `assets/fonts/OFL.txt`.
 
 ---
 
@@ -873,6 +903,7 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
 47. Bland JM, Altman DG. Statistical methods for assessing agreement between two methods of clinical measurement. *Lancet*. 1986;327(8476):307–310. [doi:10.1016/S0140-6736(86)90837-8](https://doi.org/10.1016/S0140-6736%2886%2990837-8).
 48. U.S. Food and Drug Administration. 510(k) summary K012206: Cambridge Heart Alternans Processing System. Bedford, MA: Cambridge Heart, Inc.; cleared 12 October 2001. [accessdata.fda.gov/cdrh_docs/pdf/K012206.pdf](https://www.accessdata.fda.gov/cdrh_docs/pdf/K012206.pdf).
 49. Lyon AR, Dent S, Stanway S, et al. Baseline cardiovascular risk assessment in cancer patients scheduled to receive cardiotoxic cancer therapies: a position statement and new risk assessment tools from the Cardio-Oncology Study Group of the Heart Failure Association of the European Society of Cardiology in collaboration with the International Cardio-Oncology Society. *Eur J Heart Fail*. 2020;22(11):1945–1960. [doi:10.1002/ejhf.1920](https://doi.org/10.1002/ejhf.1920).
+50. Bousseljot R, Kreiseler D, Schnabel A. Nutzung der EKG-Signaldatenbank CARDIODAT der PTB über das Internet. *Biomedizinische Technik*. 1995;40(S1):317. PTB Diagnostic ECG Database, PhysioNet: [doi:10.13026/C28C71](https://doi.org/10.13026/C28C71).
 
 ---
 
@@ -885,7 +916,7 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
   author  = {Podpirov, Petr},
   title   = {CardioOncoPredict: research software for measuring microvolt T-wave alternans},
   year    = {2026},
-  version = {1.9.0},
+  version = {1.10.0},
   doi     = {10.5281/zenodo.23090355},
   url     = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
 }

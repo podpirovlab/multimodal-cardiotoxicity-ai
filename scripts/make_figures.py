@@ -191,6 +191,12 @@ L = {
         mol="molecular\n(ROS, iron, TOP2B)", ele="electrical\n(QT, T-wave alternans)", mec="mechanical\n(LVEF ↓ on echo)",
         tgt="CardioOncoPredict\ntarget", std="standard\nmonitoring", time="time since start of chemotherapy (schematic)",
         visible="signal strength",
+        # 15
+        f15_title="A known answer: alternans injected into real ECGs of {n} healthy people (PTB Diagnostic database)",
+        a15="a  How often it is found", b15="b  How well its size is recovered",
+        inj="injected alternans |A − B| / 2 at the T peak, µV", share15="recordings, %",
+        pos15="called positive ({lead})", found15="significant alternans found ({lead})",
+        peak15="estimated V_alt,peak, µV", ident15="estimate = injected", fp15="false positives at 0 µV: {k} of {n}",
         # 14
         f14_title="QT interval: the tangent method on a real 12-lead ECG and agreement with the GE 12SL algorithm",
         a14="a  One lead ({lead}): tangent to the descending T wave",
@@ -290,6 +296,12 @@ L = {
         mol="молекулярный\n(АФК, железо, TOP2B)", ele="электрический\n(QT, альтернация T)", mec="механический\n(ФВ ЛЖ ↓ на ЭхоКГ)",
         tgt="цель\nCardioOncoPredict", std="стандартный\nконтроль", time="время от начала химиотерапии (схема)",
         visible="сила сигнала",
+        # 15
+        f15_title="Известный ответ: альтернация, добавленная в настоящие ЭКГ {n} здоровых людей (база PTB Diagnostic)",
+        a15="a  Как часто она находится", b15="b  Насколько точно восстанавливается её величина",
+        inj="добавленная альтернация |A − B| / 2 на вершине T, мкВ", share15="записей, %",
+        pos15="результат «положительно» ({lead})", found15="значимая альтернация найдена ({lead})",
+        peak15="оценка V_alt,peak, мкВ", ident15="оценка = добавленной", fp15="ложных срабатываний при 0 мкВ: {k} из {n}",
         # 14
         f14_title="Интервал QT: метод касательной на настоящей ЭКГ в 12 отведениях и согласие с алгоритмом GE 12SL",
         a14="a  Одно отведение ({lead}): касательная к спуску волны T",
@@ -1242,6 +1254,56 @@ def fig14(lang, out):
     save(fig, out, "14_qt_interval.png")
 
 
+def fig15(lang, out):
+    """The injected-alternans benchmark on PTB Diagnostic controls (scripts/benchmark_injected.py)."""
+    import csv
+    import json
+    T = L[lang]
+    res = ROOT / "docs" / "results"
+    summ = json.load(open(res / "benchmark_injected.json"))
+    rows = list(csv.DictReader(open(res / "benchmark_injected.csv")))
+    fig, ax = plt.subplots(1, 2, figsize=(15.5, 5.6), layout="constrained")
+    a, b = ax
+    style = {"II": (BLUE, "o"), "V5": (AMBER, "s")}
+    for lead, (col, mk) in style.items():
+        items = [it for it in summ["by_lead_and_amplitude"] if it["lead"] == lead]
+        amps = np.array([it["amp_uv"] for it in items])
+        for key, ls, lab in (("positive", "-", T["pos15"]), ("found", (0, (4, 3)), T["found15"])):
+            p = np.array([100 * it[f"{key}_share"] for it in items])
+            lo = np.array([100 * it[f"{key}_ci95"][0] for it in items])
+            hi = np.array([100 * it[f"{key}_ci95"][1] for it in items])
+            a.plot(amps, p, ls=ls, marker=mk, color=col, lw=1.8, ms=6, label=lab.format(lead=lead))
+            if key == "positive":
+                a.fill_between(amps, lo, hi, color=col, alpha=0.15, lw=0)
+    a.set_xscale("symlog", linthresh=1, linscale=0.4)
+    a.set_xticks([0, 1, 2, 3, 5, 10, 20])
+    a.xaxis.set_major_formatter(FuncFormatter(lambda v, _p: dec(lang, f"{v:g}")))
+    a.set(xlabel=T["inj"], ylabel=T["share15"], ylim=(-3, 103), title=T["a15"])
+    a.legend(loc="upper left", fontsize=8.5)
+    zero = [it for it in summ["by_lead_and_amplitude"] if it["amp_uv"] == 0]
+    a.text(0.98, 0.04, "\n".join(T["fp15"].format(k=it["positive"], n=it["n"]) + f" ({it['lead']})" for it in zero),
+           transform=a.transAxes, ha="right", va="bottom", fontsize=9, color=MUTED)
+    for lead, (col, mk) in style.items():
+        for amp in sorted({float(r["amp_uv"]) for r in rows}):
+            v = np.array([float(r["v_alt_peak_uv"]) for r in rows if r["lead"] == lead and float(r["amp_uv"]) == amp
+                          and r["v_alt_peak_uv"] not in ("", None)])
+            if len(v) == 0:
+                continue
+            xo = amp * (1.04 if lead == "V5" else 0.96) if amp else (0.15 if lead == "V5" else -0.15)
+            q1, med, q3 = np.percentile(v, [25, 50, 75])
+            b.plot([xo, xo], [q1, q3], color=col, lw=2.2, alpha=0.8)
+            b.plot(xo, med, marker=mk, color=col, ms=7, label=lead if amp == 20 else None)
+    b.plot([0, 22], [0, 22], color=INK, lw=1, ls=(0, (4, 3)), label=T["ident15"])
+    b.set_xscale("symlog", linthresh=1, linscale=0.4); b.set_yscale("symlog", linthresh=1, linscale=0.4)
+    for axis in (b.xaxis, b.yaxis):
+        axis.set_major_formatter(FuncFormatter(lambda v, _p: dec(lang, f"{v:g}")))
+    b.set_xticks([0, 1, 2, 3, 5, 10, 20]); b.set_yticks([0, 1, 2, 3, 5, 10, 20])
+    b.set(xlabel=T["inj"], ylabel=T["peak15"], title=T["b15"])
+    b.legend(loc="upper left", fontsize=8.5)
+    fig.suptitle(T["f15_title"].format(n=summ["records"]), x=0.01, ha="left", fontsize=14, fontweight="bold")
+    save(fig, out, "15_injected_benchmark.png")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lang", nargs="+", default=["en", "ru"])
@@ -1253,7 +1315,7 @@ def main():
     args = ap.parse_args()
     apply_style(args.style)
     figs = {"01": fig01, "02": fig02, "03": fig03, "04": fig04, "05": fig05, "06": fig06,
-            "07": fig07, "08": fig08, "09": fig09, "10": fig10, "11": fig11, "12": fig12, "13": fig13, "14": fig14}
+            "07": fig07, "08": fig08, "09": fig09, "10": fig10, "11": fig11, "12": fig12, "13": fig13, "14": fig14, "15": fig15}
     for lang in args.lang:
         out = Path(args.out) / lang
         print(f"[{lang}]")
