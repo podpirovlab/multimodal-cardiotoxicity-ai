@@ -102,6 +102,8 @@ python scripts/wfdb_to_csv.py records100/00000/00001_lr --lead II --out ecg.csv
 
 Then upload `ecg.csv` and type the sampling rate that the script prints into the form.
 
+**De-identified copy.** An EDF or BDF header can hold the patient's name, code, sex and birth date, details of the recording and its date, and EDF+ annotations can hold free text. The page lists which of these a file holds, without showing them, and "Download a de-identified copy" writes the file again with those fields replaced by "X" as the EDF+ specification prescribes, the start date and time set to 01.01.85 00.00.00 (the earliest date the field can hold), and the annotation text cleared; the signal is copied bit for bit. `scripts/anonymize_edf.py` does the same for a whole folder, and writes byte-for-byte the same files. The ECG itself is biometric data, so a de-identified file is still not anonymous in the legal sense.
+
 **Research metadata and the JSON export.** Age, sex and cumulative doxorubicin dose next to the upload are optional and never enter the analysis, which looks only at the ECG. They are added to the downloadable research JSON (FHIR `DiagnosticReport` format, same structure as `cardioonco/fhir.py`, [§6.3](#63-hl7-fhir-r4)) only when the "add these fields" box is ticked. Next to the dose field the page quotes the population figures from [§2.1](#21-the-clinical-scale-of-the-problem) as a reference; it does not place the patient on that curve or predict anything for them.
 
 **Which lead sees which wall.** The 12 ECG leads look at the heart from 12 directions:
@@ -583,6 +585,7 @@ FHIR is the format hospital systems use to exchange results, so the tool can exp
 | Browser and Python give the same QT (±6 ms), QTcF and flag, with the same shared R peaks | `test_js_qt_matches_python`, `test_js_qt_segments_and_consensus_match_python` | ✅ |
 | QT agrees with GE 12SL on PTB-XL test ECGs: mean \|difference\| 9.0 ms where the leads agree | `scripts/validate_qt.py`, [§4.9](#49-the-qt-interval-and-qtc) | ✅ |
 | A T wave mistaken for a beat is removed; a missed beat does not flip the ABAB phase | `test_extra_detection_on_t_wave_is_removed`, `test_missed_beat_keeps_abab_parity` | ✅ |
+| A de-identified EDF/BDF keeps every sample bit for bit, has no name, birth date or annotation text left, opens in a standard reader, and the browser writes the same bytes as Python | `tests/test_edf_anon.py` | ✅ |
 | Too-short recordings are refused, not called negative | `test_short_recording_is_refused_not_called_negative` | ✅ |
 | Agreement with the PhysioNet 2008 TWA challenge reference | `scripts/validate_twadb.py`, [§7.1](#71-check-against-the-physionet-twa-challenge) | ⚠️ partial |
 | Training pipeline runs end to end; the exported ONNX model gives the same outputs as PyTorch in ONNX Runtime | `tests/test_train_smoke.py` | ✅ |
@@ -658,6 +661,7 @@ cardioonco/            core library (tested; `pip install .` needs only numpy an
   qt.py                QT, QTcF, QTcB by the tangent method on median beats; reliability flag
   model.py             CardioOncoNet: 1D ResNet + MLP + tensor fusion
   fhir.py              HL7 FHIR R4 DiagnosticReport
+  edf.py               de-identified copies of EDF/BDF files (header fields, annotation text)
 train_ptbxl.py         training / evaluation on PTB-XL (bootstrap CIs, ONNX export)
 models/ptbxl-1.0/      the trained network: PyTorch + ONNX weights, four more seeds for the ensemble,
                        metrics, model card (CC BY 4.0)
@@ -673,6 +677,7 @@ scripts/
   train_seeds.sh       train four more seeds of each configuration
   baseline_ptbxl.py    hand-made features + logistic regression and boosted trees (§5.4)
   wfdb_to_csv.py       convert one lead of a PhysioNet WFDB record to CSV for the web tool
+  anonymize_edf.py     de-identified copies of one EDF/BDF file or a folder of them
   make_figures.py      regenerate every figure in docs/figures/{en,ru}
   validate_twadb.py    score the pipeline on the PhysioNet TWA challenge (§7.1)
   validate_rpeaks.py   score the R-peak detector on annotated databases (§4.3)
@@ -709,6 +714,7 @@ python predict.py --demo --alternans 20   # TWA analysis of a two-minute synthet
 python app.py                             # interactive lab at http://localhost:7860
 python scripts/make_figures.py            # regenerate all figures
 python scripts/simulate_sampling_rate.py  # TWA found at 500, 250 and 130 Hz sampling (§4.5)
+python scripts/anonymize_edf.py my_ecgs/ --out my_ecgs_anon/   # de-identified copies of EDF/BDF files
 
 # R-peak detector on cardiologist-annotated ECGs (~150 MB from PhysioNet)
 python -c "import wfdb; wfdb.dl_database('mitdb', dl_dir='data/mitdb'); wfdb.dl_database('svdb', dl_dir='data/svdb')"

@@ -5,7 +5,8 @@
              side of a gap would be counted as neighbours and break the ABAB order.
    parseCSV  one numeric column of a CSV/TXT file, with a decimal comma when the
              columns are separated by ";" or tabs (the usual Russian/European export).
-   leadFromLabel  the standard lead a channel label names, if any. */
+   leadFromLabel  the standard lead a channel label names, if any.
+   anonymizeEDF   a de-identified copy of an EDF/BDF file (header fields and annotation text). */
 (function (root) {
   "use strict";
 
@@ -102,6 +103,57 @@
     return { format: bdf ? "BDF" : "EDF", signals, nRecords: nRec, recordDuration, getChannel };
   }
 
+  // De-identified copy of an EDF/EDF+ or BDF/BDF+ file, the signal untouched (port of
+  // cardioonco/edf.py; byte-identical output). Patient field -> "X X X X", recording field ->
+  // "Startdate X X X X" (EDF+/BDF+) or "X", start date and time -> 01.01.85 00.00.00, annotation
+  // text cleared except the empty time-keeping annotation that opens each data record.
+  function countTexts(region) {
+    let n = 0, start = 0;
+    for (let i = 0; i <= region.length; i++) {
+      if (i < region.length && region[i] !== 0) continue;
+      const tal = region.subarray(start, i), parts = [];
+      let p0 = 0;
+      for (let j = 0; j <= tal.length; j++) if (j === tal.length || tal[j] === 20) { parts.push(tal.length ? j - p0 : 0); p0 = j + 1; }
+      const timed = tal.length && (tal[0] === 43 || tal[0] === 45);     // "+" or "-": the TAL starts with its onset
+      const texts = timed ? parts.slice(1, -1) : parts.slice(0, -1);
+      n += texts.filter((len) => len > 0).length;
+      start = i + 1;
+    }
+    return n;
+  }
+  function anonymizeEDF(buf) {
+    const b = new Uint8Array(buf.slice(0));
+    const bdf = b[0] === 0xff && ascii(b, 1, 7) === "BIOSEMI";
+    if (!bdf && ascii(b, 0, 8) !== "0") throw new Error("Not an EDF/EDF+ or BDF file (bad version field).");
+    const plus = /^(EDF|BDF)\+/.test(ascii(b, 192, 44));
+    const removed = { patient: ascii(b, 8, 80), recording: ascii(b, 88, 80), startdate: ascii(b, 168, 8),
+                      starttime: ascii(b, 176, 8), annotations: 0 };
+    const put = (off, n, text) => { const t = text.padEnd(n).slice(0, n); for (let i = 0; i < n; i++) b[off + i] = t.charCodeAt(i); };
+    put(8, 80, "X X X X"); put(88, 80, plus ? "Startdate X X X X" : "X"); put(168, 8, "01.01.85"); put(176, 8, "00.00.00");
+    const header = parseInt(ascii(b, 184, 8), 10), ns = parseInt(ascii(b, 252, 4), 10);
+    const labels = Array.from({ length: ns }, (_, i) => ascii(b, 256 + 16 * i, 16));
+    const sprOff = 256 + ns * (16 + 80 + 8 + 8 + 8 + 8 + 8 + 80);
+    const spr = Array.from({ length: ns }, (_, i) => parseInt(ascii(b, sprOff + 8 * i, 8), 10));
+    const bps = bdf ? 3 : 2, record = spr.reduce((x, y) => x + y, 0) * bps;
+    const nRec = record ? Math.floor((b.length - header) / record) : 0;
+    const starts = spr.map((_, i) => spr.slice(0, i).reduce((x, y) => x + y, 0) * bps);
+    const annot = labels.map((l, i) => (l === "EDF Annotations" || l === "BDF Annotations" ? i : -1)).filter((i) => i >= 0);
+    for (let r = 0; r < nRec; r++) {
+      annot.forEach((i, k) => {
+        const a = header + r * record + starts[i], z = a + spr[i] * bps;
+        let keep = a;
+        if (k === 0) {                       // keep "+onset[\x15duration]\x14\x14", the time-keeping TAL
+          const first = b.subarray(a, z).indexOf(20);
+          const second = first >= 0 ? b.subarray(a + first + 1, z).indexOf(20) : -1;
+          keep = second >= 0 ? a + first + 1 + second + 1 : a;
+        }
+        removed.annotations += countTexts(b.subarray(keep, z));
+        b.fill(0, keep, z);
+      });
+    }
+    return { buffer: b.buffer, removed };
+  }
+
   // One numeric column; header and other non-numeric lines are skipped.
   // "0,123;0,456" and "0,123<TAB>0,456" use a decimal comma; "0.123,0.456" uses a comma separator.
   function parseCSV(text, col = 0) {
@@ -130,6 +182,6 @@
     return t.startsWith("AV") ? "a" + t.slice(1) : t;
   }
 
-  root.CardioEDF = { parseEDF, parseCSV, unitToMv, leadFromLabel };
+  root.CardioEDF = { parseEDF, parseCSV, unitToMv, leadFromLabel, anonymizeEDF };
   if (typeof module !== "undefined") module.exports = root.CardioEDF;
 })(typeof window !== "undefined" ? window : globalThis);

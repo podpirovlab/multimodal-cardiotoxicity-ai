@@ -161,6 +161,8 @@ input[type="file"]:focus-visible + .pick { outline: 2px solid var(--accent); out
 .criteria td.cond { color: var(--muted); }
 .criteria td.cond.wrap { white-space: normal; font-family: var(--sans); font-size: 14px; }
 .qt-note { margin-top: 8px; max-width: 80ch; }
+.anon { display: grid; gap: 8px; justify-items: start; margin-top: 10px; }
+.anon .hint { max-width: 60ch; }
 .leads-block { display: grid; gap: 10px; }
 .leads-head { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; }
 .leads-title { font-weight: 700; font-size: 14px; color: var(--muted); }

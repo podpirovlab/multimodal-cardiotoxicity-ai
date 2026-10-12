@@ -49,6 +49,10 @@
         ? `Показан отрезок ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} с — с медианным QTcF среди ${q.nSegmentsReliable ? `${q.nSegmentsReliable} ${plural(q.nSegmentsReliable, "надёжного", "надёжных", "надёжных")} десятисекундных отрезков (всего ${q.nSegments})` : `${q.nSegments} десятисекундных отрезков (надёжных нет)`}; ЧСС ${fmt(q.hr, 0)} уд/мин.`
         : `По ${q.nBeats} ${plural(q.nBeats, "удару", "ударам", "ударам")}, ЧСС ${fmt(q.hr, 0)} уд/мин.`,
       qtOk: (q, n) => `Отведения согласны: конец T найден в ${q.nLeadsUsed} из ${n}, разброс ${fmt(q.iqrMs, 0)} мс. На тестовых ЭКГ PTB-XL с такой пометкой наш QT отличался от алгоритма GE 12SL в среднем на 9 мс. Автоматический QT врач всё равно проверяет вручную.`,
+      anonHas: (items) => `В заголовке файла есть: ${items}. Обезличенная копия заменит их на «X» и сотрёт текст аннотаций; сигнал не меняется.`,
+      anonNone: "Имени и кода пациента в заголовке нет. Копия всё равно сотрёт дату и время записи и текст аннотаций.",
+      anonItems: { patient: "имя или код пациента", recording: "сведения о записи (врач, аппарат)", date: "дата и время записи" },
+      anonDone: (name, n) => `Сохранено: ${name}. Стёрто аннотаций с текстом: ${n}. Сама ЭКГ — тоже биометрические данные: передавайте её только тем, кому это разрешено.`,
       leadsBusy: "Считаю все отведения…",
       leadsSub: (n, capped) => `${n} ${plural(n, "отведение", "отведения", "отведений")}, общие R-пики${capped ? ", первые 10 минут записи" : ""}. Нажмите на отведение, чтобы открыть его подробно.`,
       leadsPos: (pairs) => `Альтернация есть в соседних грудных отведениях ${pairs}. Так микровольтную альтернацию определяют в клинике: в двух соседних грудных отведениях или в ортогональных отведениях X, Y, Z (FDA, 2001).`,
@@ -104,6 +108,10 @@
         ? `Shown: the ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} s segment, the one with the median QTcF of ${q.nSegmentsReliable ? `the ${q.nSegmentsReliable} reliable ten-second segments (${q.nSegments} in all)` : `${q.nSegments} ten-second segments (none reliable)`}; heart rate ${fmt(q.hr, 0)} bpm.`
         : `From ${q.nBeats} beats, heart rate ${fmt(q.hr, 0)} bpm.`,
       qtOk: (q, n) => `The leads agree: ${q.nLeadsUsed} of ${n} give a T end, spread ${fmt(q.iqrMs, 0)} ms. On PTB-XL test ECGs flagged like this, our QT differed from the GE 12SL algorithm by 9 ms on average. A doctor still checks an automatic QT by hand.`,
+      anonHas: (items) => `The file header holds: ${items}. The de-identified copy replaces them with "X" and clears the annotation text; the signal is unchanged.`,
+      anonNone: "The header holds no patient name or code. The copy still clears the recording date and time and the annotation text.",
+      anonItems: { patient: "the patient's name or code", recording: "recording details (staff, equipment)", date: "the recording date and time" },
+      anonDone: (name, n) => `Saved: ${name}. Annotation texts cleared: ${n}. The ECG itself is biometric data too: share it only with those allowed to see it.`,
       leadsBusy: "Analysing every lead…",
       leadsSub: (n, capped) => `${n} leads, shared R peaks${capped ? ", the first 10 minutes" : ""}. Choose a lead to open it in detail.`,
       leadsPos: (pairs) => `Alternans in the adjacent chest leads ${pairs}. That is how microvolt alternans is defined in the clinic: in two adjacent chest leads or in the orthogonal leads X, Y, Z (FDA, 2001).`,
@@ -207,7 +215,7 @@
   // ======================= TWA LAB =======================
   // source: "none" until the user uploads a file or opens a synthetic example — the page
   // never opens on a result about a person who does not exist.
-  const lab = { res: null, sig: null, seed: 7, source: "none", lead: "", fileSig: null, fileFs: 500, fileName: "", edf: null, csvRawText: null, qt: null, multi: null };
+  const lab = { res: null, sig: null, seed: 7, source: "none", lead: "", fileSig: null, fileFs: 500, fileName: "", edf: null, edfBuf: null, csvRawText: null, qt: null, multi: null };
   const sliders = ["alt", "noise", "hr", "tamp", "mains"];
   function params() {
     const v = (id) => parseFloat($("#s-" + id).value);
@@ -583,6 +591,27 @@
     document.querySelectorAll(".lead-cell").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lead === lab.lead)));
     loadFromChannel(sig, s.fs, lab.fileName);
   }
+  // ---------- de-identified copy of the loaded EDF/BDF (cardioonco/edf.py) ----------
+  // The page lists what kinds of personal data the header holds without showing them, so that
+  // a printed or shared screen never carries a name.
+  function describeIdentity(buf) {
+    const b = new Uint8Array(buf, 0, 184), txt = (o, n) => String.fromCharCode(...b.subarray(o, o + n)).trim();
+    const items = [];
+    if (!/^[X\s]*$/.test(txt(8, 80))) items.push(T.anonItems.patient);
+    if (!/^(Startdate)?[X\s]*$/.test(txt(88, 80))) items.push(T.anonItems.recording);
+    if (txt(168, 8) !== "01.01.85" || txt(176, 8) !== "00.00.00") items.push(T.anonItems.date);
+    $("#f-anon-text").textContent = items.some((i) => i !== T.anonItems.date) ? T.anonHas(items.join(", ")) : T.anonNone;
+  }
+  function downloadAnonymized() {
+    if (!lab.edfBuf) return;
+    const { buffer, removed } = EDF.anonymizeEDF(lab.edfBuf);
+    const name = (lab.fileName || "recording.edf").replace(/(\.[^.]+)?$/, (ext) => "_anon" + (ext || ".edf"));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([buffer], { type: "application/octet-stream" })); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    $("#f-anon-text").textContent = T.anonDone(name, removed.annotations);
+  }
   function parseCsvText(text) {
     const col = Math.max(0, parseInt($("#f-col").value || "0", 10));
     const unit = $("#f-unit").value, fs = Math.max(50, parseFloat($("#f-fs").value) || 500);
@@ -598,7 +627,8 @@
     lab.fileName = name; lab.csvRawText = null;
     try {
       const edf = EDF.parseEDF(buf);
-      lab.edf = edf;
+      lab.edf = edf; lab.edfBuf = buf;
+      describeIdentity(buf);
       $("#f-csv-wrap").hidden = true; $("#f-edf-wrap").hidden = false;
       populateEdfChannels(edf);           // the TWA job goes to the worker first, then all leads, then QT
       startLeads(edf);
@@ -612,7 +642,7 @@
     file.arrayBuffer().then((buf) => {
       if (isEdfBytes(new Uint8Array(buf, 0, Math.min(8, buf.byteLength)))) { openEdf(buf, file.name); return; }
       lab.fileName = file.name;
-      $("#f-csv-wrap").hidden = false; $("#f-edf-wrap").hidden = true; lab.edf = null;
+      $("#f-csv-wrap").hidden = false; $("#f-edf-wrap").hidden = true; lab.edf = null; lab.edfBuf = null;
       setQT({ state: "none" }); setLeads(null);
       lab.csvRawText = new TextDecoder().decode(buf);
       parseCsvText(lab.csvRawText);
@@ -728,6 +758,7 @@
     $("#f-file").addEventListener("change", onFile);
     ["#f-fs", "#f-col", "#f-unit"].forEach((sel) => $(sel).addEventListener("input", () => { if (lab.csvRawText) parseCsvText(lab.csvRawText); }));
     $("#f-edf-channel").addEventListener("change", (e) => selectEdfChannel(parseInt(e.target.value, 10)));
+    $("#b-anon").addEventListener("click", downloadAnonymized);
     $("#f-lead").addEventListener("change", (e) => {
       lab.lead = e.target.value;
       if (lab.res && lab.source === "file") { leadField(lab.lead); linkHeart(lab.lead); }
