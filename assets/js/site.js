@@ -49,6 +49,13 @@
         ? `Показан отрезок ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} с — с медианным QTcF среди ${q.nSegmentsReliable ? `${q.nSegmentsReliable} ${plural(q.nSegmentsReliable, "надёжного", "надёжных", "надёжных")} десятисекундных отрезков (всего ${q.nSegments})` : `${q.nSegments} десятисекундных отрезков (надёжных нет)`}; ЧСС ${fmt(q.hr, 0)} уд/мин.`
         : `По ${q.nBeats} ${plural(q.nBeats, "удару", "ударам", "ударам")}, ЧСС ${fmt(q.hr, 0)} уд/мин.`,
       qtOk: (q, n) => `Отведения согласны: конец T найден в ${q.nLeadsUsed} из ${n}, разброс ${fmt(q.iqrMs, 0)} мс. На тестовых ЭКГ PTB-XL с такой пометкой наш QT отличался от алгоритма GE 12SL в среднем на 9 мс. Автоматический QT врач всё равно проверяет вручную.`,
+      hfaLevel: { low: "Низкий риск", medium: "Средний риск", high: "Высокий риск", very_high: "Очень высокий риск" },
+      hfaPoints: (n) => `Баллы средних факторов: ${n} (Medium1 — 1 балл, Medium2 — 2).`,
+      hfaDeciding: (names) => `Уровень определяют: ${names}.`,
+      hfaNone: "Ни одного фактора риска не отмечено.",
+      hfaRisk: (r) => `Авторы оценивают риск кардиотоксичности на этом уровне как ${r}; это мнение экспертов, которое ещё нужно проверить на пациентах.`,
+      hfaAgeAuto: "отмечено по возрасту в поле выше",
+      hfaWeight: (w, loe) => `вес: ${{ very_high: "очень высокий", high: "высокий", medium2: "Medium2, 2 балла", medium1: "Medium1, 1 балл" }[w]}, уровень доказательности ${loe}`,
       batchBusy: (k, n, name) => `Файл ${k} из ${n}: ${name}…`,
       batchDone: (n, pos, neg, ind, err) => `Готово: ${n} ${plural(n, "файл", "файла", "файлов")}. Критерий выполнен: ${pos}, альтернации нет: ${neg}, не определено: ${ind}, не удалось проанализировать: ${err}. Таблица ждёт скачивания.`,
       anonHas: (items) => `В заголовке файла есть: ${items}. Обезличенная копия заменит их на «X» и сотрёт текст аннотаций; сигнал не меняется.`,
@@ -110,6 +117,13 @@
         ? `Shown: the ${fmt(q.segmentStart, 0)}–${fmt(q.segmentStart + D.QT.segmentS, 0)} s segment, the one with the median QTcF of ${q.nSegmentsReliable ? `the ${q.nSegmentsReliable} reliable ten-second segments (${q.nSegments} in all)` : `${q.nSegments} ten-second segments (none reliable)`}; heart rate ${fmt(q.hr, 0)} bpm.`
         : `From ${q.nBeats} beats, heart rate ${fmt(q.hr, 0)} bpm.`,
       qtOk: (q, n) => `The leads agree: ${q.nLeadsUsed} of ${n} give a T end, spread ${fmt(q.iqrMs, 0)} ms. On PTB-XL test ECGs flagged like this, our QT differed from the GE 12SL algorithm by 9 ms on average. A doctor still checks an automatic QT by hand.`,
+      hfaLevel: { low: "Low risk", medium: "Medium risk", high: "High risk", very_high: "Very high risk" },
+      hfaPoints: (n) => `Points from medium factors: ${n} (medium1 counts 1, medium2 counts 2).`,
+      hfaDeciding: (names) => `The level is set by: ${names}.`,
+      hfaNone: "No risk factor ticked.",
+      hfaRisk: (r) => `The authors put the risk of cardiotoxicity at this level at ${r}; that is expert opinion still to be validated in patients.`,
+      hfaAgeAuto: "ticked from the age field above",
+      hfaWeight: (w, loe) => `weight: ${{ very_high: "very high", high: "high", medium2: "medium2, 2 points", medium1: "medium1, 1 point" }[w]}, level of evidence ${loe}`,
       batchBusy: (k, n, name) => `File ${k} of ${n}: ${name}…`,
       batchDone: (n, pos, neg, ind, err) => `Done: ${n} file${n === 1 ? "" : "s"}. Criterion met: ${pos}, no alternans: ${neg}, indeterminate: ${ind}, could not be analysed: ${err}. The table is ready to download.`,
       anonHas: (items) => `The file header holds: ${items}. The de-identified copy replaces them with "X" and clears the annotation text; the signal is unchanged.`,
@@ -751,6 +765,57 @@
     });
   }
 
+  // ---------- HFA-ICOS baseline risk before anthracyclines (assets/js/hfa-icos.js) ----------
+  const H = window.CardioHFA;
+  const RU = LANG === "ru";
+  function initHFA() {
+    const form = $("#hfa-form");
+    for (const [en, ru, a, b] of H.GROUPS) {
+      const fs = document.createElement("fieldset"), lg = document.createElement("legend");
+      lg.textContent = RU ? ru : en; fs.appendChild(lg);
+      for (const [key, weight, loe, label, labelRu] of H.FACTORS.slice(a, b)) {
+        const l = document.createElement("label"), box = document.createElement("input");
+        l.className = "check"; box.type = "checkbox"; box.id = "hfa-" + key; box.dataset.key = key;
+        const text = document.createElement("span"), small = document.createElement("small"), def = H.DEFINITIONS[key];
+        text.textContent = RU ? labelRu : label;
+        small.textContent = T.hfaWeight(weight, loe) + (def ? `; ${RU ? def[1] : def[0]}` : "");
+        text.appendChild(small); l.append(box, text); fs.appendChild(l);
+        box.addEventListener("change", () => {
+          box.dataset.auto = "";
+          if (box.checked) for (const pair of H.EXCLUSIVE) if (pair.includes(key)) {
+            const other = $("#hfa-" + pair.find((k) => k !== key)); if (other) other.checked = false;
+          }
+          renderHFA();
+        });
+      }
+      form.appendChild(fs);
+    }
+    $("#p-age").addEventListener("input", hfaAgeFromField);
+    renderHFA();
+  }
+  // the age factor follows the age field unless the user ticked it by hand
+  function hfaAgeFromField() {
+    const age = parseFloat($("#p-age").value), b80 = $("#hfa-age_80_plus"), b65 = $("#hfa-age_65_79");
+    if ([b80, b65].some((b) => b.checked && !b.dataset.auto)) return;
+    b80.checked = isFinite(age) && age >= 80; b65.checked = isFinite(age) && age >= 65 && age < 80;
+    b80.dataset.auto = b80.checked ? "1" : ""; b65.dataset.auto = b65.checked ? "1" : "";
+    renderHFA();
+  }
+  function hfaPresent() { return H.FACTORS.map((f) => f[0]).filter((k) => $("#hfa-" + k).checked); }
+  function hfaResult() { return H.classify(hfaPresent()); }
+  function renderHFA() {
+    const r = hfaResult(), box = $("#hfa-result"), name = Object.fromEntries(H.FACTORS.map((f) => [f[0], RU ? f[4] : f[3]]));
+    box.className = "hfa-result " + r.level;
+    const auto = ["age_80_plus", "age_65_79"].some((k) => $("#hfa-" + k).checked && $("#hfa-" + k).dataset.auto);
+    const parts = [hfaPresent().length ? T.hfaDeciding(r.deciding.map((k) => name[k]).join(", ")) : T.hfaNone];
+    if (r.points) parts.push(T.hfaPoints(r.points));
+    if (auto) parts.push(`(${T.hfaAgeAuto})`);
+    parts.push(T.hfaRisk(r.expectedRisk));
+    box.innerHTML = "<b></b><span class=\"hint\"></span>";
+    box.querySelector("b").textContent = T.hfaLevel[r.level];
+    box.querySelector("span").textContent = parts.join(" ");
+  }
+
   // ---------- research JSON in FHIR R4 format (mirrors cardioonco/fhir.py) ----------
   // Every Observation points to a contained Device carrying the algorithm version, so a number
   // can always be traced to the code that produced it. The recording time is unknown here, so
@@ -812,6 +877,15 @@
         q ? `QT ${Math.round(q.qtMs)} ms, QTcF ${Math.round(q.qtcfMs)} ms (${q.reliable ? "leads agree" : "check by hand"}).` : ""].filter(Boolean).join(" "),
     };
     if ($("#p-include").checked) {           // research metadata only on explicit opt-in
+      if (hfaPresent().length) {
+        const h = hfaResult();
+        report.contained.push({ resourceType: "Observation", id: "hfa-icos", status: "preliminary",
+          code: { coding: [{ system: FHIR_CS, code: "hfa-icos-anthracycline", display: "HFA-ICOS baseline cardiovascular risk before anthracycline chemotherapy (Lyon et al. 2020)" }],
+                  text: "HFA-ICOS baseline cardiovascular risk before anthracycline chemotherapy (Lyon et al. 2020)" },
+          valueCodeableConcept: { coding: [{ system: FHIR_CS, code: h.level, display: h.level }],
+                                  text: `${h.level}; medium points ${h.points}; factors: ${hfaPresent().join(", ")}` } });
+        report.result.push({ reference: "#hfa-icos" });
+      }
       const m = metadata(), ext = [];
       if (m.age !== null) ext.push({ url: `${FHIR_CS}/age-at-recording`,
         valueQuantity: { value: Math.round(m.age), unit: "a", system: UCUM, code: "a" } });
@@ -1163,6 +1237,7 @@
   function boot() {
     registerOffline();
     initLab();
+    initHFA();
     coverDots();
     initHeart();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);

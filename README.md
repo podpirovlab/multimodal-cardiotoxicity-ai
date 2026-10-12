@@ -106,6 +106,8 @@ Then upload `ecg.csv` and type the sampling rate that the script prints into the
 
 **De-identified copy.** An EDF or BDF header can hold the patient's name, code, sex and birth date, details of the recording and its date, and EDF+ annotations can hold free text. The page lists which of these a file holds, without showing them, and "Download a de-identified copy" writes the file again with those fields replaced by "X" as the EDF+ specification prescribes, the start date and time set to 01.01.85 00.00.00 (the earliest date the field can hold), and the annotation text cleared; the signal is copied bit for bit. `scripts/anonymize_edf.py` does the same for a whole folder, and writes byte-for-byte the same files. The ECG itself is biometric data, so a de-identified file is still not anonymous in the legal sense.
 
+**Risk before anthracyclines (HFA-ICOS).** Below the metadata, a checklist reproduces the baseline risk proforma for anthracycline chemotherapy of the Heart Failure Association of the ESC and the International Cardio-Oncology Society: Table 2 of Lyon et al. [49], with its 18 risk factors, their weights and levels of evidence, and its rule (very high if any very high factor; high if any high factor or 5 or more points from medium factors; medium at 2–4 points; low otherwise, where medium1 counts 1 point and medium2 counts 2). The page shows the level, the factors that set it and the authors' guide to the risk of cardiotoxicity at that level (low <2%, medium 2–9%, high 10–19%, very high ≥20%), which they call expert opinion still to be validated. The age factor follows the age field. It is a tool for the clinician before treatment starts, not a prediction for one person, and it does not use the ECG. `cardioonco/hfa_icos.py` and `assets/js/hfa-icos.js` hold the same table and agree on all 2¹⁸ combinations of answers.
+
 **Research metadata and the JSON export.** Age, sex and cumulative doxorubicin dose next to the upload are optional and never enter the analysis, which looks only at the ECG. They are added to the downloadable research JSON (FHIR `DiagnosticReport` format, same structure as `cardioonco/fhir.py`, [§6.3](#63-hl7-fhir-r4)) only when the "add these fields" box is ticked. Next to the dose field the page quotes the population figures from [§2.1](#21-the-clinical-scale-of-the-problem) as a reference; it does not place the patient on that curve or predict anything for them.
 
 **Which lead sees which wall.** The 12 ECG leads look at the heart from 12 directions:
@@ -587,6 +589,7 @@ FHIR is the format hospital systems use to exchange results, so the tool can exp
 | Browser and Python give the same QT (±6 ms), QTcF and flag, with the same shared R peaks | `test_js_qt_matches_python`, `test_js_qt_segments_and_consensus_match_python` | ✅ |
 | QT agrees with GE 12SL on PTB-XL test ECGs: mean \|difference\| 9.0 ms where the leads agree | `scripts/validate_qt.py`, [§4.9](#49-the-qt-interval-and-qtc) | ✅ |
 | A T wave mistaken for a beat is removed; a missed beat does not flip the ABAB phase | `test_extra_detection_on_t_wave_is_removed`, `test_missed_beat_keeps_abab_parity` | ✅ |
+| HFA-ICOS: every level rule of Table 2, the 18 published weights, contradictory answers refused; the browser gives the same level for all 2¹⁸ combinations | `tests/test_hfa_icos.py` | ✅ |
 | A folder of mixed files becomes one table with the web tool's columns; an unreadable file gets a row of its own, without the local folder name | `tests/test_batch.py` | ✅ |
 | A de-identified EDF/BDF keeps every sample bit for bit, has no name, birth date or annotation text left, opens in a standard reader, and the browser writes the same bytes as Python | `tests/test_edf_anon.py` | ✅ |
 | Too-short recordings are refused, not called negative | `test_short_recording_is_refused_not_called_negative` | ✅ |
@@ -665,6 +668,7 @@ cardioonco/            core library (tested; `pip install .` needs only numpy an
   model.py             CardioOncoNet: 1D ResNet + MLP + tensor fusion
   fhir.py              HL7 FHIR R4 DiagnosticReport
   edf.py               de-identified copies of EDF/BDF files (header fields, annotation text)
+  hfa_icos.py          HFA-ICOS baseline risk before anthracyclines (Lyon et al. 2020, Table 2)
 train_ptbxl.py         training / evaluation on PTB-XL (bootstrap CIs, ONNX export)
 models/ptbxl-1.0/      the trained network: PyTorch + ONNX weights, four more seeds for the ensemble,
                        metrics, model card (CC BY 4.0)
@@ -691,7 +695,8 @@ tests/                 pytest: TWA maths, detector, JS/Python parity, EDF/BDF/CS
                        entry points, training smoke test, released model (Node runs the browser code)
 index.html, ru.html    the web tool (GitHub Pages)
 assets/js/             dsp.js (JS port of the maths), twa-worker.js (analysis off the page thread),
-                       edf.js (EDF/BDF/CSV readers), site.js (page, charts, 3D anatomy)
+                       edf.js (EDF/BDF/CSV readers), hfa-icos.js (the HFA-ICOS table),
+                       site.js (page, charts, 3D anatomy)
 assets/samples/        one real TWA challenge recording for the "Open a real ECG" button (ODC-By)
 sw.js, manifest*.webmanifest, assets/icons/
                        offline cache and app install (service worker, web app manifests, icons)
@@ -785,6 +790,8 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
 
 **1.7.0.** Two tools for working with many recordings safely. "Choose several files" analyses a whole set at once, alternans, every lead and QT, into one CSV table, and `scripts/batch_analyse.py` writes the same table from Python. "Download a de-identified copy" rewrites an EDF or BDF file with the patient and recording fields replaced by "X" as the EDF+ specification prescribes, the date set to 01.01.85 and annotation text cleared, while every sample is copied bit for bit; the page tells which kinds of personal data a file holds without showing them, and the browser and `scripts/anonymize_edf.py` write byte-for-byte the same file. The analysis itself is unchanged.
 
+**1.8.0.** A baseline risk checklist for the clinician before anthracyclines: the HFA-ICOS proforma of the ESC Heart Failure Association and the International Cardio-Oncology Society [49], copied factor by factor from its Table 2 with its weights, levels of evidence and rule. The page gives the level, the factors that set it and the authors' expert-opinion guide to the risk at that level; it fills the age factor from the age field, and the research JSON carries the level when the metadata are included. The Python and browser versions agree on every one of the 2¹⁸ combinations of answers. The ECG analysis is unchanged.
+
 ---
 
 ## 11. Limitations and ethics
@@ -853,6 +860,7 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
 46. Bazett HC. An analysis of the time-relations of electrocardiograms. *Heart*. 1920;7:353–370. Reprinted in *Ann Noninvasive Electrocardiol*. 1997;2(2):177–194. [doi:10.1111/j.1542-474X.1997.tb00325.x](https://doi.org/10.1111/j.1542-474X.1997.tb00325.x).
 47. Bland JM, Altman DG. Statistical methods for assessing agreement between two methods of clinical measurement. *Lancet*. 1986;327(8476):307–310. [doi:10.1016/S0140-6736(86)90837-8](https://doi.org/10.1016/S0140-6736%2886%2990837-8).
 48. U.S. Food and Drug Administration. 510(k) summary K012206: Cambridge Heart Alternans Processing System. Bedford, MA: Cambridge Heart, Inc.; cleared 12 October 2001. [accessdata.fda.gov/cdrh_docs/pdf/K012206.pdf](https://www.accessdata.fda.gov/cdrh_docs/pdf/K012206.pdf).
+49. Lyon AR, Dent S, Stanway S, et al. Baseline cardiovascular risk assessment in cancer patients scheduled to receive cardiotoxic cancer therapies: a position statement and new risk assessment tools from the Cardio-Oncology Study Group of the Heart Failure Association of the European Society of Cardiology in collaboration with the International Cardio-Oncology Society. *Eur J Heart Fail*. 2020;22(11):1945–1960. [doi:10.1002/ejhf.1920](https://doi.org/10.1002/ejhf.1920).
 
 ---
 
@@ -865,7 +873,7 @@ python predict.py --wfdb data/ptb-xl/records500/21000/21837_hr   # QT, QTcF, QTc
   author  = {Podpirov, Petr},
   title   = {CardioOncoPredict: research software for measuring microvolt T-wave alternans},
   year    = {2026},
-  version = {1.7.0},
+  version = {1.8.0},
   doi     = {10.5281/zenodo.23090355},
   url     = {https://github.com/podpirovlab/multimodal-cardiotoxicity-ai}
 }

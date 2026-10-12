@@ -130,6 +130,13 @@
             <label class="check"><input type="checkbox" id="p-include"> Include these fields in the downloaded JSON</label>
             <span class="hint">Never used in the analysis.</span>
           </div>
+
+          <details class="hfa" id="hfa">
+            <summary>Risk before anthracyclines (HFA-ICOS)</summary>
+            <p class="hint">Table 2 of the HFA of the ESC and ICOS position statement (Lyon et al., Eur J Heart Fail 2020): tick what the patient has before anthracyclines start. A tool for clinicians, not a prediction for one person.</p>
+            <div id="hfa-form"></div>
+            <div class="hfa-result" id="hfa-result" aria-live="polite"></div>
+          </details>
         </form>
 
         <div class="panels">
@@ -234,6 +241,7 @@
 
 <script src="assets/js/dsp.js"></script>
 <script src="assets/js/edf.js"></script>
+<script src="assets/js/hfa-icos.js"></script>
 <script src="assets/js/site.js"></script>
 </body>
 </html>

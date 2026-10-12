@@ -6,7 +6,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 
 ---
 
-## Where we are (version 1.7, October 2026)
+## Where we are (version 1.8, October 2026)
 
 | Done | Not done |
 |---|---|
@@ -17,6 +17,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 | QT and QTc from six or more leads, checked against GE 12SL on the PTB-XL test fold: 9.0 ms where the leads agree (README §4.9) | An accurate QT from one lead, as a smartwatch records it |
 | TWA in all leads with the clinical two-adjacent-chest-leads rule (README §4.10) | Frank X, Y, Z leads for the rest of that rule |
 | Batch analysis of a folder into one table; de-identified copies of EDF/BDF files | |
+| HFA-ICOS baseline risk before anthracyclines (the published Table 2) | Validation of HFA-ICOS together with ECG markers in treated patients |
 | Valid research FHIR export, installable package, CI, DOI, offline web tool with a real sample recording | |
 
 ---
@@ -27,7 +28,7 @@ Goal: turn a teaching prototype into a tool that genuinely helps detect heart in
 2. ~~Repeat both runs with five random seeds~~ — done (README §5.4): 0.9205 ± 0.0015 with age/sex, 0.9192 ± 0.0012 without; paired effect +0.0013 [−0.0005, +0.0032]. The five models' ensemble reaches 0.930 and is released.
 3. **Find recordings with a known answer** for TWA (paced or exercise tests with clinical TWA results), because the 2008 reference is a consensus of other algorithms, not measured truth.
 4. **Find a cardio-oncology mentor** with one concrete question, for example: "Is it realistic to obtain de-identified ECGs from patients before and after anthracyclines?"
-5. ~~Release v1.0 with a DOI~~ — done: [10.5281/zenodo.23090356](https://doi.org/10.5281/zenodo.23090356) (1.0.0); 1.1.0 with the trained model: [10.5281/zenodo.23094298](https://doi.org/10.5281/zenodo.23094298); 1.1.1: [10.5281/zenodo.23144064](https://doi.org/10.5281/zenodo.23144064); 1.2.0, the new R-peak detector: [10.5281/zenodo.23238175](https://doi.org/10.5281/zenodo.23238175); 1.3.0, coarse sampling: [10.5281/zenodo.23264684](https://doi.org/10.5281/zenodo.23264684); 1.4.0, measured figures and the ensemble: [10.5281/zenodo.23288316](https://doi.org/10.5281/zenodo.23288316); 1.5.0, the QT interval: [10.5281/zenodo.23320534](https://doi.org/10.5281/zenodo.23320534); 1.6.0, alternans in every lead: [10.5281/zenodo.23320879](https://doi.org/10.5281/zenodo.23320879).
+5. ~~Release v1.0 with a DOI~~ — done: [10.5281/zenodo.23090356](https://doi.org/10.5281/zenodo.23090356) (1.0.0); 1.1.0 with the trained model: [10.5281/zenodo.23094298](https://doi.org/10.5281/zenodo.23094298); 1.1.1: [10.5281/zenodo.23144064](https://doi.org/10.5281/zenodo.23144064); 1.2.0, the new R-peak detector: [10.5281/zenodo.23238175](https://doi.org/10.5281/zenodo.23238175); 1.3.0, coarse sampling: [10.5281/zenodo.23264684](https://doi.org/10.5281/zenodo.23264684); 1.4.0, measured figures and the ensemble: [10.5281/zenodo.23288316](https://doi.org/10.5281/zenodo.23288316); 1.5.0, the QT interval: [10.5281/zenodo.23320534](https://doi.org/10.5281/zenodo.23320534); 1.6.0, alternans in every lead: [10.5281/zenodo.23320879](https://doi.org/10.5281/zenodo.23320879); 1.7.0, batch mode and de-identified copies: [10.5281/zenodo.23321094](https://doi.org/10.5281/zenodo.23321094).
 
 **Done when:** a TWA data source with a known answer is identified.
 

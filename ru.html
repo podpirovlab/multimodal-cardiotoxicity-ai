@@ -130,6 +130,13 @@
             <label class="check"><input type="checkbox" id="p-include"> Добавить эти поля в скачиваемый JSON</label>
             <span class="hint">В анализе не используются.</span>
           </div>
+
+          <details class="hfa" id="hfa">
+            <summary>Риск до антрациклинов по HFA-ICOS</summary>
+            <p class="hint">Таблица 2 позиционного документа HFA ESC и ICOS (Lyon et al., Eur J Heart Fail 2020): отметьте, что есть у пациента до начала антрациклинов. Инструмент для врача, не прогноз для конкретного человека.</p>
+            <div id="hfa-form"></div>
+            <div class="hfa-result" id="hfa-result" aria-live="polite"></div>
+          </details>
         </form>
 
         <div class="panels">
@@ -234,6 +241,7 @@
 
 <script src="assets/js/dsp.js"></script>
 <script src="assets/js/edf.js"></script>
+<script src="assets/js/hfa-icos.js"></script>
 <script src="assets/js/site.js"></script>
 </body>
 </html>
